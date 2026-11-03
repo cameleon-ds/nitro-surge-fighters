@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v227';
+const VERSION = 'v228';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5551,7 +5551,7 @@ const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' +
 const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=5'); return im; });
 const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
 const inRect = (t, r) => t.x >= r[0] && t.x <= r[0] + r[2] && t.y >= r[1] && t.y <= r[1] + r[3];
-const imgOk = im => im && im.complete && im.naturalWidth;
+const imgOk = im => im && (im instanceof HTMLCanvasElement ? im.width > 0 : im.complete && im.naturalWidth);
 function hiReady() {   // calque haute définition (écrans haute densité) ; sinon on dessine sur le canvas pixel
   if (!(HI.width > W)) return false;
   if (!hiUsed) { hx.setTransform(1, 0, 0, 1, 0, 0); hx.fillStyle = '#000'; hx.fillRect(0, 0, HI.width, HI.height); hiUsed = true; HI.style.visibility = 'visible'; }
@@ -5560,7 +5560,7 @@ function hiReady() {   // calque haute définition (écrans haute densité) ; si
 function artDraw(im, x, y, w, h, flip, al = 1, op) {   // image nette (calque HD si possible), retournée si besoin
   if (!imgOk(im)) return;
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
-  g.save(); g.globalAlpha = al; if (op) g.globalCompositeOperation = op; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.save(); g.globalAlpha = al; if (op) g.globalCompositeOperation = op; g.imageSmoothingEnabled = !(im === QR[1] || im === QR[2]);   /* QR codes : pixels nets pour le scan */ g.imageSmoothingQuality = 'high';
   if (flip) { g.translate((x + w) * r, y * r); g.scale(-1, 1); g.drawImage(im, 0, 0, w * r, h * r); }
   else g.drawImage(im, x * r, y * r, w * r, h * r);
   g.restore();
@@ -5633,7 +5633,7 @@ function drawSelect() {
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#d8d8e0');
     const nOn = [1, 2].filter(q => remoteOn(q)).length;
-    artText('Add controllers' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.6, 8.5, on ? '#ffd23a' : '#ffffff');
+    artText('ADD CONTROLLERS' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.6, 8.5, on ? '#ffd23a' : '#ffffff');
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
   text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
@@ -5769,5 +5769,5 @@ if (document.fonts && document.fonts.load) {
 } else go();
 
 // Accès debug pour les tests
-window.__SF = G; window.__ERRS = ERRS; window.__sfx = n => { initAudio(); sfx(n); }; window.__NET = NET; window.__BGM = BGM; window.__bgmGain = () => bgmGain; window.__mkqr = () => makeQRs(); window.__start = (a, b, s) => startMatch(a, b, s); window.__spr = (f, skip) => { const keep = ctx; window.__skip = skip; drawFighter(f, -999, -999); window.__skip = null; return SPR.toDataURL(); };
+window.__SF = G; window.__QR = QR; window.__ERRS = ERRS; window.__sfx = n => { initAudio(); sfx(n); }; window.__NET = NET; window.__BGM = BGM; window.__bgmGain = () => bgmGain; window.__mkqr = () => makeQRs(); window.__start = (a, b, s) => startMatch(a, b, s); window.__spr = (f, skip) => { const keep = ctx; window.__skip = skip; drawFighter(f, -999, -999); window.__skip = null; return SPR.toDataURL(); };
 })();
