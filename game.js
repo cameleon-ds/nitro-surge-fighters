@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v221';
+const VERSION = 'v222';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5364,11 +5364,24 @@ function drawCover(img, al, sc = 1, dy = 0) {   // image plein écran (recadrée
   ctx.drawImage(img, CX - w / 2, H / 2 - h / 2 + dy, w, h); ctx.restore();
 }
 const SRG = new Image();
-SRG.src = 'srg.jpg?v=25';
+SRG.src = 'srg.jpg?v=222';
 const SPLASH = 110;   // durée du logo Super Rocket Games (fondu, 1 s, fondu)
+function hiText(s, x, y, size, col) {   // texte net sur le calque haute définition (centré)
+  const r = HI.width / W; hx.save(); hx.font = Math.round(size * r) + 'px "Press Start 2P", monospace'; hx.textAlign = 'center'; hx.textBaseline = 'top';
+  hx.fillStyle = '#000'; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) hx.fillText(s, x * r + ox * r * .6, y * r + oy * r * .6);
+  hx.fillStyle = col; hx.fillText(s, x * r, y * r); hx.restore();
+}
 function drawImg(img, cx, cy, w, al) {
   if (!img.complete || !img.naturalWidth) return false;
   const h = w * img.naturalHeight / img.naturalWidth;
+  if (HI.width > W) {   // logo net en haute définition (calque du dessous)
+    const r = HI.width / W;
+    if (!hiUsed) { hx.setTransform(1, 0, 0, 1, 0, 0); hx.fillStyle = '#000'; hx.fillRect(0, 0, HI.width, HI.height); hiUsed = true; HI.style.visibility = 'visible'; }
+    hx.save(); hx.globalAlpha = al; hx.imageSmoothingEnabled = true; hx.imageSmoothingQuality = 'high';
+    hx.drawImage(img, (cx - w / 2) * r, (cy - h / 2) * r, w * r, h * r); hx.restore();
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+    return true;
+  }
   ctx.save(); ctx.globalAlpha = al; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   ctx.restore(); return true;
@@ -5428,8 +5441,8 @@ function drawTitle() {
   drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease);   // l'image reste fixe
   if (!TITLE_IMG.complete) text('NITRO SURGE FIGHTERS', CX, 70, 12, '#ff7a3a', 'center');
   // bandeau sombre en bas pour la lisibilité
-  const gb = ctx.createLinearGradient(0, 140, 0, H); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,.75)');
-  ctx.fillStyle = gb; ctx.fillRect(0, 140, W, H - 140);
+  if (hiUsed) { const r = HI.width / W, gb = hx.createLinearGradient(0, 140 * r, 0, H * r); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,.75)'); hx.fillStyle = gb; hx.fillRect(0, 140 * r, HI.width, HI.height - 140 * r); }
+  else { const gb = ctx.createLinearGradient(0, 140, 0, H); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,.75)'); ctx.fillStyle = gb; ctx.fillRect(0, 140, W, H - 140); }
   if (G.showMoves) { drawMoves(); return; }
   if (G.showOpts) { R(0, 0, W, H, 'rgba(0,0,0,.55)'); drawOptions(); return; }
   if (G.tstate !== 1) {
@@ -5441,7 +5454,9 @@ function drawTitle() {
     });
   }
   if (L > 30) {   // plus petit, détaché du menu
-    text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, Math.max(5, Math.min(8, Math.floor((W - 16) / 56)) - 1), '#d8c8b0', 'center');   // une seule ligne, lisible
+    const fs = Math.max(5, Math.min(8, Math.floor((W - 16) / 56)) - 1);
+    if (hiUsed) hiText('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, fs, '#d8c8b0');   // texte net (haute définition)
+    else text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, fs, '#d8c8b0', 'center');
   }
   text(VERSION, W - (isTouch ? 34 : 4), isTouch ? 8 : 4, 8, '#5a4a40', 'right');   // mobile : à l'écart des bords arrondis
 }
