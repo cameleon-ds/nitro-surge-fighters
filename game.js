@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v238';
+const VERSION = 'v239';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1916,7 +1916,7 @@ const ATK = {
   kspin:    { act: [2, 90], box: [-44, -74, 46, -36], dmg: 11, knock: true, high: true, bstun: 14, push: 2.6, sfx: 'heavy', sym: true },   // Kael : coup de pied rotatif 360° aérien
   bflip:    { act: [3, 24], box: [-16, -84, 40, -12], dmg: 7, stun: 16, bstun: 12, push: 1.4, sfx: 'heavy', sym: true },   // tous : bas + A, petit saut avant + coup de pied tournoyant vers l'arrière
   flipk:    { act: [5, 40], box: [-12, -84, 42, -14], dmg: 6, stun: 12, bstun: 12, push: 1.1, sfx: 'hit' },             // Hiro / Axel : salto avant coup de pied
-  nyxspin:  { act: [2, 60], box: [-40, -78, 42, -30], dmg: 10, knock: true, high: true, bstun: 14, push: 2.6, sfx: 'heavy', sym: true },   // Nyx : coup de pied 360° arrière en plein vol
+  nyxspin:  { act: [1, 400], box: [-40, -78, 42, -30], dmg: 10, knock: true, high: true, bstun: 14, push: 2.6, sfx: 'heavy', sym: true },   // Nyx : coup de pied 360° arrière en plein vol
   nslide:   { dur: 32, act: [3, 22], box: [8, -18, 46, 0], dmg: 8, knock: true, low: true, bstun: 12, push: 2.4, sfx: 'hit' },
   grogroll: { act: [3, 39], box: [-6, -34, 34, 0], dmg: 5, stun: 14, low: true, bstun: 10, push: .6, sfx: 'hit' },        // Grog : roulades au sol x3
   aflip:    { act: [1, 40], box: [-14, -82, 42, -12], dmg: 5, stun: 14, high: true, bstun: 10, push: 1.2, sfx: 'hit' },    // Hiro / Axel en l'air : 3 saltos coup de pied   // Nyx : glissade au sol
@@ -1974,10 +1974,11 @@ function poseOf(f) {
     case 'rupper': return f.t < 4 ? 'rup0' : f.t < 9 ? 'rup1' : f.t < 17 ? 'rup2' : 'rup3';
     case 'jpunch': return f.t < 3 ? 'jump' : 'jpunch';
     case 'airflask': return f.t < 4 ? 'jump' : 'jpunch';
+    case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
     case 'kspin': return f.t < 2 ? 'jump' : 'tuck';   // roulade en boule, comme Grog (haut + A)
-    case 'nyxspin': return f.t < 60 ? 'tuck' : 'jump';   // même roulade que son saut avant, puis descente lente
+    case 'nyxspin': return 'tuck';   // même roulade que son saut avant
     case 'flipk': return f.t < 4 ? 'crouch' : 'jkick';
     case 'bflip': return f.t < 3 ? 'crouch' : 'jkick';
     case 'nslide': return f.t < 3 || f.t >= 26 ? 'crouch' : 'slide';
@@ -2145,7 +2146,8 @@ function updFighter(f, o) {
       if (f.def.kit === 'grog' && f.counterT > 0 && o.slowT > 0 && Math.abs(o.x - f.x) < 80 && take(c, 's')) { doThrow(f, o, 'rocket'); f.invuln = 90; addPopup(f.x, f.y - 120, 'ROCKET!', '#5ad0ff'); break; }   // contre + A : fusée électrique
       if ((comboReady(f, o) || seqReady(f)) && take(c, 's')) { setState(f, 'flame'); f.vx = 0; markFire(f, o, 's'); break; }
       if (take(c, 's')) {
-        if (h.d) { startBflip(f); break; }   // bas + A (tous) : petit saut avant + coup de pied tournoyant vers l'arrière
+        if (h.d && f.def.kit === 'grog' && G.frame < (f.rollCd || 0)) break;   // Grog : petite pause avant de pouvoir refaire ses roulades
+        if (h.d) { setState(f, f.def.kit === 'grog' ? 'grogroll' : 'nslide'); f.vx = 0; sfx('whoosh'); break; }   // bas + A : glissade au sol qui fait tomber (Grog : 3 roulades)
         if (f.def.kit === 'vesper') {   // Vesper : Lame Zénith / Pas de l'Ombre / Éclair Holographique
           if (h.u) { setState(f, 'zenith'); f.vx = 0; f.invuln = 8; break; }
           if (back) { setState(f, 'shadow'); f.invuln = 14; { const mine = G.mines.filter(m => m.owner === f && !m.dead); if (mine.length >= 3) G.mines = G.mines.filter(m => m !== mine[0]); } G.mines.push({ owner: f, x: f.x, t: 0 }); sfx('tele'); break; }   // jusqu'à 3 mines au sol
@@ -2244,10 +2246,7 @@ function updFighter(f, o) {
     // fallthrough
     case 'ckick':
       // enchaînement : on peut relancer un coup de pied bas dès la fin de la frappe
-      if (f.t >= 7 && h.d && take(c, 'k')) {   // bas + B, B, B : deux coups de pied bas puis glissade au sol qui fait tomber
-        if ((f.ckC || 1) >= 2 && !(f.def.kit === 'grog' && G.frame < (f.rollCd || 0))) { f.ckC = 0; setState(f, f.def.kit === 'grog' ? 'grogroll' : 'nslide'); f.vx = 0; sfx('whoosh'); break; }
-        f.ckC = (f.ckC || 1) + 1; setState(f, 'ckick'); sfx('whoosh'); break;
-      }
+      if (f.t >= 7 && h.d && take(c, 'k')) { setState(f, 'ckick'); sfx('whoosh'); break; }   // bas + B répété : coups de pied bas simples
     // fallthrough
     case 'punch': case 'kick': case 'fkick': case 'cpunch': case 'rupper': case 'flame':
       // combo : dès que le coup touche, on peut enchaîner immédiatement le suivant
@@ -2322,7 +2321,7 @@ function updFighter(f, o) {
           setState(f, 'gpound'); f.airAtk = true; f.vx = 0; f.vy = -1.2; sfx('whoosh');
         }
         else if (f.def.kit === 'nyx' && take(c, 's')) {   // Nyx : plane (1 s, jusqu'à 2 s si A reste appuyé)
-          setState(f, 'nyxglide'); f.airAtk = true; f.glideHold = true; sfx('whoosh');
+          setState(f, 'nyxglide'); f.airAtk = true; sfx('whoosh');
         }
         else if (f.def.kit === 'kael' && take(c, 's')) {   // Kael : coup de pied rotatif 360° électrique sur place (2 tours), renvoie les projectiles
           setState(f, 'kspin'); f.airAtk = true; f.vy = Math.min(f.vy, 0); sfx('upper'); sfx('parry');
@@ -2331,8 +2330,14 @@ function updFighter(f, o) {
           // Vesper : coup de pied plongeant en diagonale avec traînée néon
           setState(f, 'dive'); f.airAtk = true; f.trail = []; f.bounced = false; sfx('upper');
         }
+        else if (f.def.twinFb && (f.airFb || 0) < 2 && take(c, 's')) {   // Hiro : boule de feu en diagonale vers le sol, puis recule (2 fois par saut)
+          setState(f, 'airfb'); f.airFb = (f.airFb || 0) + 1;
+          G.fbs.push({ owner: f, x: f.x + f.dir * 26, y: f.y - 48, vx: 3.6 * f.dir, vy: 2.7, dir: f.dir, t: 0, alive: true, big: false, sc: 1 });
+          f.vx = -2.4 * f.dir; f.vy = Math.min(f.vy, -1.6); sfx('fb');
+        }
+        else if (f.def.twinFb) { if (c.buf.s > 0) take(c, 's'); }
         else if (take(c, 's')) {
-          // Hiro / Axel : 3 saltos coup de pied rapides vers l'avant (durée du tatsumaki)
+          // Axel : 3 saltos coup de pied rapides vers l'avant (durée du tatsumaki)
           setState(f, 'aflip'); f.airAtk = true;
           f.vy = Math.min(f.vy, -1.5); f.vx = 2.7 * f.dir; sfx('upper');
         }
@@ -2371,7 +2376,7 @@ function updFighter(f, o) {
         else setState(f, 'idle');
       }
       break;
-    case 'parry': f.vx = 0; if (f.counterT > 0 && f.t >= 4 && h.d && take(c, 's')) { startBflip(f); break; } if (f.t >= 22) setState(f, 'idle'); break;   // contre réussi : bas + A en riposte
+    case 'parry': f.vx = 0; if (f.t <= 14 && take(c, 's')) { startBflip(f); break; } if (f.t >= 22) setState(f, 'idle'); break;   // X puis A : petit saut + coup de pied tournoyant vers l'arrière
     case 'stunned':
       f.vx *= .8;
       if (f.dizzy) {
@@ -2568,15 +2573,15 @@ function updFighter(f, o) {
       if (f.flipFin && f.rotAng != null) { const dx = f.dir * 28 * K * UP, dy = 10 * K * UP, cy = f.y - 30 * K * UP, a2 = f.rotAng, cs = Math.cos(a2), sn = Math.sin(a2); (f.ftrail2 = f.ftrail2 || []).push({ x: f.x + dx * cs - dy * sn, y: cy + dx * sn + dy * cs }); if (f.ftrail2.length > 14) f.ftrail2.shift(); }   // pied en feu
       break;
     }
-    case 'nyxspin':   // rotation dirigeable jusqu'au sol, renvoie toutes les boules de feu
-      if (f.t < 60) {   // 1 s de rotation dirigeable
-        f.vx = h.r ? 2.6 : h.l ? -2.6 : 0; f.vy = -GRAV + 1.6 + (h.u ? -1.4 : h.d ? 1.6 : 0);
-        f.rotAng = f.dir * f.t * (Math.PI * 2 / 16);
-        reflectNear(f, 48, f.y - 50, 44);
-        if (f.t % 8 === 0) sfx('whoosh');
-      } else {   // puis descend lentement jusqu'au sol, seulement gauche / droite
-        f.rotAng = null; f.vx = h.r ? 1.8 : h.l ? -1.8 : 0; f.vy = -GRAV + 1.1;
-      }
+    case 'nyxspin':   // plongeon tournoyant rapide en diagonale vers le sol ; au contact : 3 coups très rapides, le 3e fait tomber
+      f.rotAng = f.dir * f.t * (Math.PI * 2 / 10);
+      if (f.nHits > 0 && f.nHits < 3) {   // reste collée à l'adversaire pendant l'enchaînement
+        f.vx = 0; f.vy = -GRAV; f.x += ((o.x - f.dir * 30) - f.x) * .3;
+        if (f.t - f.nHitT >= 6) f.hasHit = false;   // coup suivant
+        if (f.t - f.nHitT > 24) { f.rotAng = null; setState(f, 'jump'); f.airAtk = true; f.vy = 0; }   // adversaire hors d'atteinte : retombe
+      } else if (f.nHits >= 3) { if (f.t - f.nHitT > 6) { f.rotAng = null; setState(f, 'jump'); f.airAtk = true; f.vx = -1.5 * f.dir; f.vy = -2; } }
+      else { f.vx = 4.6 * f.dir; f.vy = 5.2 - GRAV; }
+      if (f.t % 6 === 0) sfx('whoosh');
       break;
     case 'nslide':   // Nyx : glisse vers l'avant au ras du sol
       f.vx = f.t < 3 ? 0 : f.t < 22 ? 5.2 * f.dir : f.vx * .7;
@@ -2593,18 +2598,23 @@ function updFighter(f, o) {
       if (f.t >= 24) setState(f, 'idle');
       break;
     case 'nyxglide': {   // Nyx plane : flotte, se déplace dans les 4 directions (même hors de l'écran en haut), lâche une fiole à la fin
-      if (take(c, 's') || take(c, 'p') || take(c, 'k')) { setState(f, 'nyxspin'); f.vx = 0; sfx('whoosh'); break; }   // A (ou Y / B) à nouveau : rotation jusqu'au sol   // Y ou B en planant : coup de pied tournoyant 360° vers l'arrière
-      if (!h.s) f.glideHold = false;
-      const lim = f.glideHold ? 120 : 60;   // A maintenu : jusqu'à 2 s ; simple appui : 1 s
+      if (take(c, 's')) { setState(f, 'nyxspin'); f.nHits = 0; f.nHitT = 0; f.vx = 4.6 * f.dir; sfx('whoosh'); sfx('upper'); break; }   // A à nouveau : plongeon tournoyant en diagonale vers le sol
+      if (take(c, 'p')) { setState(f, 'jpunch'); f.airAtk = true; f.vy = 0; sfx('whoosh'); break; }   // Y / B : coup simple puis retombe dans la direction du vol
+      if (take(c, 'k')) { setState(f, 'jkick'); f.airAtk = true; f.vy = 0; sfx('whoosh'); break; }
+      const lim = 60;   // 1 s de vol plané (plus de prolongation en restant appuyé)
       const lift = f.y > GROUND - 112 ? -Math.min(2.2, (f.y - (GROUND - 112)) * .12) : 0;   // monte assez haut pour passer au-dessus d'un adversaire ou d'une boule de feu
       f.vy = -GRAV + Math.sin(f.t * .18) * .35 + (h.u ? -3.2 : h.d ? 3.2 : lift);
       f.vx = h.r ? 3.4 : h.l ? -3.4 : f.vx * .8;   // plane plus vite
+      if (f.y < NYX_TOP) { f.y = NYX_TOP; f.vy = Math.max(f.vy, -GRAV); }   // ne monte pas plus haut que la barre d'énergie (au niveau du buste)
       if (f.t >= lim) {   // fin du vol plané : lâche une fiole et retombe
         G.flasks.push({ owner: f, x: f.x + f.dir * 8, y: f.y - 40, vx: f.dir * 1.4, vy: .5, t: 0 }); sfx('whoosh');
         setState(f, 'jump'); f.airAtk = true; f.vy = 0;
       }
       break;
     }
+    case 'airfb':   // Hiro : lance la boule de feu en l'air puis reprend son saut (peut en relancer une)
+      if (f.t >= 12) { setState(f, 'jump'); f.airAtk = false; }
+      break;
     case 'airflask':   // en l'air : fiole lancée tout droit en diagonale vers le sol
       if (f.t === 4) { G.flasks.push({ owner: f, x: f.x + f.dir * 16, y: f.y - 50, vx: f.dir * 3.8, vy: 4.2, t: 0, straight: true }); }
       break;
@@ -2650,7 +2660,7 @@ function updFighter(f, o) {
   if (f.air) {
     f.vy += GRAV; f.x += f.vx; f.y += f.vy;
     if (f.y >= GROUND) {
-      f.y = GROUND; f.vy = 0; f.air = false;
+      f.y = GROUND; f.vy = 0; f.air = false; f.airFb = 0;
       if (f.state === 'fall') { setState(f, 'down'); G.shake = Math.max(G.shake, 3); sfx('thud'); }
       else if (f.state === 'uppercut') { setState(f, 'land'); f.landT = 14; }
       else if (f.state === 'vdive') { f.bounced = false; setState(f, 'land'); f.landT = 8; }
@@ -2680,7 +2690,7 @@ function updFighter(f, o) {
         const hit = f.hasHit; f.rotAng = null; setState(f, 'crushLand'); G.shake = Math.max(G.shake, 8); sfx('thud'); sfx('heavy');
         for (const dd of [-1, 1]) G.waves.push({ owner: f, x: f.x + dd * 10, dir: dd, t: 0, life: 12, small: true, done: hit });
       }
-      else if (['jump', 'jpunch', 'jkick', 'airflask', 'nyxglide', 'nyxspin'].includes(f.state)) { setState(f, 'land'); f.landT = 4; }
+      else if (['jump', 'jpunch', 'jkick', 'airflask', 'nyxglide', 'nyxspin', 'airfb'].includes(f.state)) { f.rotAng = null; setState(f, 'land'); f.landT = 4; }
       f.vx = 0;
     }
   } else {
@@ -3475,7 +3485,7 @@ function drawKaelFx() {
       ctx.fillStyle = g; ctx.fillRect(cx - 62, cy - 62, 124, 124);
       for (let b = 0; b < 4; b++) { const a0 = Math.random() * 6.28, L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([cx + Math.cos(a0 + s2 * .5) * (14 + s2 * 6), cy + Math.sin(a0 + s2 * .5) * (18 + s2 * 6)]); elecArc(L, b % 2 ? 'rgba(168,244,255,.9)' : 'rgba(47,180,255,.9)', 1.3); }
     }
-    if (f.state === 'nyxspin' && f.t < 60) {   // Nyx : même glow et mêmes éclairs que Grog (haut + A), en rose
+    if (f.state === 'nyxspin') {   // Nyx : même glow et mêmes éclairs que Grog (haut + A), en rose
       const cx = f.x, cy = f.y - 40, g = ctx.createRadialGradient(cx, cy, 3, cx, cy, 60);
       g.addColorStop(0, 'rgba(255,190,240,.55)'); g.addColorStop(.5, 'rgba(240,70,180,.3)'); g.addColorStop(1, 'rgba(160,20,140,0)');
       ctx.fillStyle = g; ctx.fillRect(cx - 62, cy - 62, 124, 124);
@@ -3538,7 +3548,7 @@ function updNyx() {
   for (const f of G.f) {   // échos roses derrière Nyx quand elle plane
     if (f.def.kit !== 'nyx') continue;
     if (f.state === 'nslide' && f.t < 26) { (f.echo = f.echo || []).push({ x: f.x, y: f.y, state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll }); if (f.echo.length > 7) f.echo.shift(); }
-    else if (f.state === 'nyxglide' || (f.state === 'nyxspin' && f.t < 60)) { if (G.frame % 2 === 0) { (f.echo = f.echo || []).push({ x: f.x, y: f.y, state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll }); if (f.echo.length > 7) f.echo.shift(); } }
+    else if (f.state === 'nyxglide' || f.state === 'nyxspin') { if (G.frame % 2 === 0) { (f.echo = f.echo || []).push({ x: f.x, y: f.y, state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll }); if (f.echo.length > 7) f.echo.shift(); } }
     else if (f.echo && f.echo.length && f.state !== 'bflip') f.echo.shift();
   }
   for (const f of G.f) if (f.nyxBurnT > 0) {   // brûlure rose : petite perte d'énergie continue
@@ -4008,17 +4018,18 @@ function stepClash() {
 }
 function applyHit(att, def, data, sx, sy, fromX, projectile) {
   // coups de pied bas enchaînés : le 3e qui touche d'affilée fait tomber l'adversaire
-  if (att.state === 'ckick' && !projectile && !(def.state === 'parry' && def.t <= 12) && !isBlocking(def, fromX, data)) {
-    att.ckN = G.frame - (att.ckLast || -999) < 40 ? (att.ckN || 0) + 1 : 1;
-    att.ckLast = G.frame;
-    if (att.ckN >= 3) { data = Object.assign({}, data, { knock: true, dmg: 7 }); att.ckN = 0; }
-  }
+
   // Contre réussi : l'attaquant est bloqué une demi-seconde
-  if (def.state === 'parry' && def.t <= 12 && !(att.state === 'flipk' && att.flipFin)) {   // le salto en feu n'est pas contrable
+  if (att.state === 'nyxspin' && !projectile) {   // plongeon de Nyx : 3 coups, seul le 1er peut être contré, le 3e fait tomber
+    att.nHits = (att.nHits || 0) + 1; att.nHitT = att.t;
+    data = Object.assign({}, data, att.nHits >= 3 ? { knock: true, dmg: 8 } : { knock: false, stun: 20, dmg: 6, push: .2 });
+  }
+  if (def.state === 'parry' && def.t <= 12 && !(att.state === 'flipk' && att.flipFin) && !(att.state === 'nyxspin' && att.nHits >= 2)) {   // le salto en feu n'est pas contrable
     G.freeze = 10; addSpark(sx, sy, 'parry'); sfx('counter');
     if (projectile) return;
     // l'adversaire passe au ralenti pendant une seconde, éclair + fond assombri
     att.hasHit = true; att.slowT = 60;
+    if (att.state === 'nyxspin') { att.rotAng = null; att.nHits = 0; setState(att, 'jump'); att.airAtk = true; att.vy = 0; att.vx = 0; }   // plongeon de Nyx contré : elle retombe
     setState(def, 'idle'); def.counterT = 60; def.vx = 0;
     G.flashT = 12; G.darkT = 60; G.boltX = sx; G.boltY = sy;
     addPopup(def.x, def.y - 100, 'COUNTER!', '#7af0ff');
@@ -4253,7 +4264,7 @@ const ALT = [
   { top: ['#1a0406', '#3a0a0e', '#5a1418', '#7e2428'], legs: ['#1a0406', '#3a0a0e', '#5a1418', '#7e2428'], capeP: ['#04040a', '#0c0c1e', '#16163a', '#262656'] },   // Vane : uniforme rouge, cape bleu nuit
 ];
 const fighterDef = (i, alt) => alt ? Object.assign({}, DEFS[i], ALT[i], { idx: i, alt: true }) : Object.assign(DEFS[i], { idx: i });
-const PRE_T = 110;
+const PRE_T = 110, NYX_TOP = 74;   // NYX_TOP : hauteur max du vol plané de Nyx (barre d'énergie au niveau du buste)
 function startMatch(p1, p2, stage) {
   G.hurt = [false, false];   // « PERFECT » : aucun coup encaissé de tout le combat
   if (p2 == null) p2 = G.p2 != null ? G.p2 : 1 - p1;
@@ -4304,14 +4315,14 @@ const TITLE_ITEMS = ['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL', 'VIEW COMMANDS', 
 const TUT_BTN = [['p', 'PRESS Y TO PUNCH'], ['k', 'PRESS B TO KICK'], ['s', 'PRESS A FOR A SPECIAL MOVE'], ['x', 'PRESS X TO COUNTER']];
 const st_ = n => f => f.state === n;
 const TUT_SP = {
-  hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
-  axel: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
-  vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')]],
-  vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')]],
-  kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')]],
-  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN TO THE GROUND', st_('nyxspin')]],
-  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')]],
-  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'BACK SPIN KICK', st_('bflip')]],
+  hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
+  axel: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
+  vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
+  vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
+  kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
+  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN TO THE GROUND', st_('nyxspin')]],
+  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
+  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
 };
 const TUT_COMBO = [['ppkk', 'Y, Y, B, B'], ['kkpp', 'B, B, Y, Y'], ['ppks', 'Y, Y, B, A'], ['kkps', 'B, B, Y, A']];
 const tutSpecials = d => TUT_SP[d.kit] || (d.twinFb ? TUT_SP.hiro : TUT_SP.axel);
@@ -4490,7 +4501,7 @@ function stepMoves() {
 }
 const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = isTouch && !padOn() ? [6, 0, 1, 2, 3, 4, 5] : [6, 0, 1, 2, 3, 4, 5, 7, 8]; if (installAvail()) o.push(9); return o; };
+const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 4, 5] : [2, 6, 0, 1, 3, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 4, 5] : [6, 0, 1, 2, 3, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return o; };
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -4757,7 +4768,7 @@ function step() {
       const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap;
       if (G.tstate !== 1) {
         if (G.t < SPLASH) { if (G.t > 10 && any) G.t = SPLASH; break; }          // passer le logo Super Rocket Games
-        if (G.t > SPLASH + 20 && any) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
+        if (G.t > SPLASH + INTRO_LOGO + 40 && any) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
@@ -4882,7 +4893,7 @@ function stepFight() {
   }
   for (const [f, o] of [[a, b], [b, a]]) {
     if (f.slowT > 35 && o.counterT > 0 && G.fighting && take(f.ctl, 'x')) { startClash(f, o); return; }
-    if (f.slowT > 0 && o.counterT > 0 && G.fighting && !f.ko && f.ctl.held.d && take(f.ctl, 's')) startBflip(f);   // contré : bas + A pour s'échapper (au lieu du bras de fer)
+    if (f.slowT > 0 && o.counterT > 0 && G.fighting && !f.ko && take(f.ctl, 's')) startBflip(f);   // contré : A pour s'échapper (au lieu du bras de fer)
   }
   [[a, b], [b, a]].forEach(([f, o]) => {
     if (f.noSpecT > 0) { f.noSpecT--; if (f.ctl.buf.s > 0) take(f.ctl, 's'); }   // sortie de la fumée : pas de coup spécial pendant 1 s
@@ -4900,6 +4911,7 @@ function stepFight() {
   // Boules d'énergie
   for (const fb of G.fbs) {
     fb.x += fb.vx; fb.t++;
+    if (fb.vy) { fb.y += fb.vy; if (fb.y > GROUND - 8) { fb.alive = false; addSpark(fb.x, GROUND - 8, 'fb', fb.owner.def.fb); } }   // boule de feu en diagonale (Hiro en l'air)
     if (fb.y0 != null) fb.y = fb.y0 + Math.sin(fb.t * .16 + fb.ph) * 13;   // ondulation synchronisée des deux boules
     if (fb.x < (G.camL || 0) - 30 || fb.x > (G.camL || 0) + W + 30) fb.alive = false;
   }
@@ -4931,6 +4943,7 @@ function stepFight() {
     const hiroUp = x => x.def.twinFb && x.state === 'uppercut';
     if (att.state === 'crushD' && hiroUp(def)) continue;   // le 2e shoryuken d'Hiro gagne contre la descente de Grog
     if (def.state === 'crushD' && !hiroUp(att)) continue;
+    if (def.state === 'nyxspin' && att.state !== 'nyxspin') continue;   // le plongeon de Nyx gagne contre tous les coups (seuls les projectiles l'arrêtent)
     if (NORMAL_ATK.includes(att.state) && def.state === 'bflip') continue;   // bas + A gagne contre les coups normaux
     if (NORMAL_ATK.includes(att.state) && (def.state === 'hslide' || (def.def.twinFb && def.state === 'uppercut'))) continue;   // Hiro : ses deux shoryukens gagnent contre les coups normaux   // descente diagonale de Grog : seules les boules de feu / projectiles peuvent la casser   // la roulade de Kael gagne contre bas + Y   // le saut-poing d'Axel gagne contre le shoryuken
     const ab = atkBox(att), hb = hurtbox(def) || (att.state === 'fjump' && def.state === 'uppercut' && !def.ko ? [def.x - 14, def.y - 84, def.x + 14, def.y] : null);
@@ -5296,12 +5309,12 @@ const MOVES = [
   { title: 'BASICS', lines: [
     ['Y', 'PUNCH'], ['B', 'KICK'], ['STICK UP', 'JUMP (FWD/BACK = ROLL)'], ['STICK DOWN', 'CROUCH'],
     ['BACK', 'BLOCK  -  DOWN+BACK: LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
-    ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B, B, B', '2 LOW KICKS + SLIDE (KNOCKS DOWN)'], ['DOWN + A', 'BACK SPIN KICK: DODGES SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
+    ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: DODGES SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
     ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
-    ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', '3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
+    ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
     ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
-    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > DOWN + A', 'ESCAPE WITH A BACK SPIN KICK'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
+    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
   { title: 'VESPER SPECIALS', lines: [
     ['A', 'HOLO FLASH'], ['', 'UP TO 3 CLONES, 3 HITS = PARALYZED'], ['BACK + A', 'SHADOW STEP'], ['', 'DODGES BACK, LEAVES A MINE'],
     ['UP + A', 'ZENITH BLADE'], ['', 'FLIP SLASH, LANDS BEHIND THE FOE'], ['JUMP + A', 'NEON DIVE'], ['', 'FAST DIAGONAL DIVE KICK'] ] },
@@ -5313,13 +5326,13 @@ const MOVES = [
     ['UP + A', 'PLASMA WALL'], ['', 'ELECTRIC WALL, GROUND TO SKY'], ['JUMP + A', 'VOLT SPIN'], ['', '360 SPIN KICK, REFLECTS SHOTS'] ] },
   { title: 'NYX SPECIALS', lines: [
     ['A', 'MAGMA FLASK'], ['', 'FLASK + PINK FIRE (3 S BURN)'], ['BACK + A', 'TOXIC MIST'], ['', 'SLOWS, THEN CONFUSES, STOPS SHOTS'], ['MIST OUT > BACK + A', 'SMOKE TELEPORT'],
-    ['UP + A', 'ALCHEMIC GEYSER'], ['', 'DIAGONAL PURPLE FLAMES'], ['DOWN + B, B, B', 'SHADOW SLIDE'], ['', 'SLIDES UNDER SHOTS, TRIPS THE FOE'], ['JUMP + A', 'WITCH GLIDE'], ['', 'HOLD A: GLIDE 2 S, DROPS A FLASK'], ['GLIDE > A / Y / B', 'SPIN TO THE GROUND, REFLECTS SHOTS'] ] },
+    ['UP + A', 'ALCHEMIC GEYSER'], ['', 'DIAGONAL PURPLE FLAMES'], ['DOWN + A', 'SHADOW SLIDE'], ['', 'SLIDES UNDER SHOTS, TRIPS THE FOE'], ['JUMP + A', 'WITCH GLIDE'], ['', 'GLIDES 1 S, DROPS A FLASK'], ['GLIDE > A', 'SPIN DIVE: 3 FAST HITS, KNOCKS DOWN'], ['', 'ONLY SHOTS CAN STOP IT'], ['GLIDE > Y / B', 'PUNCH / KICK, THEN FALLS'] ] },
   { title: 'ZEPHYR SPECIALS', lines: [
     ['FWD + Y', 'HEAVEN CUT'], ['', 'HEAVY SLASH, HEAD TO GROUND'], ['A', 'GALE BLADE'], ['', 'SWORD SLASH, AIR CRESCENT'], ['BACK + A', 'STORM PASSAGE'], ['', 'SINKS, REAPPEARS BEHIND THE FOE'],
     ['UP + A', 'RISING TORNADO'], ['', 'SPINNING SWORD UPPERCUT'], ['JUMP + A', 'SKY PLUNGE'], ['', 'HOVERS, STABS DOWN, SHOCKWAVE'] ] },
   { title: 'GROG SPECIALS', lines: [
     ['A', 'SEISMIC IMPACT'], ['', 'GROUND WAVE, JUMP TO DODGE'], ['BACK + A', 'IRON RAMPART'], ['', 'ELECTRIC ARMS, ABSORB ONE HIT'], ['RAMPART > A', 'DOME BLAST, REFLECTS SHOTS'],
-    ['UP + A', 'CELESTIAL CRUSH'], ['', 'HUGE LEAP, FISTS-FIRST DIVE'], ['DOWN + B, B, B', 'ROLLING ATTACK'], ['', '2 LOW KICKS + 3 FAST ROLLS'] ] },
+    ['UP + A', 'CELESTIAL CRUSH'], ['', 'HUGE LEAP, FISTS-FIRST DIVE'], ['DOWN + A', 'ROLLING ATTACK'], ['', '3 FAST ROLLS, 3RD KNOCKS DOWN'] ] },
   { title: 'COMBOS', lines: [
     ['', 'CHAIN HITS WHILE THE FOE IS STUNNED.'], ['', 'THE 4TH HIT SETS HIM ON FIRE!'], ['', ''],
     ['Y Y B B', 'FIRE FINISH'], ['B B Y Y', 'FIRE FINISH'], ['Y Y B A', 'FLAME STRIKE FINISH'], ['B B Y A', 'FLAME STRIKE FINISH'] ] },
