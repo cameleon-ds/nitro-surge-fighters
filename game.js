@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v235';
+const VERSION = 'v236';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4760,7 +4760,7 @@ function step() {
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
         if (tc !== (G.tcur || 0)) { G.tcur = tc; sfx('beep'); }
         if (tap) { const i = Math.floor((tap.y - 136) / 10); if (i >= 0 && i < TITLE_ITEMS.length) G.tcur = i; else break; }
-        if (backPress(pctl)) { G.tstate = 0; G.t = Math.max(G.t, SPLASH + INTRO_LOGO + 60); sfx('beep'); }   // retour : affiche avec le logo
+        if (backPress(pctl)) { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.introNoPres = true; G.tmenu = null; sfx('beep'); }   // retour : on rejoue le travelling et le logo (sans PRESENTS)
         else if (okPress(pctl) || tap) {
           sfx('select');
           if ((G.tcur || 0) <= 2) { G.mode = ['arcade', 'vs', 'tutorial'][G.tcur || 0]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }   // ARCADE MODE / V.S. BATTLE / TUTORIAL
@@ -5532,17 +5532,18 @@ function drawIntro(L) {
   // affiche : du haut vers le bas
   if (L > INTRO_T0 && imgOk(POSTER)) {
     const ph = W * POSTER.naturalHeight / POSTER.naturalWidth, k = Math.min(1, (L - INTRO_T0) / INTRO_TRAVEL), e = k * k * (3 - 2 * k);
-    artDraw(POSTER, 0, -(ph - H) * e, W, ph, false, Math.min(1, (L - INTRO_T0) / 40));
+    const end = Math.max(0, Math.min(ph - H, ph * .645 - H / 2));   // s'arrête sur les bustes de Hiro et Axel
+    artDraw(POSTER, 0, -end * e, W, ph, false, Math.min(1, (L - INTRO_T0) / 40));
   }
   if (L > INTRO_T0) drawEmbers(Math.min(1, (L - INTRO_T0) / 60));   // braises qui montent du bas
   // PRESENTS : fondu entrant, puis fondu sortant pendant que l'affiche apparaît
   const pa = L < 25 ? L / 25 : L < INTRO_T0 + 20 ? 1 : Math.max(0, 1 - (L - INTRO_T0 - 20) / 25);
-  if (pa > 0) { artTextA('PRESENTS', CX, H / 2 - 6, 11, '#ffffff', pa); }
+  if (pa > 0 && !G.introNoPres) { artTextA('PRESENTS', CX, H / 2 - 6, 11, '#ffffff', pa); }
   // logo : apparaît avec un éclat lumineux, puis halo qui pulse
   const lt = L - INTRO_LOGO;
   if (lt > 0 && imgOk(LOGO_NSF)) {
     const lw = Math.min(W * .78, 300), lh = lw * LOGO_NSF.naturalHeight / LOGO_NSF.naturalWidth, a = Math.min(1, lt / 18);
-    const sc = lt < 18 ? 1.35 - .35 * (1 - Math.pow(1 - lt / 18, 3)) : 1, w2 = lw * sc, h2 = lh * sc, cy = 74;
+    const sc = lt < 18 ? 1.35 - .35 * (1 - Math.pow(1 - lt / 18, 3)) : 1, w2 = lw * sc, h2 = lh * sc, cy = H / 2 - 8;   // logo au milieu de l'écran
     const gl = logoGlow();
     if (gl) { const pulse = lt < 24 ? 1.6 * (1 - lt / 24) + .5 : .45 + .2 * Math.sin(G.frame * .08); artDraw(gl, CX - w2 * .62, cy - h2 * .66, w2 * 1.24, h2 * 1.32, false, Math.min(1, pulse) * a, 'lighter'); }
     artDraw(LOGO_NSF, CX - w2 / 2, cy - h2 / 2, w2, h2, false, a);
