@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v226';
+const VERSION = 'v227';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4774,6 +4774,7 @@ function step() {
       G.t++;
       netStart();   // prépare les QR codes des manettes smartphone
       if (NET.id && !QR[1] && typeof qrcode !== 'undefined') makeQRs();   // bibliothèque QR chargée après coup
+      if (G.selGo) { if (G.frame >= G.selGo.f) { const go = G.selGo.go; G.selGo = null; G.pickF = null; go(); } break; }   // flash de validation, puis on continue
       const sc = G.selPhase && p2On() ? p2ctl : pctl;   // le joueur 2 choisit avec sa manette
       if (G.qrPop) {   // fenêtre ADD CONTROLLERS : B (ou ÉCHAP, ou A) pour fermer
         if (backPress(pctl) || backPress(p2ctl) || okPress(pctl) || (tap && !inRect(tap, QR_POP))) { G.qrPop = false; sfx('beep'); }
@@ -4796,10 +4797,11 @@ function step() {
       if (G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) {
         const c = ROSTER[G.sel || 0];
         if (c == null) sfx('block');
-        else if (!G.selPhase && G.mode === 'arcade') { G.p1 = c; sfx('select'); arcadeStart(); }   // ARCADE : on enchaîne les combats
-        else if (!G.selPhase && G.mode === 'tutorial') { G.p1 = c; sfx('select'); tutStart(); }   // TUTORIAL : contre son double
-        else if (!G.selPhase) { G.p1 = c; G.selPhase = 1; sfx('select'); }                 // 1) mon personnage
-        else { G.p2 = c; G.selPhase = 0; G.scene = 'stage'; G.t = 0; sfx('select'); }    // 2) le CPU
+        else if (G.selGo) {}   // déjà validé : on attend la fin du flash
+        else if (!G.selPhase && G.mode === 'arcade') { G.p1 = c; selPick(0); G.selGo = { f: G.frame + 22, go: arcadeStart }; }   // ARCADE : on enchaîne les combats
+        else if (!G.selPhase && G.mode === 'tutorial') { G.p1 = c; selPick(0); G.selGo = { f: G.frame + 22, go: tutStart }; }   // TUTORIAL : contre son double
+        else if (!G.selPhase) { G.p1 = c; G.selPhase = 1; selPick(0); }                 // 1) mon personnage
+        else { G.p2 = c; selPick(1); G.selGo = { f: G.frame + 22, go: () => { G.selPhase = 0; G.scene = 'stage'; G.t = 0; } }; }    // 2) le CPU
       }
       else if (G.t > 10 && backPress(pctl)) { if (G.selPhase) { G.selPhase = 0; sfx('beep'); } else { goTitle(); sfx('beep'); } }
       break;
@@ -5555,10 +5557,10 @@ function hiReady() {   // calque haute définition (écrans haute densité) ; si
   if (!hiUsed) { hx.setTransform(1, 0, 0, 1, 0, 0); hx.fillStyle = '#000'; hx.fillRect(0, 0, HI.width, HI.height); hiUsed = true; HI.style.visibility = 'visible'; }
   return true;
 }
-function artDraw(im, x, y, w, h, flip, al = 1) {   // image nette (calque HD si possible), retournée si besoin
+function artDraw(im, x, y, w, h, flip, al = 1, op) {   // image nette (calque HD si possible), retournée si besoin
   if (!imgOk(im)) return;
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
-  g.save(); g.globalAlpha = al; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.save(); g.globalAlpha = al; if (op) g.globalCompositeOperation = op; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
   if (flip) { g.translate((x + w) * r, y * r); g.scale(-1, 1); g.drawImage(im, 0, 0, w * r, h * r); }
   else g.drawImage(im, x * r, y * r, w * r, h * r);
   g.restore();
@@ -5572,13 +5574,26 @@ function artText(str, x, y, size, col, align = 'center', grad) {   // texte liss
   g.fillText(str, x * r, y * r); g.restore();
 }
 function ring(x, y, w, h, t, col) { R(x - t, y - t, w + 2 * t, t, col); R(x - t, y + h, w + 2 * t, t, col); R(x - t, y, t, h, col); R(x + w, y, t, h, col); }
+const SEL_WHITE = [];
+function whiteOf(i) {   // silhouette blanche du personnage (flash de validation)
+  if (SEL_WHITE[i]) return SEL_WHITE[i];
+  const im = SEL_ART[i], c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(im, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  c.complete = true; c.naturalWidth = c.width; c.naturalHeight = c.height;
+  return SEL_WHITE[i] = c;
+}
 function fighterArt(i, side, k) {   // personnage en entier, collé au bord, coupé en bas
   if (i == null) return;
   const im = SEL_ART[i]; if (!imgOk(im)) return;
   const h = H * 1.42, w = h * im.naturalWidth / im.naturalHeight, cx = side < 0 ? Math.min(W * .17, 74) : W - Math.min(W * .17, 74);
   const want = side < 0 ? 1 : -1;   // joueur 1 regarde toujours à droite, joueur 2 toujours à gauche
-  artDraw(im, cx - w / 2 + side * (1 - k) * 90, 34 + (1 - k) * 6, w, h, SEL_FACE_DIR[i] !== want, k);
+  const pf = G.pickF && G.pickF[side < 0 ? 0 : 1] != null ? G.frame - G.pickF[side < 0 ? 0 : 1] : 99;   // choix validé : flash
+  const pop = pf < 16 ? 1 + .06 * Math.sin(pf / 16 * Math.PI) : 1, ww = w * pop, hh = h * pop;
+  const x = cx - ww / 2 + side * (1 - k) * 90, y = 34 + (1 - k) * 6 - (hh - h) * .4, fl = SEL_FACE_DIR[i] !== want;
+  artDraw(im, x, y, ww, hh, fl, k);
+  if (pf < 24) { const a = Math.pow(1 - Math.max(0, pf) / 24, 1.4); artDraw(whiteOf(i), x, y, ww, hh, fl, a); artDraw(im, x, y, ww, hh, fl, a * .6, 'lighter'); }   // silhouette blanche qui s'efface
 }
+function selPick(sd) { (G.pickF = G.pickF || [])[sd] = G.frame; sfx('select'); sfx('counter'); }
 function drawSelect() {
   R(0, 0, W, H, '#000');
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
@@ -5622,6 +5637,7 @@ function drawSelect() {
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
   text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
+  for (const sd of [0, 1]) { const pf = G.pickF && G.pickF[sd] != null ? G.frame - G.pickF[sd] : 99; if (pf < 10) R(0, 0, W, H, `rgba(255,255,255,${(.45 * (1 - pf / 10)).toFixed(3)})`); }   // éclair blanc à la validation
   if (G.qrPop) drawQRPopup();
 }
 function drawQRPopup() {   // deux QR codes : joueur 1 à gauche, joueur 2 à droite ; B pour fermer
