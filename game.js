@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v220';
+const VERSION = 'v221';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -13,6 +13,9 @@ let SW = 384 + 2 * EXT;    // largeur totale du décor
 const cv = document.getElementById('game');
 let ctx = cv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
+// Calque haute définition sous le canvas pixel : les grandes images (écran titre, sélection) restent nettes, sans pixels
+const HI = document.createElement('canvas'); HI.id = 'hi'; cv.parentNode.insertBefore(HI, cv);
+const hx = HI.getContext('2d'); let hiUsed = false;
 
 // Portrait sur mobile (ex. rotation verrouillée) : on pivote tout le jeu de 90°
 let ROT = false;
@@ -39,6 +42,9 @@ function resize() {
   const s = Math.min(aw / W, ah / H);
   cv.style.width = Math.round(W * s) + 'px';
   cv.style.height = Math.round(H * s) + 'px';
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  HI.style.width = cv.style.width; HI.style.height = cv.style.height;
+  HI.width = Math.round(W * s * dpr); HI.height = Math.round(H * s * dpr);
 }
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 150));
@@ -5342,10 +5348,18 @@ function drawPause() {
 const LOGO = new Image();
 LOGO.src = 'logo.png?v=25';
 const TITLE_IMG = new Image();
-TITLE_IMG.src = 'title.jpg?v=220';
+TITLE_IMG.src = 'title.jpg?v=221';
 function drawCover(img, al, sc = 1, dy = 0) {   // image plein écran (recadrée)
   if (!img.complete || !img.naturalWidth) return;
   const k = Math.max(W / img.naturalWidth, H / img.naturalHeight) * sc, w = img.naturalWidth * k, h = img.naturalHeight * k;
+  if (HI.width > W) {   // image nette en haute définition, dessinée sur le calque du dessous
+    const r = HI.width / W;
+    if (!hiUsed) { hx.setTransform(1, 0, 0, 1, 0, 0); hx.fillStyle = '#000'; hx.fillRect(0, 0, HI.width, HI.height); hiUsed = true; HI.style.visibility = 'visible'; }
+    hx.save(); hx.globalAlpha = al; hx.imageSmoothingEnabled = true; hx.imageSmoothingQuality = 'high';
+    hx.drawImage(img, (CX - w / 2) * r, (H / 2 - h / 2 + dy) * r, w * r, h * r); hx.restore();
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();   // le canvas pixel devient transparent : on voit l'image nette dessous
+    return;
+  }
   ctx.save(); ctx.globalAlpha = al; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, CX - w / 2, H / 2 - h / 2 + dy, w, h); ctx.restore();
 }
@@ -5411,7 +5425,7 @@ function drawTitle() {
   // 2) mur de briques avec le logo graffiti : dézoom + fondu
   const L = t - SPLASH;
   const k = Math.min(1, L / 40), ease = 1 - Math.pow(1 - k, 3);
-  drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease, G.tstate === 1 ? -32 * Math.min(1, (G.tmenu || 0) / 18) : 0);   // le logo remonte pour laisser la place au menu
+  drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease);   // l'image reste fixe
   if (!TITLE_IMG.complete) text('NITRO SURGE FIGHTERS', CX, 70, 12, '#ff7a3a', 'center');
   // bandeau sombre en bas pour la lisibilité
   const gb = ctx.createLinearGradient(0, 140, 0, H); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,.75)');
@@ -5519,10 +5533,11 @@ function drawOver() {
 }
 
 function render() {
+  hiUsed = false;
   ctx.save();
   const grp = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) ? 'fight' : G.scene;
   if (prevGroup && grp !== prevGroup) {   // changement d'écran : on garde une image de l'ancien pour le volet de transition
-    SNAP.width = cv.width; SNAP.height = cv.height; SNAP.getContext('2d').drawImage(cv, 0, 0); transT = 0; G.st = 0;
+    SNAP.width = cv.width; SNAP.height = cv.height; { const sc2 = SNAP.getContext('2d'); if (HI.style.visibility === 'visible') sc2.drawImage(HI, 0, 0, cv.width, cv.height); sc2.drawImage(cv, 0, 0); } transT = 0; G.st = 0;
   }
   prevGroup = grp;
   if (G.shake && !G.paused) ctx.translate(Math.round((Math.random() - .5) * G.shake * 2), Math.round((Math.random() - .5) * G.shake * 2));   // en pause : image figée
@@ -5538,6 +5553,7 @@ function render() {
   if (G.paused && grp === 'fight') drawPause();   // menu pause jamais secoué
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
+  if (!hiUsed && HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden';
 }
 // Transition entre écrans : un volet diagonal noir bordé d'une lame de lumière balaie l'ancien écran
 let prevGroup = null, transT = 99;
