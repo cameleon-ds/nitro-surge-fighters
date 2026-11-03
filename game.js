@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v224';
+const VERSION = 'v225';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4775,14 +4775,24 @@ function step() {
       netStart();   // prépare les QR codes des manettes smartphone
       if (NET.id && !QR[1] && typeof qrcode !== 'undefined') makeQRs();   // bibliothèque QR chargée après coup
       const sc = G.selPhase && p2On() ? p2ctl : pctl;   // le joueur 2 choisit avec sa manette
+      if (G.qrPop) {   // fenêtre ADD CONTROLLERS : B (ou ÉCHAP, ou A) pour fermer
+        if (backPress(pctl) || backPress(p2ctl) || okPress(pctl) || (tap && !inRect(tap, QR_POP))) { G.qrPop = false; sfx('beep'); }
+        break;
+      }
+      const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille
+      if (btnOn && tap && inRect(tap, ADD_BTN)) { G.qrPop = true; sfx('select'); break; }
       {
         let sl = G.sel || 0;
-        if (edge(sc, 'l') && sl % 4 > 0) sl--;
-        if (edge(sc, 'r') && sl % 4 < 3) sl++;
-        if (edge(sc, 'u') && sl > 3) sl -= 4;
-        if (edge(sc, 'd') && sl < 4) sl += 4;
-        if (sl !== (G.sel || 0)) { G.sel = sl; sfx('beep'); }
+        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack || 4; }
+        else {
+          if (edge(sc, 'l') && sl % 4 > 0) sl--;
+          if (edge(sc, 'r') && sl % 4 < 3) sl++;
+          if (edge(sc, 'u') && sl > 3) sl -= 4;
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } }
+        }
+        if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
+      if (G.sel === 8 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { G.qrPop = true; sfx('select'); break; }
       if (G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) {
         const c = ROSTER[G.sel || 0];
         if (c == null) sfx('block');
@@ -5532,46 +5542,104 @@ function drawTitle() {
   text(VERSION, W - (isTouch ? 34 : 4), isTouch ? 8 : 4, 8, '#5a4a40', 'right');   // mobile : à l'écart des bords arrondis
 }
 
+// Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
+const SEL_KEYS = ['hiro', 'axel', 'vesper', 'grog', 'zephyr', 'nyx', 'kael', 'vane'];   // indices DEFS
+const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=1'); return im; });
+const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=4'); return im; });
+const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
+const inRect = (t, r) => t.x >= r[0] && t.x <= r[0] + r[2] && t.y >= r[1] && t.y <= r[1] + r[3];
+const imgOk = im => im && im.complete && im.naturalWidth;
+function hiReady() {   // calque haute définition (écrans haute densité) ; sinon on dessine sur le canvas pixel
+  if (!(HI.width > W)) return false;
+  if (!hiUsed) { hx.setTransform(1, 0, 0, 1, 0, 0); hx.fillStyle = '#000'; hx.fillRect(0, 0, HI.width, HI.height); hiUsed = true; HI.style.visibility = 'visible'; }
+  return true;
+}
+function artDraw(im, x, y, w, h, flip, al = 1) {   // image nette (calque HD si possible), retournée si besoin
+  if (!imgOk(im)) return;
+  const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
+  g.save(); g.globalAlpha = al; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  if (flip) { g.translate((x + w) * r, y * r); g.scale(-1, 1); g.drawImage(im, 0, 0, w * r, h * r); }
+  else g.drawImage(im, x * r, y * r, w * r, h * r);
+  g.restore();
+}
+function artFill(col, x = 0, y = 0, w = W, h = H) { const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1; g.save(); g.fillStyle = col; g.fillRect(x * r, y * r, w * r, h * r); g.restore(); }
+function artText(str, x, y, size, col, align = 'center', grad) {   // texte lisse (police système grasse), comme sur la maquette
+  const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
+  g.save(); g.font = '700 ' + Math.round(size * r) + 'px Arial, Helvetica, sans-serif'; g.textAlign = align; g.textBaseline = 'top';
+  g.lineJoin = 'round'; g.lineWidth = Math.max(2, size * r * .14); g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(str, x * r, y * r);
+  if (grad) { const gr = g.createLinearGradient(0, y * r, 0, (y + size) * r); gr.addColorStop(0, grad[0]); gr.addColorStop(1, grad[1]); g.fillStyle = gr; } else g.fillStyle = col;
+  g.fillText(str, x * r, y * r); g.restore();
+}
+function ring(x, y, w, h, t, col) { R(x - t, y - t, w + 2 * t, t, col); R(x - t, y + h, w + 2 * t, t, col); R(x - t, y, t, h, col); R(x + w, y, t, h, col); }
+function fighterArt(i, side, k) {   // personnage en entier, collé au bord, coupé en bas
+  if (i == null) return;
+  const im = SEL_ART[i]; if (!imgOk(im)) return;
+  const h = H * 1.42, w = h * im.naturalWidth / im.naturalHeight, cx = side < 0 ? Math.min(W * .17, 74) : W - Math.min(W * .17, 74);
+  artDraw(im, cx - w / 2 + side * (1 - k) * 90, 34 + (1 - k) * 6, w, h, true, k);   // les deux en miroir (comme la maquette)
+}
 function drawSelect() {
-  R(0, 0, W, H, '#000'); drawCover(TITLE_IMG, 1);
-  R(0, 0, W, H, 'rgba(8,4,14,.72)');
-  const ph = G.selPhase || 0, sel = G.sel || 0, hov = ROSTER[sel];
-  const arc = G.mode === 'arcade' || G.mode === 'tutorial', two = !arc && p2On(), L2 = two ? '2P' : 'CPU';
-  if (arc) text((G.mode === 'tutorial' ? 'TUTORIAL' : 'ARCADE MODE') + ': SELECT YOUR FIGHTER', CX, 6, 8, '#5ac8ff', 'center'); else
-  text(ph === 0 ? (two ? 'PLAYER 1: SELECT FIGHTER' : 'SELECT YOUR FIGHTER') : (two ? 'PLAYER 2: SELECT FIGHTER' : 'SELECT CPU FIGHTER'), CX, 6, 8, ph === 0 ? '#5ac8ff' : '#ff7a6a', 'center');
-  drawQRs();
+  R(0, 0, W, H, '#000');
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+  if (imgOk(TITLE_IMG)) { const k = Math.max(W / TITLE_IMG.naturalWidth, H / TITLE_IMG.naturalHeight), w = TITLE_IMG.naturalWidth * k, h = TITLE_IMG.naturalHeight * k; artDraw(TITLE_IMG, CX - w / 2, H / 2 - h / 2, w, h, false); }
+  artFill('rgba(8,4,14,.5)');
+  const ph = G.selPhase || 0, sel = G.sel || 0, hov = ROSTER[sel < 8 ? sel : (G.selBack || 0)];
+  const arc = G.mode === 'arcade' || G.mode === 'tutorial', two = !arc && p2On(), L2 = two ? 'PLAYER 2' : 'CPU';
   const p1 = ph === 0 ? hov : G.p1, p2 = ph === 1 ? hov : null;
-  const BS = 74, y0 = 20;
-  const e1 = ent(0), e2 = ent(1), ev = ent(3, 3, 8);   // les deux grands portraits glissent depuis les bords, puis le VS frappe
-  if (G.mode === 'tutorial') {   // TUTORIAL : seulement le portrait du joueur, au centre, sans VS
-    ctx.save(); ctx.globalAlpha = e1;
-    drawPortrait(p1, CX - BS / 2, y0, BS, '#5ac8ff', 1);
-    text(p1 == null ? '???' : DEFS[p1].name, CX, y0 + BS + 4, 8, '#ffffff', 'center');
-    ctx.restore();
-  } else {
-  ctx.save(); ctx.globalAlpha = e1; ctx.translate(-(1 - e1) * 120, 0);
-  drawPortrait(p1, CX - 22 - BS, y0, BS, '#5ac8ff', 1);
-  text('1P', CX - 22 - BS, y0 + BS + 4, 8, '#5ac8ff', 'left');
-  text(p1 == null ? '???' : DEFS[p1].name, CX - 22, y0 + BS + 4, 8, '#ffffff', 'right');
-  ctx.restore(); ctx.save(); ctx.globalAlpha = e2; ctx.translate((1 - e2) * 120, 0);
-  drawPortrait(p2, CX + 22, y0, BS, '#ff7a6a', -1);
-  text(L2, CX + 22 + BS, y0 + BS + 4, 8, '#ff7a6a', 'right');
-  text(p2 == null ? '???' : DEFS[p2].name + (p2 === G.p1 ? ' 2P' : ''), CX + 22, y0 + BS + 4, 8, '#ffffff', 'left');
-  ctx.restore();
-  if (ev > 0) { const sc = 1 + (1 - ev) * 2.5; ctx.save(); ctx.globalAlpha = ev; ctx.translate(CX, y0 + BS / 2); ctx.scale(sc, sc); ctx.translate(-CX, -(y0 + BS / 2)); text('VS', CX, y0 + BS / 2 - 8, 16, '#ff4a2a', 'center'); ctx.restore(); }
+  const e1 = ent(0), e2 = ent(1), ev = ent(3, 3, 8);
+  const ka = Math.min(1, (G.frame - (G.selAnimF || -99)) / 12), ke = 1 - Math.pow(1 - ka, 3);   // nouveau personnage survolé : il glisse depuis le bord
+  fighterArt(p1, -1, ph === 0 ? Math.min(e1, ke) : e1);
+  if (G.mode !== 'tutorial') fighterArt(p2, 1, ph === 1 ? Math.min(e2, ke) : e2);
+  const title = arc ? (G.mode === 'tutorial' ? 'TUTORIAL: SELECT YOUR FIGHTER' : 'ARCADE MODE: SELECT YOUR FIGHTER') : ph === 0 ? (two ? 'PLAYER 1: SELECT YOUR FIGHTER' : 'SELECT YOUR FIGHTER') : (two ? 'PLAYER 2: SELECT YOUR FIGHTER' : 'SELECT CPU FIGHTER');
+  artText(title, CX, 7, 13, '#ffffff');
+  artText('PLAYER 1', 8, 22, 9, '#2ef0f0', 'left');
+  artText(p1 == null ? '???' : DEFS[p1].name, 8, 34, 15, '#ffffff', 'left');
+  if (G.mode !== 'tutorial') {
+    artText(L2, W - 8, 22, 9, '#ff3ae8', 'right');
+    artText(p2 == null ? '???' : DEFS[p2].name + (p2 === G.p1 ? ' 2P' : ''), W - 8, 34, 15, '#ffffff', 'right');
+    if (ev > 0) artText('VS', CX, 52, 38, '#ff9a1a', 'center', ['#ffd23a', '#ff5a0a']);
   }
-  // grille 4 x 2 : tous regardent à droite
-  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = 120;
+  // grille 4 x 2 : nouveaux visages
+  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = 100;
+  artFill('rgba(0,0,0,.55)', gx - 3, gy - 3, 4 * S + 3 * gap + 6, 2 * S + gap + 6);
   for (let i = 0; i < 8; i++) {
-    const x = gx + (i % 4) * (S + gap), y = gy + (i >> 2) * (S + gap);
-    const on = i === sel, blink = (G.frame >> 3) % 2;
-    popIn(ent(4 + i, 2, 8), x + S / 2, y + S / 2, () => {   // les vignettes apparaissent une par une
-      drawPortrait(ROSTER[i], x, y, S, on ? (blink ? '#ffd23a' : (ph ? '#ff3a2a' : '#ff6a1a')) : '#5a4a60', 1);
-      if (on) text(ph ? L2 : '1P', x + 1, y - 1, 8, ph ? '#ff7a6a' : '#5ac8ff', 'left');
-    });
+    const x = gx + (i % 4) * (S + gap), y = gy + (i >> 2) * (S + gap), c = ROSTER[i];
+    const on = i === sel, blink = (G.frame >> 3) % 2, k = ent(4 + i, 2, 8);
+    if (k <= 0) continue;
+    if (c != null && imgOk(SEL_FACE[c])) artDraw(SEL_FACE[c], x, y, S, S, false, k); else R(x, y, S, S, '#000');
+    if (!on && k >= 1) R(x, y, S, S, 'rgba(0,0,0,.18)');
+    ring(x, y, S, S, on ? 2 : 1, on ? (blink ? '#ffd23a' : (ph ? '#ff3a2a' : '#ff6a1a')) : '#5a4a60');
+    if (on) text(ph ? (two ? '2P' : 'CPU') : '1P', x + 2, y + 2, 8, ph ? '#ff7a6a' : '#5ac8ff', 'left');
   }
-  if (hov == null) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
-  text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, '#d8c8a8', 'center');
+  if (!isTouch) {   // PC : bouton ADD CONTROLLERS
+    const bw = 104, bh = 14, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 14, on = sel === 8;
+    ADD_BTN[0] = bx; ADD_BTN[1] = by; ADD_BTN[2] = bw; ADD_BTN[3] = bh;
+    artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
+    ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#d8d8e0');
+    const nOn = [1, 2].filter(q => remoteOn(q)).length;
+    artText('Add controllers' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.6, 8.5, on ? '#ffd23a' : '#ffffff');
+  }
+  if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
+  text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
+  if (G.qrPop) drawQRPopup();
+}
+function drawQRPopup() {   // deux QR codes : joueur 1 à gauche, joueur 2 à droite ; B pour fermer
+  const pw = Math.min(W - 24, 300), phh = 150, px = Math.round(CX - pw / 2), py = 30;
+  QR_POP[0] = px; QR_POP[1] = py; QR_POP[2] = pw; QR_POP[3] = phh;
+  if (HI.width > W) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore(); }   // la fenêtre passe au-dessus de la grille
+  artFill('rgba(0,0,0,.6)');
+  artFill('#120a1c', px, py, pw, phh);
+  ring(px, py, pw, phh, 1, '#ffd23a');
+  artText('ADD CONTROLLERS', CX, py + 8, 10, '#ffd23a');
+  artText('Scan with your smartphone to use it as a gamepad', CX, py + 22, 6.5, '#d8c8e0');
+  for (const p of [1, 2]) {
+    const q = QR[p], col = p === 1 ? '#2ef0f0' : '#ff3ae8', ps = padSlots(), padP = ps['p' + p] != null && !remoteOn(p), on = remoteOn(p) || (p === 2 && padP);
+    const sz = 76, x = Math.round(CX + (p === 1 ? -pw / 4 : pw / 4) - sz / 2), y = py + 44;
+    artText('PLAYER ' + p, x + sz / 2, y - 11, 8, col);
+    if (q) { artDraw(q, x, y, sz, sz, false, on ? .35 : 1); }
+    else { artFill('#222', x, y, sz, sz); artText(NET.status === 'error' ? 'OFFLINE' : '...', x + sz / 2, y + sz / 2 - 4, 8, '#9a8aa0'); }
+    artText(padP && p === 2 ? 'GAMEPAD' : on ? 'CONNECTED' : 'SCAN TO PLAY', x + sz / 2, y + sz + 4, 7, on ? '#5ae06a' : '#d8c8a8');
+  }
+  artText(isTouch || padOn() ? 'B: CLOSE' : 'ESC: CLOSE', CX, py + phh - 13, 8, '#ffffff');
 }
 
 const STAGES = [['dojo', 'DOJO'], ['city', 'CITY NIGHT'], ['temple', 'MISTY TEMPLE'], ['hall', 'GARGOYLE HALL'], ['ring', 'UNDERGROUND RING'], ['alley', 'BACK ALLEY'], ['lab', 'BIO LAB'], ['terrace', 'INFERNO TERRACE']];
