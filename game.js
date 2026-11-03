@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v225';
+const VERSION = 'v226';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5544,6 +5544,7 @@ function drawTitle() {
 
 // Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
 const SEL_KEYS = ['hiro', 'axel', 'vesper', 'grog', 'zephyr', 'nyx', 'kael', 'vane'];   // indices DEFS
+const SEL_FACE_DIR = [-1, 1, 1, -1, 1, 1, -1, 1];   // sens du regard de chaque image en pied (indices DEFS : Hiro, Axel, Vesper, Grog, Zephyr, Nyx, Kael, Vane)
 const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=1'); return im; });
 const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=5'); return im; });
 const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
@@ -5575,7 +5576,8 @@ function fighterArt(i, side, k) {   // personnage en entier, collé au bord, cou
   if (i == null) return;
   const im = SEL_ART[i]; if (!imgOk(im)) return;
   const h = H * 1.42, w = h * im.naturalWidth / im.naturalHeight, cx = side < 0 ? Math.min(W * .17, 74) : W - Math.min(W * .17, 74);
-  artDraw(im, cx - w / 2 + side * (1 - k) * 90, 34 + (1 - k) * 6, w, h, true, k);   // les deux en miroir (comme la maquette)
+  const want = side < 0 ? 1 : -1;   // joueur 1 regarde toujours à droite, joueur 2 toujours à gauche
+  artDraw(im, cx - w / 2 + side * (1 - k) * 90, 34 + (1 - k) * 6, w, h, SEL_FACE_DIR[i] !== want, k);
 }
 function drawSelect() {
   R(0, 0, W, H, '#000');
