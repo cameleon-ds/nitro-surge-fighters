@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v222';
+const VERSION = 'v223';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5348,7 +5348,7 @@ function drawPause() {
 const LOGO = new Image();
 LOGO.src = 'logo.png?v=25';
 const TITLE_IMG = new Image();
-TITLE_IMG.src = 'title.jpg?v=221';
+TITLE_IMG.src = 'title.jpg?v=223';
 function drawCover(img, al, sc = 1, dy = 0) {   // image plein écran (recadrée)
   if (!img.complete || !img.naturalWidth) return;
   const k = Math.max(W / img.naturalWidth, H / img.naturalHeight) * sc, w = img.naturalWidth * k, h = img.naturalHeight * k;
