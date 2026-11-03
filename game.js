@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v234';
+const VERSION = 'v235';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5635,6 +5635,7 @@ function artText(str, x, y, size, col, align = 'center', grad) {   // texte liss
   if (grad) { const gr = g.createLinearGradient(0, y * r, 0, (y + size) * r); gr.addColorStop(0, grad[0]); gr.addColorStop(1, grad[1]); g.fillStyle = gr; } else g.fillStyle = col;
   g.fillText(str, x * r, y * r); g.restore();
 }
+function artCircle(x, y, rad, col) { const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1; g.save(); g.beginPath(); g.arc(x * r, y * r, rad * r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = Math.max(1, r * .8); g.strokeStyle = '#ffffff'; g.stroke(); g.restore(); }
 function ring(x, y, w, h, t, col) { R(x - t, y - t, w + 2 * t, t, col); R(x - t, y + h, w + 2 * t, t, col); R(x - t, y, t, h, col); R(x + w, y, t, h, col); }
 const SEL_WHITE = [];
 function whiteOf(i) {   // silhouette blanche du personnage (flash de validation)
@@ -5694,8 +5695,13 @@ function drawSelect() {
     ADD_BTN[0] = bx; ADD_BTN[1] = by; ADD_BTN[2] = bw; ADD_BTN[3] = bh;
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#d8d8e0');
-    const nOn = [1, 2].filter(q => remoteOn(q)).length;
-    artText('ADD CONTROLLERS' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.4, 6.5, on ? '#ffd23a' : '#ffffff');
+    artText('ADD CONTROLLERS', CX, by + 2.4, 6.5, on ? '#ffd23a' : '#ffffff');
+    const ps = padSlots();
+    for (const q of [1, 2]) if (remoteOn(q) || ps['p' + q] != null) {   // manette connectée : pastille P1 (bleue) à gauche, P2 (mauve) à droite
+      const cx2 = q === 1 ? bx - 9 : bx + bw + 9, cy2 = by + bh / 2;
+      artCircle(cx2, cy2, 6.5, q === 1 ? '#2a8cff' : '#a83ae8');
+      artText('P' + q, cx2, cy2 - 2.6, 5, '#ffffff');
+    }
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
   text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
