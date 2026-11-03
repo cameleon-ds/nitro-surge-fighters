@@ -1,10 +1,10 @@
 /* =========================================================
-   SWEET FIGHTERS — moteur de combat pixel art
+   NITRO SURGE FIGHTERS — moteur de combat pixel art
    Résolution native 384x216, mise à l'échelle "pixelated"
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v219';
+const VERSION = 'v220';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -950,8 +950,7 @@ function drawFighter(f, x = f.x, y = f.y) {
       const x0 = Math.round(ft[0]) - (dir > 0 ? 3 : 5);
       sR(x0, Math.round(ft[1]) - 4, 8, 3, near ? B[1] : B[0]); sR(x0 + (dir > 0 ? 4 : 0), Math.round(ft[1]) - 4, 4, 1, near ? B[2] : B[1]);
       sR(x0, Math.round(ft[1]) - 1, 8, 1, '#08080a');
-    } else if (d.shoes && d.fireUpper && f.air && f.state === 'fjump') shoeTilt(ft, dir, !near);   // saut-poing : les deux pieds inclinés vers l'arrière
-    else if (d.shoes && d.fireUpper && f.air && (f.state === 'fjump' || f.state === 'uppercut')) shoeDown(ft, dir, !near);   // pieds tendus vers le bas
+    } else if (d.shoes && d.fireUpper && f.air && (f.state === 'fjump' || f.state === 'uppercut')) shoeDown(ft, dir, !near);   // pieds tendus vers le bas
     else if (d.shoes) shoeP(ft, dir, !near, d.shoe); else footP(ft, dir, S);
     if (d.jeans && near) { const kp = mix(p, k, .75); sR(kp[0] - 1, kp[1], 2, 2, Lg[3]); }   // délavé au genou
   };
@@ -1872,7 +1871,7 @@ const ATK = {
   gpound:   { act: [7, 99], box: [-18, -40, 18, 4], high: true, dmg: 15, knock: true, stun: 22, bstun: 16, push: 3, sfx: 'heavy' },
   vtripP:   { act: [1, 40], box: [14, -76, 46, -56], dmg: 4, stun: 16, bstun: 8, push: .5, sfx: 'hit' },   // Vane : 3 coups de poing très rapides (Y maintenu puis lâché)
   vtripK:   { act: [1, 40], box: [18, -68, 60, -44], dmg: 5, stun: 16, bstun: 8, push: .5, sfx: 'hit' },   // Vane : 3 coups de pied très rapides (B maintenu puis lâché)
-  vdive:    { act: [2, 80], box: [8, -30, 40, 2], high: true, dmg: 11, stun: 20, bstun: 12, push: 2.2, sfx: 'hit' },   // Vane : coup de pied en diagonale vers le bas (saut + bas + A)
+  vdive:    { act: [2, 80], box: [8, -30, 40, 2], high: true, knock: true, dmg: 11, stun: 20, bstun: 12, push: 2.2, sfx: 'hit' },   // Vane : coup de pied en diagonale vers le bas (saut + bas + A)
   hslide:   { act: [15, 60], box: [2, -100, 32, -30], dmg: 8, stun: 18, bstun: 10, push: 1.6, sfx: 'hit' },   // Hiro : glissade basse puis mini shoryuken (ne fait pas tomber)
   fjump:    { act: [5, 60], box: [8, -66, 48, -34], dmg: 11, stun: 34, bstun: 12, push: 1.4, sfx: 'heavy' },   // Axel : saut loin vers l'avant, poing en feu
   crushD:   { act: [0, 99], box: [-10, -46, 28, 4], high: true, dmg: 16, knock: true, stun: 22, bstun: 16, push: 3, sfx: 'heavy' },
@@ -2069,12 +2068,14 @@ function reflectNear(g, R, yc, yr) {
     addSpark(p.x, p.y, 'parry'); sfx('counter'); G.flashT = Math.max(G.flashT, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff');
   }
 }
+// force d'un projectile : grosse boule de feu chargée 2, très grosse sphère de Lord Vane 3, le reste 1
+const shotPow = q => q.r != null ? ((q.big || q.c > .5) ? 3 : 1) : q.big ? 2 : 1;
 function spawnFireball(f, big) {
   f.fb = { owner: f, x: f.x + f.dir * (big ? 52 : 40), y: f.y - 56, vx: 3.8 * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc: big ? 2 : 1 };
   G.fbs.push(f.fb);
   if (f.def.twinFb && !big) {   // Kaito : deux boules qui ondulent en sinusoïde, en opposition de phase
     f.fb.y0 = f.fb.y; f.fb.ph = 0;
-    G.fbs.push(Object.assign({}, f.fb, { ph: Math.PI, twin: true }));
+    const tw = Object.assign({}, f.fb, { ph: Math.PI, twin: true }); f.fb.mate = tw; tw.mate = f.fb; G.fbs.push(tw);   // les deux boules jumelles disparaissent ensemble
   }
   sfx('fb');
 }
@@ -2854,18 +2855,19 @@ function updProps() {
       // renvoi : X au bon moment quand l'objet arrive
       if (d < 70 && !F.deflected) {
         const canX = NEUTRAL.includes(o.state) || o.state === 'parry';
-        if (o.cpu && !F.aiTried && d < 55) { F.aiTried = true; if (Math.random() < [.05, .25, .45, .85][DL()]) o.ctl.buf.x = 8; }
+        const tennis = G.tut && G.tut.phase === 6 && G.tut.step === 2;   // tutoriel : le double renvoie tant que le joueur n'a pas fait 3 renvois d'affilée
+        if (o.cpu && !F.aiTried && d < 55) { F.aiTried = true; if (tennis ? (G.tut.rally || 0) < 3 : Math.random() < [.05, .25, .45, .85][DL()]) o.ctl.buf.x = 8; }
         if (canX && (o.ctl.buf.x > 0 || (o.state === 'parry' && o.t <= 12)) && d < 60) {
           take(o.ctl, 'x'); setState(o, 'parry'); o.vx = 0;
           G.darkT = 14; G.flashT = 12; G.boltX = p.x; G.boltY = p.y; G.slowAll = 30; G.shake = 3;
-          addPopup(o.x, o.y - 100, 'REFLECT!', '#7af0ff'); sfx('counter'); if (G.tut && o === G.f[0]) G.tut.refl = true;   // objet du décor contré
+          addPopup(o.x, o.y - 100, 'REFLECT!', '#7af0ff'); sfx('counter'); if (G.tut && o === G.f[0]) { G.tut.refl = true; G.tut.rally = (G.tut.rally || 0) + 1; }   // objet du décor contré
           const back = F.owner; aimProp(p, o, back); p.fly.deflected = false; p.fly.lastBy = o;
           continue;
         }
       }
       if (d < 16 || F.t >= F.T + 20) {
         breakProp(p, p.x, p.y);
-        if (hurtbox(o)) applyHit(F.owner, o, PROP_HIT, p.x, p.y, F.owner.x, true);
+        if (hurtbox(o)) { applyHit(F.owner, o, PROP_HIT, p.x, p.y, F.owner.x, true); if (G.tut && G.tut.phase === 6) { if (o === G.f[0]) G.tut.rally = 0; else if ((G.tut.rally || 0) >= 3) G.tut.cpuHit = true; } }
       }
       continue;
     }
@@ -3198,7 +3200,7 @@ function updVane() {
       if (q.c > .5) G.shake = Math.max(G.shake, 4 + q.c * 6);
       if (o.state === 'hit' || o.state === 'fall') { o.paraT = 54 + Math.round((q.c || 0) * 30); addPopup(o.x, o.y - 100, 'PARALYZED!', '#c88aff'); }
     }
-    for (const fb of G.fbs || []) if (fb.alive && fb.owner !== q.owner && Math.abs(fb.x - q.x) < 20 && Math.abs(fb.y - q.y) < 30) { fb.alive = false; if (!q.big && !(q.c > .5)) q.dead = true; addSpark(q.x, q.y, 'parry'); }
+    for (const fb of G.fbs || []) if (fb.alive && fb.owner !== q.owner && Math.abs(fb.x - q.x) < 20 && Math.abs(fb.y - q.y) < 30) { const pf = shotPow(fb), pv = shotPow(q); if (pf <= pv) { fb.alive = false; if (fb.mate) fb.mate.alive = false; } if (pv <= pf) q.dead = true; addSpark(q.x, q.y, 'parry'); }
   }
   if (G.voids) G.voids = G.voids.filter(q => !q.dead);
   for (const s2 of G.shadowFx || []) s2.t++;
@@ -3719,7 +3721,8 @@ function clashProjectiles() {
     if ((ka === 'w') !== (kb === 'w') && (ka === 'w' ? kb : ka) !== 'h') continue;
     if (!a.owner || !b.owner || a.owner === b.owner || a.dead || b.dead || a.alive === false || b.alive === false) continue;
     if (Math.abs(a.x - b.x) < ar + br && Math.abs(ay - by) < ar + br + 16) {
-      for (const q of [a, b]) { if ('alive' in q) q.alive = false; q.dead = true; if (q.owner.fb === q) q.owner.fb = null; }
+      const pa = shotPow(a), pb = shotPow(b);   // la plus forte continue, à force égale les deux s'annulent
+      for (const q of [a, b]) { if (shotPow(q) < Math.max(pa, pb)) { /* perd */ } else if (pa !== pb) continue; if ('alive' in q) q.alive = false; q.dead = true; if (q.mate) { q.mate.alive = false; q.mate.dead = true; } if (q.owner.fb === q) q.owner.fb = null; }
       (G.clashFx = G.clashFx || []).push({ x: (a.x + b.x) / 2, y: (ay + by) / 2, t: 0 });
       G.flashT = Math.max(G.flashT, 3); G.shake = Math.max(G.shake, 4); G.freeze = Math.max(G.freeze || 0, 4); sfx('parry'); sfx('heavy');
     }
@@ -4275,7 +4278,8 @@ function tutStep() {   // appelé à chaque image du combat
   } else if (T.phase === 6) {   // les objets du décor : les lancer, puis renvoyer celui de l'adversaire
     if (!(G.props || []).some(q => q.alive)) G.props = makeProps();
     if (T.step === 0 && (a.state === 'pthrow' || (G.props || []).some(q => q.fly && q.fly.owner === a))) { tutNext(); T.refl = false; }
-    else if (T.step === 1 && T.refl) { tutNext(); T.next = 4; }
+    else if (T.step === 1 && T.refl) { tutNext(); T.rally = 0; T.cpuHit = false; }   // puis le « tennis »
+    else if (T.step === 2 && T.cpuHit) { tutNext(); T.next = 4; }
   } else if (T.phase === 4 && !T.started) {   // combat libre : on repart d'un vrai round
     T.started = true; T.showFight = 200; OPT.diff = 1; saveOpt(); startRound();   // difficulté remise sur NORMAL
   }
@@ -4285,7 +4289,8 @@ function tutAI(f, o) {   // le double : immobile, puis il attaque (phase 3), pui
   if (a.press) { held[a.press] = true; if (--a.pressFrames <= 0) a.press = null; }
   const dx = o.x - f.x, dist = Math.abs(dx), fwd = dx > 0 ? 'r' : 'l';
   if (G.fighting && (T.phase === 2 || T.phase === 5) && dist > 150 && NEUTRAL.includes(f.state)) held[fwd] = true;   // reste à portée pour les coups spéciaux
-  if (G.fighting && T.phase === 6 && T.step === 1 && !T.ok && NEUTRAL.includes(f.state)) {   // va chercher un objet et le lance sur le joueur
+  if (G.fighting && T.phase === 6 && T.step >= 1 && !T.ok && NEUTRAL.includes(f.state)) {   // va chercher un objet et le lance sur le joueur
+    if ((G.props || []).some(q => q.fly)) { held[fwd] = false; return held; }   // un objet vole : il attend pour le renvoyer
     const pr = (G.props || []).filter(q => q.alive && !q.held && !q.fly).sort((p1, p2) => Math.abs(p1.x - f.x) - Math.abs(p2.x - f.x))[0];
     if (pr) { if (Math.abs(pr.x - f.x) < 20) { if (--a.cd <= 0) { a.cd = 40; press(a, 'x'); } } else held[pr.x > f.x ? 'r' : 'l'] = true; }
     return held;
@@ -4307,6 +4312,7 @@ function drawTut() {
   else if (T.phase === 2) { const it = tutSpecials(G.f[0].def)[T.step]; head = 'STEP 2: SPECIAL MOVES'; L1 = it ? tutLab(it[0]) + ': ' + it[1] : ''; }
   else if (T.phase === 5) { const it = TUT_COMBO[T.step]; head = 'STEP 3: COMBOS'; L1 = it ? tutLab('PRESS ' + it[1] + ' QUICKLY') : ''; L2 = 'THE 4TH HIT DASHES FORWARD IN FIRE!'; }
   else if (T.phase === 6 && T.step === 0) { head = 'STEP 5: OBJECTS'; L1 = tutLab('WALK TO AN OBJECT AND PRESS X'); L2 = 'TO THROW IT AT THE FOE!'; }
+  else if (T.phase === 6 && T.step === 2) { head = 'STEP 5: OBJECT TENNIS'; if ((T.rally || 0) >= 3) { L1 = 'WELL DONE!'; L2 = 'NOW LET IT HIT HIM!'; } else { L1 = tutLab('SEND IT BACK EVERY TIME WITH X!'); L2 = 'RALLY: ' + (T.rally || 0) + ' / 3'; } }
   else if (T.phase === 6) { head = 'STEP 5: OBJECTS'; L1 = 'THE FOE THROWS AN OBJECT AT YOU:'; L2 = tutLab('PRESS X AS IT ARRIVES TO SEND IT BACK!'); }
   else if (T.phase === 3 && T.step === 0) { head = 'STEP 4: THE COUNTER'; L1 = tutLab('WHEN THE FOE ATTACKS, PRESS X TO COUNTER'); L2 = tutLab('THEN PRESS Y OR B TO STRIKE BACK'); }
   else if (T.phase === 3) { head = 'STEP 4: THE COUNTER'; L1 = 'HIT THE FOE: HE WILL COUNTER YOU.'; L2 = tutLab('COUNTER HIM BACK FAST WITH X!'); }
@@ -4612,7 +4618,7 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
     text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center');
   } else {
     text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left');
-    text('2. INSTALL SWEET FIGHTERS', x0, 92, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 95, WH);
+    text('2. INSTALL THE GAME', x0, 92, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 95, WH);
     text('   (SAFARI: FILE > ADD TO DOCK)', x0, 106, 8, DIM, 'left');
     text('WORKS WITH CHROME, EDGE', CX, 126, 8, DIM, 'center'); text('AND SAFARI', CX, 138, 8, DIM, 'center');
   }
@@ -5336,12 +5342,12 @@ function drawPause() {
 const LOGO = new Image();
 LOGO.src = 'logo.png?v=25';
 const TITLE_IMG = new Image();
-TITLE_IMG.src = 'title.jpg?v=50';
-function drawCover(img, al, sc = 1) {   // image plein écran (recadrée)
+TITLE_IMG.src = 'title.jpg?v=220';
+function drawCover(img, al, sc = 1, dy = 0) {   // image plein écran (recadrée)
   if (!img.complete || !img.naturalWidth) return;
   const k = Math.max(W / img.naturalWidth, H / img.naturalHeight) * sc, w = img.naturalWidth * k, h = img.naturalHeight * k;
   ctx.save(); ctx.globalAlpha = al; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, CX - w / 2, H / 2 - h / 2, w, h); ctx.restore();
+  ctx.drawImage(img, CX - w / 2, H / 2 - h / 2 + dy, w, h); ctx.restore();
 }
 const SRG = new Image();
 SRG.src = 'srg.jpg?v=25';
@@ -5356,7 +5362,7 @@ function drawImg(img, cx, cy, w, al) {
 function drawBoot() {   // écran de démarrage : même style que le menu du titre (> CHOIX <)
   const PW = 240, items = bootItems(), c = items.includes(G.bcur) ? G.bcur : 1;
   R(0, 0, W, H, '#000');   // fond noir, sans cadre
-  text('SWEET FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
+  text('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
   text('POWERED BY SUPER ROCKET GAMES', CX, 186, 8, '#5a5a5a', 'center');
   text('ALL RIGHTS RESERVED 2026', CX, 197, 8, '#4a4a4a', 'center');
   const lbl = it => it === 0 ? 'FULL SCREEN: ' + (OPT.full ? 'ON' : 'OFF') : it === 2 ? INSTALL_LBL() : 'START';
@@ -5405,8 +5411,8 @@ function drawTitle() {
   // 2) mur de briques avec le logo graffiti : dézoom + fondu
   const L = t - SPLASH;
   const k = Math.min(1, L / 40), ease = 1 - Math.pow(1 - k, 3);
-  drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease);
-  if (!TITLE_IMG.complete) text('SWEET FIGHTERS', CX, 70, 16, '#ff7a3a', 'center');
+  drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease, G.tstate === 1 ? -32 * Math.min(1, (G.tmenu || 0) / 18) : 0);   // le logo remonte pour laisser la place au menu
+  if (!TITLE_IMG.complete) text('NITRO SURGE FIGHTERS', CX, 70, 12, '#ff7a3a', 'center');
   // bandeau sombre en bas pour la lisibilité
   const gb = ctx.createLinearGradient(0, 140, 0, H); gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(1, 'rgba(0,0,0,.75)');
   ctx.fillStyle = gb; ctx.fillRect(0, 140, W, H - 140);
@@ -5421,7 +5427,7 @@ function drawTitle() {
     });
   }
   if (L > 30) {   // plus petit, détaché du menu
-    text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 204, Math.min(8, Math.floor((W - 16) / 56)), '#d8c8b0', 'center');   // une seule ligne, lisible
+    text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, Math.max(5, Math.min(8, Math.floor((W - 16) / 56)) - 1), '#d8c8b0', 'center');   // une seule ligne, lisible
   }
   text(VERSION, W - (isTouch ? 34 : 4), isTouch ? 8 : 4, 8, '#5a4a40', 'right');   // mobile : à l'écart des bords arrondis
 }

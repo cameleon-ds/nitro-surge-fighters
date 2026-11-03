@@ -1,4 +1,4 @@
-# Sweet Fighters
+# Nitro Surge Fighters
 
 Pixel-art fighting game playable in the browser (PC and mobile in landscape).
 

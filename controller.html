@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
-<title>SF-Controller</title>
-<meta name="apple-mobile-web-app-title" content="SF-Controller">
-<meta name="application-name" content="SF-Controller">
+<title>NSF-Controller</title>
+<meta name="apple-mobile-web-app-title" content="NSF-Controller">
+<meta name="application-name" content="NSF-Controller">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="ctl-icon-180.png">
-<link rel="icon" type="image/png" href="ctl-icon-192.png">
-<link rel="manifest" href="controller-manifest.json">
+<link rel="apple-touch-icon" href="ctl-icon-180.png?v=2">
+<link rel="icon" type="image/png" href="ctl-icon-192.png?v=2">
+<link rel="manifest" href="controller-manifest.json?v=2">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;font-family:'Press Start 2P',monospace;color:#fff}
@@ -87,7 +87,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none
 </head>
 <body>
 <div id="rot">
-  <img src="ctl-icon-512.png" alt="SF-Controller">
+  <img src="ctl-icon-512.png?v=2" alt="NSF-Controller">
   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="16" rx="2"/><path d="M11 15h2"/><path d="M3 13a9 9 0 0 0 7 8"/><path d="M10 21l-2-0.5M10 21l-0.5-2"/></svg>
   <p style="margin:0">Rotate your phone<br>to landscape</p>
   <button id="rotOk" type="button">CONTINUE</button>
@@ -110,7 +110,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none
 </div></div>
 <div id="start" data-b="start">START</div>
 <div id="inst"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 17v3h16v-3"/></svg>INSTALL</div>
-<div id="help"><div><b>ADD SF-CONTROLLER</b><span id="helpTxt"></span><br><br><span style="opacity:.5">TAP TO CLOSE</span></div></div>
+<div id="help"><div><b>ADD NSF-CONTROLLER</b><span id="helpTxt"></span><br><br><span style="opacity:.5">TAP TO CLOSE</span></div></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script>
@@ -347,7 +347,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000;touch-action:none
   const send0 = () => { btn.start = false; sb.classList.remove('on'); change(); };
   sb.addEventListener('pointerup', send0); sb.addEventListener('pointercancel', send0); sb.addEventListener('pointerleave', send0);
 
-  // Installer la manette sur l'écran d'accueil (SF-Controller)
+  // Installer la manette sur l'écran d'accueil (NSF-Controller)
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   const inst = document.getElementById('inst'), help = document.getElementById('help');
   const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches && !document.fullscreenElement;
