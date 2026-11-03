@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v236';
+const VERSION = 'v237';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5662,7 +5662,7 @@ function drawSelect() {
   R(0, 0, W, H, '#000');
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
   if (imgOk(TITLE_IMG)) { const k = Math.max(W / TITLE_IMG.naturalWidth, H / TITLE_IMG.naturalHeight), w = TITLE_IMG.naturalWidth * k, h = TITLE_IMG.naturalHeight * k; artDraw(TITLE_IMG, CX - w / 2, H / 2 - h / 2, w, h, false); }
-  artFill('rgba(8,4,14,.5)');
+  artFill('rgba(8,4,14,.66)');   // fond plus foncé
   const ph = G.selPhase || 0, sel = G.sel || 0, hov = ROSTER[sel < 8 ? sel : (G.selBack || 0)];
   const arc = G.mode === 'arcade' || G.mode === 'tutorial', two = !arc && p2On(), L2 = two ? 'PLAYER 2' : 'CPU';
   const p1 = ph === 0 ? hov : G.p1, p2 = ph === 1 ? hov : null;
