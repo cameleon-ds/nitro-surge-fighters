@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v228';
+const VERSION = 'v229';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -552,7 +552,7 @@ const DEFS = [
   { name: 'AXEL', fireUpper: true, style: 'tshirt', vneck: true, head: HEAD_SORA, headBack: HEAD_SORA_BACK, braid: true, jeans: true, shoes: true,
     skin:  ['#6a3418', '#a45e34', '#d8945c', '#f8c48c'],
     hair:  { a: '#8a5a14', h: '#c08a24', H: '#ecc048', L: '#fff08a' },   // blond
-    top:   ['#5a0c0c', '#9a1818', '#d8302a', '#ff7058'],                 // t-shirt rouge
+    top:   ['#08080c', '#18181e', '#2e2e3a', '#4c4c5c'],                 // t-shirt noir (2e couleur : rouge)
     legs:  ['#16264a', '#2a4478', '#4a6eac', '#82a8dc'],                 // jean bleu
     belt:  ['#2e180a', '#4e2c14', '#704220', '#9a6436'],                 // ceinture cuir
     glove: ['#08080c', '#18181e', '#2e2e3a', '#565664'],                 // gants noirs (comme Kaito)
@@ -4241,7 +4241,7 @@ function aiInput(f, o) {
 // 2e couleur quand le CPU prend le même personnage
 const ALT = [
   { top: ['#08080c', '#18181e', '#2e2e3a', '#4c4c5c'], belt: ['#2a0404', '#4a0808', '#6e1010', '#962222'] },   // Kaito : t-shirt noir, ceinture rouge foncé
-  { top: ['#0c1a4a', '#18348c', '#2a5ad0', '#6a9cff'], legs: ['#06060a', '#14141c', '#26262e', '#8a8a9c'] }, // John : t-shirt bleu, pantalon presque noir brillant
+  { top: ['#5a0c0c', '#9a1818', '#d8302a', '#ff7058'] },   // Axel : 2e couleur, t-shirt rouge et jean bleu
   { top: ['#14040e', '#3a0a26', '#6a1446', '#c83a8a'], legs: ['#14040e', '#3a0a26', '#5a1240', '#a83a7a'], hair: { a: '#0a1a1a', h: '#0a5a5a', H: '#1ab8b8', L: '#8af4f4' } },   // Vesper : rose néon, cheveux turquoise
   { legs: ['#2a1608', '#4a2c14', '#6a4220', '#8a5a30'], belt: ['#2a1608', '#4a2c14', '#4a2c14', '#6a4220'], hair: { a: '#2a1a06', h: '#7a5a1a', H: '#a8803a', L: '#d8b870' }, bandP: ['#1a1a24', '#34344a', '#4e4e6a', '#6e6e8c'], eye: '#3af0ff' },   // Grog : même peau vert délavé, pantalon brun, crâne bronze, yeux cyan
   { top: ['#0a1a26', '#16324a', '#24506e', '#3a7aa0'], hair: { a: '#1a1a22', h: '#2e2e3a', H: '#4a4a5a', L: '#8a8a9c' } },   // Zephyr : kimono bleu nuit, cheveux noirs
