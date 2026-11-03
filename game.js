@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v239';
+const VERSION = 'v240';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2081,7 +2081,7 @@ function killShots(g, x0, x1, y0, y1, skipBig) {
 // états où le combattant n'est pas en train de faire un coup spécial
 const CALM_ST = ['idle', 'walk', 'block', 'crouch', 'cblock', 'punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick', 'rupper', 'jpunch', 'jkick', 'jump', 'land', 'hit', 'fall', 'down', 'getup', 'held', 'throw', 'parry', 'stunned', 'win'];
 const NORMAL_ATK = ['punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick', 'rupper', 'jpunch', 'jkick'];
-const underShot = o => (o.state === 'bflip' && o.t >= 1) || (o.state === 'hslide' && o.t >= 2 && o.t < 15) || (o.def.twinFb && o.state === 'uppercut') || (o.state === 'nslide' && o.t >= 2 && o.t < 26) || (o.state === 'grogroll' && o.t >= 3 && o.t < 39);
+const underShot = o => (o.state === 'hslide' && o.t >= 2 && o.t < 15) || (o.def.twinFb && o.state === 'uppercut') || (o.state === 'nslide' && o.t >= 2 && o.t < 26) || (o.state === 'grogroll' && o.t >= 3 && o.t < 39);
 // Kael (coup de pied rotatif) : renvoie boules de feu, clones, fioles et objets du décor lancés sur lui
 function reflectNear(g, R, yc, yr) {
   const mir = (q, vk, qy) => {
@@ -2091,7 +2091,7 @@ function reflectNear(g, R, yc, yr) {
     if (q.owner && q.owner.fb === q) q.owner.fb = null;
     q.owner = g; q.dir = -(q.dir || Math.sign(v)); if (vk) q[vk] = -q[vk]; if ('x0' in q) q.x0 = q.x; q.x = g.x + q.dir * (R - 6); q.t = 0;
     if (q.vy != null && !q.straight) q.vy = Math.min(q.vy, -2.5);
-    addSpark(q.x, qy, 'parry'); sfx('parry'); G.flashT = Math.max(G.flashT, 4); G.freeze = Math.max(G.freeze || 0, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff');
+    addSpark(q.x, qy, 'parry'); sfx('parry'); G.flashT = Math.max(G.flashT, 4); G.freeze = Math.max(G.freeze || 0, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff'); g.reflF = G.frame;
   };
   for (const q of G.fbs || []) mir(q, 'vx', q.y);
   for (const q of G.blades || []) mir(q, null, q.y);
@@ -2103,7 +2103,7 @@ function reflectNear(g, R, yc, yr) {
     const F = p.fly; if (!p.alive || !F || F.owner === g || F.lastBy === g) continue;
     if (Math.abs(p.x - g.x) > R + 6 || Math.abs(p.y - yc) > yr + 10) continue;
     aimProp(p, g, F.owner); p.fly.deflected = false; p.fly.lastBy = g;
-    addSpark(p.x, p.y, 'parry'); sfx('counter'); G.flashT = Math.max(G.flashT, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff');
+    addSpark(p.x, p.y, 'parry'); sfx('counter'); G.flashT = Math.max(G.flashT, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff'); g.reflF = G.frame;
   }
 }
 // force d'un projectile : grosse boule de feu chargée 2, très grosse sphère de Lord Vane 3, le reste 1
@@ -2552,6 +2552,7 @@ function updFighter(f, o) {
     }
     case 'bflip': {   // petit saut légèrement en avant, un tour de coup de pied vers l'arrière (pas rapide)
       if (f.t === 1) f.flash = 5;   // détente éclair : flash blanc sur le personnage
+      reflectNear(f, 52, f.y - 46, 54);   // renvoie toutes les boules de feu, projectiles d'énergie et objets lancés
       if (f.t < 2) { f.vx = 0; break; }
       if (f.t === 2) { f.air = true; f.vy = -5.2; f.vx = 1.7 * f.dir; f.y -= 1; sfx('upper'); }
       if (f.air) f.vy += GRAV * .5;   // plus rapide qu'avant
@@ -4315,19 +4316,19 @@ const TITLE_ITEMS = ['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL', 'VIEW COMMANDS', 
 const TUT_BTN = [['p', 'PRESS Y TO PUNCH'], ['k', 'PRESS B TO KICK'], ['s', 'PRESS A FOR A SPECIAL MOVE'], ['x', 'PRESS X TO COUNTER']];
 const st_ = n => f => f.state === n;
 const TUT_SP = {
-  hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
-  axel: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
-  vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
-  vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
-  kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
-  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN TO THE GROUND', st_('nyxspin')]],
-  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
-  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'BACK SPIN KICK', st_('bflip')]],
+  hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
+  axel: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
+  vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
+  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
 };
 const TUT_COMBO = [['ppkk', 'Y, Y, B, B'], ['kkpp', 'B, B, Y, Y'], ['ppks', 'Y, Y, B, A'], ['kkps', 'B, B, Y, A']];
 const tutSpecials = d => TUT_SP[d.kit] || (d.twinFb ? TUT_SP.hiro : TUT_SP.axel);
 const tutLab = t => t.replace(/\b([YBAX])\b/g, (m0, b) => btnLabel(b));
-function tutStart() { G.tut = { phase: 1, step: 0, ok: 0, t: 0 }; G.mode = 'tutorial'; startMatch(G.p1, G.p1, 'dojo'); }
+function tutStart() { G.tut = { phase: 1, step: 0, ok: 0, t: 0 }; G.mode = 'tutorial'; startMatch(G.p1, 0, 'dojo'); }   // adversaire du tutoriel : toujours Hiro (pour lui renvoyer ses boules de feu)
 function tutNext() { const T = G.tut; T.step++; T.ok = 50; T.t = 0; sfx('select'); G.f.forEach(f => { f.hp = 100; f.lag = 100; }); }
 function tutStep() {   // appelé à chaque image du combat
   const T = G.tut; if (!T || !G.fighting) return;
@@ -4363,6 +4364,12 @@ function tutAI(f, o) {   // le double : immobile, puis il attaque (phase 3), pui
   if (a.press) { held[a.press] = true; if (--a.pressFrames <= 0) a.press = null; }
   const dx = o.x - f.x, dist = Math.abs(dx), fwd = dx > 0 ? 'r' : 'l';
   if (G.fighting && (T.phase === 2 || T.phase === 5) && dist > 150 && NEUTRAL.includes(f.state)) held[fwd] = true;   // reste à portée pour les coups spéciaux
+  { const it = T.phase === 2 && !T.ok ? tutSpecials(o.def)[T.step] : null;
+    if (G.fighting && it && it[3] === 'fb' && NEUTRAL.includes(f.state)) {   // étape « X puis A » : Hiro lance des boules de feu à renvoyer
+      held[fwd] = false; if (dist < 120) held[fwd === 'r' ? 'l' : 'r'] = true;
+      else if (--a.cd <= 0 && !(G.fbs || []).some(q => q.alive)) { a.cd = 70; press(a, 's'); }
+      return held;
+    } }
   if (G.fighting && T.phase === 6 && T.step >= 1 && !T.ok && NEUTRAL.includes(f.state)) {   // va chercher un objet et le lance sur le joueur
     if ((G.props || []).some(q => q.fly)) { held[fwd] = false; return held; }   // un objet vole : il attend pour le renvoyer
     const pr = (G.props || []).filter(q => q.alive && !q.held && !q.fly).sort((p1, p2) => Math.abs(p1.x - f.x) - Math.abs(p2.x - f.x))[0];
@@ -4383,7 +4390,7 @@ function drawTut() {
   if (T.phase === 4) { if (!(T.showFight > 0)) return; T.showFight--; head = 'TUTORIAL COMPLETE'; L1 = 'NOW YOU KNOW ALL THE BASICS. FIGHT!'; L2 = 'PAUSE: CHANGE THE DIFFICULTY IN OPTIONS'; }
   else if (T.ok > 0) { head = 'GOOD!'; L1 = T.next === 2 ? 'NEXT: SPECIAL MOVES' : T.next === 5 ? 'NEXT: COMBOS' : T.next === 3 ? 'NEXT: THE COUNTER' : T.next === 6 ? 'NEXT: OBJECTS' : T.next === 4 ? 'WELL DONE!' : ''; }
   else if (T.phase === 1) { head = 'STEP 1: THE BUTTONS'; L1 = tutLab(TUT_BTN[T.step][1]); }
-  else if (T.phase === 2) { const it = tutSpecials(G.f[0].def)[T.step]; head = 'STEP 2: SPECIAL MOVES'; L1 = it ? tutLab(it[0]) + ': ' + it[1] : ''; }
+  else if (T.phase === 2) { const it = tutSpecials(G.f[0].def)[T.step]; head = 'STEP 2: SPECIAL MOVES'; L1 = it ? tutLab(it[0]) + ': ' + it[1] : ''; if (it && it[3] === 'fb') L2 = tutLab('PRESS X THEN A JUST BEFORE IT HITS YOU'); }
   else if (T.phase === 5) { const it = TUT_COMBO[T.step]; head = 'STEP 3: COMBOS'; L1 = it ? tutLab('PRESS ' + it[1] + ' QUICKLY') : ''; L2 = 'THE 4TH HIT DASHES FORWARD IN FIRE!'; }
   else if (T.phase === 6 && T.step === 0) { head = 'STEP 5: OBJECTS'; L1 = tutLab('WALK TO AN OBJECT AND PRESS X'); L2 = 'TO THROW IT AT THE FOE!'; }
   else if (T.phase === 6 && T.step === 2) { head = 'STEP 5: OBJECT TENNIS'; if ((T.rally || 0) >= 3) { L1 = 'WELL DONE!'; L2 = 'NOW LET IT HIT HIM!'; } else { L1 = tutLab('SEND IT BACK EVERY TIME WITH X!'); L2 = 'RALLY: ' + (T.rally || 0) + ' / 3'; } }
@@ -5309,7 +5316,7 @@ const MOVES = [
   { title: 'BASICS', lines: [
     ['Y', 'PUNCH'], ['B', 'KICK'], ['STICK UP', 'JUMP (FWD/BACK = ROLL)'], ['STICK DOWN', 'CROUCH'],
     ['BACK', 'BLOCK  -  DOWN+BACK: LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
-    ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: DODGES SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
+    ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: REFLECTS SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
     ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
     ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
