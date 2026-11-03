@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v232';
+const VERSION = 'v233';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4615,7 +4615,7 @@ const unlockAudio = () => {
 G.gate = false;
 // Chargement : images (portraits, décors, titre, logos) avant de lancer le jeu ; affiché au moins 1,2 s
 const LOAD_T0 = performance.now();
-function loadList() { return [SRG, TITLE_IMG, LOGO]; }   // uniquement l'essentiel au démarrage
+function loadList() { return [SRG, POSTER, LOGO_NSF, TITLE_IMG]; }   // chargement de départ : seulement l'intro, l'écran titre et sa musique (le reste en arrière-plan)
 // musique du titre : on attend qu'elle soit prête (au plus 3 s : certains navigateurs mobiles ne la chargent qu'à la lecture)
 const musicReady = () => BGM.readyState >= 3 || /iPhone|iPad|iPod/.test(navigator.userAgent) || performance.now() - LOAD_T0 > 3000;
 let loadOk = false;
@@ -4754,13 +4754,13 @@ function step() {
       const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap;
       if (G.tstate !== 1) {
         if (G.t < SPLASH) { if (G.t > 10 && any) G.t = SPLASH; break; }          // passer le logo Super Rocket Games
-        if (G.t > SPLASH + 20 && any) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); }
+        if (G.t > SPLASH + 20 && any) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
         if (tc !== (G.tcur || 0)) { G.tcur = tc; sfx('beep'); }
         if (tap) { const i = Math.floor((tap.y - 136) / 10); if (i >= 0 && i < TITLE_ITEMS.length) G.tcur = i; else break; }
-        if (backPress(pctl)) { G.tstate = 0; sfx('beep'); }
+        if (backPress(pctl)) { G.tstate = 0; G.t = Math.max(G.t, SPLASH + INTRO_LOGO + 60); sfx('beep'); }   // retour : affiche avec le logo
         else if (okPress(pctl) || tap) {
           sfx('select');
           if ((G.tcur || 0) <= 2) { G.mode = ['arcade', 'vs', 'tutorial'][G.tcur || 0]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }   // ARCADE MODE / V.S. BATTLE / TUTORIAL
@@ -5429,7 +5429,7 @@ function drawPause() {
 }
 
 const LOGO = new Image();
-LOGO.src = 'logo.png?v=25';
+lazySrc(LOGO, 'logo.png?v=25');
 const TITLE_IMG = new Image();
 TITLE_IMG.src = 'title.jpg?v=223';
 function drawCover(img, al, sc = 1, dy = 0) {   // image plein écran (recadrée)
@@ -5496,6 +5496,46 @@ function drawVolumeMsg() {
   text(T1.slice(0, n), CX, sy + 30, 8, WH, 'center');
   text(T2.slice(0, Math.max(0, n - 8)), CX, sy + 44, 8, `rgba(255,255,255,${a * .6})`, 'center');
 }
+const POSTER = new Image(); POSTER.src = 'intro_poster.webp?v=1';   // chargées au démarrage (intro)
+const LOGO_NSF = new Image(); LOGO_NSF.src = 'logo_nsf.webp?v=1';
+let LOGO_GLOW = null;
+function logoGlow() {   // halo flou du logo (réduit puis agrandi : flou compatible avec tous les navigateurs)
+  if (LOGO_GLOW || !imgOk(LOGO_NSF)) return LOGO_GLOW;
+  const sw = 90, sh = Math.round(sw * LOGO_NSF.naturalHeight / LOGO_NSF.naturalWidth), c = document.createElement('canvas'); c.width = sw; c.height = sh;
+  const g = c.getContext('2d'); g.drawImage(LOGO_NSF, 6, 6, sw - 12, sh - 12); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffb040'; g.fillRect(0, 0, sw, sh);
+  const c2 = document.createElement('canvas'); c2.width = sw / 3 | 0; c2.height = sh / 3 | 0; c2.getContext('2d').drawImage(c, 0, 0, c2.width, c2.height);
+  return LOGO_GLOW = c2;
+}
+const INTRO_T0 = 40, INTRO_TRAVEL = 420, INTRO_LOGO = 150;   // images : début de l'affiche, durée du travelling, apparition du logo
+function drawIntro(L) {
+  R(0, 0, W, H, '#000');
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+  artFill('#000');
+  // affiche : du haut vers le bas
+  if (L > INTRO_T0 && imgOk(POSTER)) {
+    const ph = W * POSTER.naturalHeight / POSTER.naturalWidth, k = Math.min(1, (L - INTRO_T0) / INTRO_TRAVEL), e = k * k * (3 - 2 * k);
+    artDraw(POSTER, 0, -(ph - H) * e, W, ph, false, Math.min(1, (L - INTRO_T0) / 40));
+  }
+  // PRESENTS : fondu entrant, puis fondu sortant pendant que l'affiche apparaît
+  const pa = L < 25 ? L / 25 : L < INTRO_T0 + 20 ? 1 : Math.max(0, 1 - (L - INTRO_T0 - 20) / 25);
+  if (pa > 0) { artTextA('PRESENTS', CX, H / 2 - 6, 11, '#ffffff', pa); }
+  // logo : apparaît avec un éclat lumineux, puis halo qui pulse
+  const lt = L - INTRO_LOGO;
+  if (lt > 0 && imgOk(LOGO_NSF)) {
+    const lw = Math.min(W * .78, 300), lh = lw * LOGO_NSF.naturalHeight / LOGO_NSF.naturalWidth, a = Math.min(1, lt / 18);
+    const sc = lt < 18 ? 1.35 - .35 * (1 - Math.pow(1 - lt / 18, 3)) : 1, w2 = lw * sc, h2 = lh * sc, cy = 74;
+    const gl = logoGlow();
+    if (gl) { const pulse = lt < 24 ? 1.6 * (1 - lt / 24) + .5 : .45 + .2 * Math.sin(G.frame * .08); artDraw(gl, CX - w2 * .62, cy - h2 * .66, w2 * 1.24, h2 * 1.32, false, Math.min(1, pulse) * a, 'lighter'); }
+    artDraw(LOGO_NSF, CX - w2 / 2, cy - h2 / 2, w2, h2, false, a);
+    if (lt < 14) artFill(`rgba(255,240,200,${(.5 * (1 - lt / 14)).toFixed(3)})`);   // éclair à l'apparition
+    if (lt > 40 && (G.frame >> 5) % 2 === 0) artTextA('PRESS ANY KEY', CX, cy + lh / 2 + 14, 9, '#ffffff', 1);
+  }
+}
+function artTextA(str, x, y, size, col, al) {   // texte pixel net (calque HD), avec transparence
+  const hi = hiReady();
+  if (!hi) { ctx.save(); ctx.globalAlpha = al; text(str, x, y, 8, col, 'center'); ctx.restore(); return; }
+  hx.save(); hx.globalAlpha = al; hiText(str, x, y, size, col); hx.restore();
+}
 function drawTitle() {
   const t = G.t;
   R(0, 0, W, H, '#000');
@@ -5518,9 +5558,11 @@ function drawTitle() {
     drawImg(SRG, CX, H / 2, Math.min(300, W - 40), al);
     return;
   }
-  // 2) mur de briques avec le logo graffiti : dézoom + fondu
-  const L = t - SPLASH;
-  const k = Math.min(1, L / 40), ease = 1 - Math.pow(1 - k, 3);
+  // 2) intro : PRESENTS, puis grande affiche en travelling + logo lumineux, « PRESS ANY KEY »
+  if (G.tstate !== 1 && !G.showMoves && !G.showOpts) { drawIntro(t - SPLASH); return; }
+  // 3) mur de briques avec le logo graffiti et le menu (on y « atterrit » en zoomant)
+  const L = Math.min(t - SPLASH, G.tmenu == null ? 999 : G.tmenu);
+  const k = Math.min(1, L / 30), ease = 1 - Math.pow(1 - k, 3);
   drawCover(TITLE_IMG, Math.min(1, L / 25), 1.25 - .25 * ease);   // l'image reste fixe
   if (!TITLE_IMG.complete) text('NITRO SURGE FIGHTERS', CX, 70, 12, '#ff7a3a', 'center');
   // bandeau sombre en bas pour la lisibilité
@@ -5541,6 +5583,7 @@ function drawTitle() {
     if (hiUsed) hiText('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, fs, '#d8c8b0');   // texte net (haute définition)
     else text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, fs, '#d8c8b0', 'center');
   }
+  if (G.tstate === 1 && (G.tmenu || 0) < 14) R(0, 0, W, H, `rgba(255,255,255,${(.7 * (1 - (G.tmenu || 0) / 14)).toFixed(3)})`);   // atterrissage : éclair blanc
   text(VERSION, W - (isTouch ? 34 : 4), isTouch ? 8 : 4, 8, '#5a4a40', 'right');   // mobile : à l'écart des bords arrondis
 }
 
@@ -5628,12 +5671,12 @@ function drawSelect() {
     if (on) text(ph ? (two ? '2P' : 'CPU') : '1P', x + 2, y + 2, 8, ph ? '#ff7a6a' : '#5ac8ff', 'left');
   }
   if (!isTouch) {   // PC : bouton ADD CONTROLLERS
-    const bw = 104, bh = 14, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 14, on = sel === 8;
+    const bw = 76, bh = 11, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 7, on = sel === 8;
     ADD_BTN[0] = bx; ADD_BTN[1] = by; ADD_BTN[2] = bw; ADD_BTN[3] = bh;
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#d8d8e0');
     const nOn = [1, 2].filter(q => remoteOn(q)).length;
-    artText('ADD CONTROLLERS' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.6, 8.5, on ? '#ffd23a' : '#ffffff');
+    artText('ADD CONTROLLERS' + (nOn ? ' (' + nOn + ')' : ''), CX, by + 2.4, 6.5, on ? '#ffd23a' : '#ffffff');
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
   text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
