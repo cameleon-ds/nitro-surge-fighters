@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v229';
+const VERSION = 'v230';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5547,8 +5547,8 @@ function drawTitle() {
 // Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
 const SEL_KEYS = ['hiro', 'axel', 'vesper', 'grog', 'zephyr', 'nyx', 'kael', 'vane'];   // indices DEFS
 const SEL_FACE_DIR = [-1, 1, 1, -1, 1, 1, -1, 1];   // sens du regard de chaque image en pied (indices DEFS : Hiro, Axel, Vesper, Grog, Zephyr, Nyx, Kael, Vane)
-const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=1'); return im; });
-const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=5'); return im; });
+const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=2'); return im; });
+const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=6'); return im; });
 const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
 const inRect = (t, r) => t.x >= r[0] && t.x <= r[0] + r[2] && t.y >= r[1] && t.y <= r[1] + r[3];
 const imgOk = im => im && (im instanceof HTMLCanvasElement ? im.width > 0 : im.complete && im.naturalWidth);
@@ -5681,14 +5681,30 @@ function drawStageSelect() {
 }
 
 // Écran de fin de combat : les deux visages, le perdant blessé ; RETRY / SELECT CHARACTER
+const SEL_GRAY = [];
+function grayOf(i) {   // visage en noir et blanc (perdant)
+  if (SEL_GRAY[i]) return SEL_GRAY[i];
+  const im = SEL_FACE[i]; if (!imgOk(im)) return null;
+  const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+  try { const d = g.getImageData(0, 0, c.width, c.height), p = d.data; for (let j = 0; j < p.length; j += 4) { const v = p[j] * .3 + p[j + 1] * .59 + p[j + 2] * .11; p[j] = p[j + 1] = p[j + 2] = v; } g.putImageData(d, 0, 0); } catch (e) { return im; }
+  return SEL_GRAY[i] = c;
+}
+function overFace(i, x, y, sz, border, look, gray) {
+  artFill('#000', x - 2, y - 2, sz + 4, sz + 4); ring(x, y, sz, sz, 1, border);
+  const im = gray ? grayOf(i) : SEL_FACE[i];
+  if (im && imgOk(im)) artDraw(im, x, y, sz, sz, SEL_FACE_DIR[i] !== look); else drawPortrait(i, x, y, sz, border, look, gray);
+}
 function drawOver() {
-  R(0, 0, W, H, '#000'); drawCover(TITLE_IMG, 1);
-  R(0, 0, W, H, 'rgba(6,2,10,.78)');
+  R(0, 0, W, H, '#000');
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+  if (imgOk(TITLE_IMG)) { const k0 = Math.max(W / TITLE_IMG.naturalWidth, H / TITLE_IMG.naturalHeight), w0 = TITLE_IMG.naturalWidth * k0, h0 = TITLE_IMG.naturalHeight * k0; artDraw(TITLE_IMG, CX - w0 / 2, H / 2 - h0 / 2, w0, h0, false); }
+  artFill('rgba(6,2,10,.78)');
   const [a, b] = G.f, aw = a.wins >= 2, bw = b.wins >= 2;
   const k = Math.min(1, G.t / 25), BS = Math.min(96, Math.round((W - 80) / 2 - 20)), y0 = 22;
   const lx = Math.round(CX - 18 - BS - (1 - k) * 60), rx = Math.round(CX + 18 + (1 - k) * 60);
-  drawPortrait(a.def.idx, lx, y0, BS, aw ? '#ffd23a' : '#5a4a60', 1, !aw);
-  drawPortrait(b.def.idx, rx, y0, BS, bw ? '#ffd23a' : '#5a4a60', -1, !bw);
+  overFace(a.def.idx, lx, y0, BS, aw ? '#ffd23a' : '#5a4a60', 1, !aw);   // le perdant : en noir et blanc
+  overFace(b.def.idx, rx, y0, BS, bw ? '#ffd23a' : '#5a4a60', -1, !bw);
   text(a.def.name, lx + BS / 2, y0 + BS + 6, 8, '#ffffff', 'center');
   text(b.def.name, rx + BS / 2, y0 + BS + 6, 8, '#ffffff', 'center');
   text(aw ? 'WINNER' : 'LOSER', lx + BS / 2, y0 + BS + 17, 8, aw ? '#ffd23a' : '#9a6a6a', 'center');
