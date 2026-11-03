@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v233';
+const VERSION = 'v234';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5507,6 +5507,24 @@ function logoGlow() {   // halo flou du logo (réduit puis agrandi : flou compat
   return LOGO_GLOW = c2;
 }
 const INTRO_T0 = 40, INTRO_TRAVEL = 420, INTRO_LOGO = 150;   // images : début de l'affiche, durée du travelling, apparition du logo
+const EMB = [];
+function drawEmbers(k) {   // petites braises en pixels qui montent du bas, légères, scintillantes
+  while (EMB.length < 60) EMB.push({ x: Math.random() * W, y: Math.random() * H * 1.2, vy: .25 + Math.random() * .55, ph: Math.random() * 6.28, s: Math.random() < .3 ? 3 : 2, life: 0 });
+  const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const e of EMB) {
+    e.y -= e.vy; e.x += Math.sin(e.ph + G.frame * .035) * .25 + .05; e.life++;
+    if (e.y < -4 || e.x < -4 || e.x > W + 4) { e.x = Math.random() * W; e.y = H + 2 + Math.random() * 20; e.vy = .25 + Math.random() * .55; e.life = 0; }
+    const hgt = 1 - e.y / H, fade = Math.max(0, Math.min(1, 1.35 - hgt * 1.05)) * Math.min(1, e.life / 12);   // s'éteignent en montant
+    const fl = .55 + .45 * Math.sin(e.ph * 3 + G.frame * .25);
+    const col = e.s > 2 ? [255, 120, 20] : hgt > .55 ? [230, 60, 10] : [255, 170, 40];
+    g.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${(k * fade * fl).toFixed(3)})`;
+    const px = Math.round(e.x) * r, py = Math.round(e.y) * r, sz = e.s * r;
+    g.fillRect(px, py, sz, sz);
+    if (e.s > 2) { g.fillStyle = `rgba(255,120,30,${(k * fade * fl * .35).toFixed(3)})`; g.fillRect(px - r, py - r, sz + 2 * r, sz + 2 * r); }   // petit halo
+  }
+  g.restore();
+}
 function drawIntro(L) {
   R(0, 0, W, H, '#000');
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
@@ -5516,6 +5534,7 @@ function drawIntro(L) {
     const ph = W * POSTER.naturalHeight / POSTER.naturalWidth, k = Math.min(1, (L - INTRO_T0) / INTRO_TRAVEL), e = k * k * (3 - 2 * k);
     artDraw(POSTER, 0, -(ph - H) * e, W, ph, false, Math.min(1, (L - INTRO_T0) / 40));
   }
+  if (L > INTRO_T0) drawEmbers(Math.min(1, (L - INTRO_T0) / 60));   // braises qui montent du bas
   // PRESENTS : fondu entrant, puis fondu sortant pendant que l'affiche apparaît
   const pa = L < 25 ? L / 25 : L < INTRO_T0 + 20 ? 1 : Math.max(0, 1 - (L - INTRO_T0 - 20) / 25);
   if (pa > 0) { artTextA('PRESENTS', CX, H / 2 - 6, 11, '#ffffff', pa); }
