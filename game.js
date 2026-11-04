@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v269';
+const VERSION = 'v270';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4740,7 +4740,7 @@ function tutStep() {   // appelé à chaque image du combat
     else if (T.step === 1 && T.refl) { tutNext(); T.rally = 0; T.cpuHit = false; }   // puis le « tennis »
     else if (T.step === 2 && T.cpuHit) { tutNext(); T.next = 4; }
   } else if (T.phase === 4 && !T.started) {   // combat libre : on repart d'un vrai round
-    T.started = true; T.showFight = 200; OPT.diff = 1; saveOpt(); startRound();   // difficulté remise sur NORMAL
+    T.started = true; T.showFight = 420; OPT.diff = 1; saveOpt(); startRound();   // difficulté remise sur NORMAL
   }
 }
 function tutAI(f, o) {   // le double : immobile, puis il attaque (phase 3), puis il contre (phase 3, étape 2)
@@ -4771,7 +4771,7 @@ function tutAI(f, o) {   // le double : immobile, puis il attaque (phase 3), pui
 function drawTut() {
   const T = G.tut; if (!T) return;
   let L1 = '', L2 = '', head = '';
-  if (T.phase === 4) { if (!(T.showFight > 0)) return; T.showFight--; head = 'TUTORIAL COMPLETE'; L1 = 'NOW YOU KNOW ALL THE BASICS. FIGHT!'; L2 = 'PAUSE: CHANGE THE DIFFICULTY IN OPTIONS'; }
+  if (T.phase === 4) { if (!(T.showFight > 0)) return; T.showFight--; if (T.showFight > 220) { head = 'TUTORIAL COMPLETE'; L1 = 'NOW YOU KNOW ALL THE BASICS. FIGHT!'; L2 = 'PAUSE: CHANGE THE DIFFICULTY IN OPTIONS'; } else { head = 'GUIDES'; L1 = 'MOVE HINTS APPEAR ABOVE YOUR HEAD'; L2 = 'TO HIDE THEM: PAUSE > OPTIONS > GUIDES'; } }   // le guide au-dessus de la tête, désactivable dans OPTIONS
   else if (T.ok > 0) { head = 'GOOD!'; L1 = T.next === 2 ? 'NEXT: SPECIAL MOVES' : T.next === 5 ? 'NEXT: COMBOS' : T.next === 3 ? 'NEXT: THE COUNTER' : T.next === 6 ? 'NEXT: OBJECTS' : T.next === 4 ? 'WELL DONE!' : ''; }
   else if (T.phase === 1) { head = 'STEP 1: THE BUTTONS'; L1 = tutLab(TUT_BTN[T.step][1]); }
   else if (T.phase === 2) { const it = tutSpecials(G.f[0].def)[T.step]; head = 'STEP 2: SPECIAL MOVES'; L1 = it ? tutLab(it[0]) + ': ' + it[1] : ''; if (it && it[3] === 'fb') L2 = tutLab('PRESS X THEN A JUST BEFORE IT HITS YOU'); }
