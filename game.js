@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v247';
+const VERSION = 'v248';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1386,11 +1386,11 @@ function initAudio() {
 // volume des bruitages (option SFX, 0 à 4 barres ; 4 = 100 %)
 const sfxVol = () => (typeof OPT === 'undefined' ? 4 : OPT.sfx) / 4;
 // Chaîne audio « 16 bits » : bus des bruitages → légère saturation quantifiée → compresseur → sortie ; écho pour les sons de menu
-let SFXBUS = null, CRUNCH = null, ECHO = null, VERB = null, VECHO = null;
+let SFXOUT = null, SFXBUS = null, CRUNCH = null, ECHO = null, VERB = null, VECHO = null;
 function sfxBus() {
   if (SFXBUS) return SFXBUS;
   const comp = AC.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 6; comp.attack.value = .002; comp.release.value = .12;
-  comp.connect(AC.destination);
+  comp.connect(AC.destination); SFXOUT = comp; if (typeof CAST !== 'undefined' && CAST.dest) comp.connect(CAST.dest);
   SFXBUS = AC.createGain(); SFXBUS.gain.value = 1; SFXBUS.connect(comp);
   CRUNCH = AC.createWaveShaper(); const n = 1024, cv2 = new Float32Array(n);
   for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1, y = Math.tanh(x * 2.2); cv2[i] = Math.round(y * 24) / 24; }   // saturation + quantification (grain 16 bits)
@@ -1795,7 +1795,7 @@ const ICE = { iceServers: [
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ] };
 function netStart() {
-  if (NET.peer || typeof Peer === 'undefined') return;
+  if (G.guest || NET.peer || typeof Peer === 'undefined') return;
   // identifiant gardé d'une session à l'autre : les téléphones déjà connectés se reconnectent seuls si la page est rechargée
   let id = null; try { id = localStorage.getItem('sf2host'); } catch (e) {}
   if (!id) { id = 'sf2-' + Math.random().toString(36).slice(2, 10); try { localStorage.setItem('sf2host', id); } catch (e) {} }
@@ -1814,7 +1814,7 @@ function netStart() {
     const p = (conn.metadata && conn.metadata.p) === 2 ? 2 : 1;
     if (NET.rem[p] && NET.rem[p].conn && NET.rem[p].conn !== conn) { const old = NET.rem[p].conn; try { old.send({ t: 'bye', why: 'replaced' }); } catch (e) {} setTimeout(() => { try { old.close(); } catch (e) {} }, 300); }   // une seule manette par joueur : l'ancienne page est prévenue et s'arrête
     const r = NET.rem[p] = { conn, open: false, held: {}, tap: {}, x: 0, y: 0, last: performance.now() };
-    const opened = () => { if (r.open) return; r.open = true; r.last = performance.now(); sfx('select'); try { conn.send({ t: 'hi', p }); } catch (e) {} };
+    const opened = () => { if (r.open) return; r.open = true; r.last = performance.now(); sfx('select'); try { conn.send({ t: 'hi', p }); } catch (e) {} if (conn.metadata && conn.metadata.guest) guestJoined(conn); };
     conn.on('open', opened); if (conn.open) opened();
     conn.on('data', m => {
       r.last = performance.now(); if (!r.open) opened();
@@ -1822,7 +1822,7 @@ function netStart() {
       for (const b of ['p', 'k', 's', 'x', 'start']) { const v = !!(b === 'x' ? m.bx : m[b]); if (v && !r.held[b]) r.tap[b] = true; r.held[b] = v; }
       r.x = +m.x || 0; r.y = +m.y || 0;
     });
-    conn.on('close', () => { if (NET.rem[p] === r) { r.open = false; r.held = {}; r.x = r.y = 0; } });
+    conn.on('close', () => { if (NET.rem[p] === r) { r.open = false; r.held = {}; r.x = r.y = 0; } if (NET.guest && NET.guest.conn === conn) { try { NET.guest.call && NET.guest.call.close(); } catch (e) {} NET.guest = null; addNote('PLAYER 2 LEFT'); } });
     conn.on('error', () => {});
   });
   // battement de cœur : le PC répond régulièrement ; une manette muette depuis 6 s est considérée déconnectée (elle se reconnecte seule)
@@ -1834,6 +1834,99 @@ function netStart() {
       if (r.open && now - r.last > 6000) { r.open = false; r.held = {}; r.x = r.y = 0; }
     }
   }, 1000);
+}
+
+/* ---------------- MULTIJOUEUR EN LIGNE (invitation) ----------------
+   Le Player 1 (hôte) fait tourner le jeu et envoie l'image + le son en direct (WebRTC / PeerJS).
+   Le Player 2 ouvre le lien d'invitation (?join=ID) : il voit le jeu en vidéo et envoie ses touches comme une manette. */
+const JOIN = (() => { try { return new URLSearchParams(location.search).get('join'); } catch (e) { return null; } })();
+const CAST = { cv: null, cx: null, stream: null, dest: null };
+const inviteURL = () => NET.id ? location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html?join=' + encodeURIComponent(NET.id) : '';
+let QR_INV = null, QR_INV_ID = null;
+function inviteQR() {   // QR code du lien d'invitation (option locale)
+  if (!NET.id || typeof qrcode === 'undefined') return null;
+  if (QR_INV && QR_INV_ID === NET.id) return QR_INV;
+  const q = qrcode(0, 'M'); q.addData(inviteURL()); q.make();
+  const n = q.getModuleCount(), c = document.createElement('canvas'), m = 2, pad = 3; c.width = c.height = (n + pad * 2) * m;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#000';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) g.fillRect((x + pad) * m, (y + pad) * m, m, m);
+  QR_INV_ID = NET.id; return QR_INV = c;
+}
+function castStream() {   // image du jeu (calque HD + pixels) et son, envoyés au Player 2
+  if (!CAST.cv) { CAST.cv = document.createElement('canvas'); CAST.cx = CAST.cv.getContext('2d'); CAST.cv.width = 768; CAST.cv.height = 432; castFrame(true); }
+  if (!CAST.stream) {
+    CAST.stream = CAST.cv.captureStream(30);
+    try { initAudio(); if (AC) { CAST.dest = AC.createMediaStreamDestination(); sfxBus(); if (SFXOUT) SFXOUT.connect(CAST.dest); if (bgmGain) bgmGain.connect(CAST.dest); CAST.dest.stream.getAudioTracks().forEach(t => CAST.stream.addTrack(t)); } } catch (e) {}
+  }
+  return CAST.stream;
+}
+function castFrame(force) {
+  if (!CAST.cv || (!force && !(NET.guest && NET.guest.call))) return;
+  const w = W * 2, h = H * 2, c = CAST.cx; if (CAST.cv.width !== w) { CAST.cv.width = w; CAST.cv.height = h; }
+  c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
+  if (HI.style.visibility === 'visible') { c.imageSmoothingEnabled = true; c.drawImage(HI, 0, 0, w, h); }
+  c.imageSmoothingEnabled = false; c.drawImage(cv, 0, 0, w, h);
+}
+function guestJoined(conn) {   // un joueur a ouvert le lien : il devient le Player 2
+  NET.guest = { conn, call: null };
+  try { NET.guest.call = NET.peer.call(conn.peer, castStream(), { metadata: { cast: true } }); } catch (e) {}
+  G.invPop = false; G.qrPop = false;
+  if (G.mode === 'arcade' || G.mode === 'tutorial') G.mode = 'vs';
+  if (G.scene === 'title') { G.mode = 'vs'; G.scene = 'select'; G.selPhase = 0; G.t = 0; }
+  addNote('PLAYER 2 JOINED!'); sfx('counter');
+}
+function addNote(txt) { G.note = { txt, t: 0 }; }
+function drawNote() { const N = G.note; if (!N) return; N.t++; if (N.t > 150) { G.note = null; return; } const a = Math.min(1, N.t / 8, (150 - N.t) / 20); ctx.save(); ctx.globalAlpha = a; R(CX - 90, 4, 180, 14, 'rgba(10,4,20,.85)'); text(N.txt, CX, 7, 8, '#5aff8a', 'center'); ctx.restore(); }
+// ---- côté Player 2 (lien d'invitation) ----
+function guestStart() {
+  G.guest = { status: 'connecting', t: 0 }; G.musicHold = true; G.boot = false;
+  const v = document.createElement('video'); v.id = 'guestVid'; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
+  Object.assign(v.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'contain', background: '#000', zIndex: '3', imageRendering: 'pixelated', display: 'none' });
+  document.getElementById('app').appendChild(v); G.guest.vid = v;
+  const unmute = () => { if (v.muted) { v.muted = false; v.play().catch(() => {}); } };
+  ['pointerup', 'keydown', 'touchend'].forEach(ev => addEventListener(ev, unmute, { capture: true, passive: true }));
+  guestConnect();
+}
+function guestConnect() {
+  const Gs = G.guest; if (!Gs) return;
+  if (typeof Peer === 'undefined') { setTimeout(guestConnect, 400); return; }
+  if (!Gs.peer || Gs.peer.destroyed) {
+    try { Gs.peer = new Peer(undefined, { config: ICE }); } catch (e) { Gs.status = 'error'; return; }
+    Gs.peer.on('open', () => guestDial());
+    Gs.peer.on('call', call => {
+      call.answer();
+      call.on('stream', st => { const v = Gs.vid; v.srcObject = st; v.style.display = 'block'; v.muted = false; v.play().catch(() => { v.muted = true; v.play().catch(() => {}); }); Gs.status = 'live'; });
+      call.on('close', () => { Gs.vid.style.display = 'none'; Gs.status = 'lost'; });
+    });
+    Gs.peer.on('error', e => { Gs.status = e && e.type === 'peer-unavailable' ? 'notfound' : 'error'; setTimeout(guestDial, 3000); });
+    Gs.peer.on('disconnected', () => { setTimeout(() => { try { Gs.peer.reconnect(); } catch (e) {} }, 1000); });
+  } else guestDial();
+}
+function guestDial() {   // connexion au Player 1 (et reconnexion si la liaison tombe)
+  const Gs = G.guest; if (!Gs || !Gs.peer || Gs.peer.destroyed || !Gs.peer.open) return;
+  if (Gs.conn && Gs.conn.open) return;
+  const c = Gs.peer.connect(JOIN, { metadata: { p: 2, guest: true }, serialization: 'json' });
+  Gs.conn = c; if (Gs.status !== 'live') Gs.status = 'connecting';
+  c.on('open', () => { if (Gs.status !== 'live') Gs.status = 'joined'; });
+  c.on('data', m => { if (m && m.t === 'bye') Gs.status = 'replaced'; });
+  c.on('close', () => { Gs.status = 'lost'; Gs.vid.style.display = 'none'; setTimeout(guestDial, 2500); });
+  c.on('error', () => {});
+}
+function guestStep() {   // le Player 2 envoie ses touches (clavier, écran tactile, manette) comme une manette
+  const Gs = G.guest; Gs.t++;
+  const r = readPlayer(), c = Gs.conn;
+  const x = Math.abs(touch.x) > .15 || Math.abs(touch.y) > .15 ? touch.x : (r.r ? 1 : 0) - (r.l ? 1 : 0), y = Math.abs(touch.x) > .15 || Math.abs(touch.y) > .15 ? touch.y : (r.d ? 1 : 0) - (r.u ? 1 : 0);
+  const m = { t: 'in', x: +x.toFixed(2), y: +y.toFixed(2), p: !!r.p, k: !!r.k, s: !!r.s, bx: !!r.x, start: !!(r.start || r.back) };
+  const k = JSON.stringify(m);
+  if (c && c.open && (k !== Gs.last || Gs.t % 12 === 0)) { Gs.last = k; try { c.send(m); } catch (e) {} }
+  if (Gs.t % 180 === 0 && (!c || !c.open)) guestDial();
+}
+function drawGuest() {   // écran d'attente du Player 2 (la vidéo du jeu passe par-dessus quand elle arrive)
+  const Gs = G.guest; R(0, 0, W, H, '#05030a');
+  const msg = { connecting: 'CONNECTING TO PLAYER 1...', joined: 'CONNECTED! WAITING FOR THE GAME...', live: '', lost: 'CONNECTION LOST - RECONNECTING...', notfound: 'PLAYER 1 NOT FOUND - RETRYING...', error: 'CONNECTION ERROR - RETRYING...', replaced: 'ANOTHER PLAYER 2 JOINED' }[Gs.status] || '';
+  text('NITRO SURGE FIGHTERS', CX, 70, 8, '#ffd23a', 'center');
+  text('ONLINE - PLAYER 2', CX, 86, 8, '#ff3ae8', 'center');
+  if ((G.frame >> 4) % 2 || Gs.status === 'joined') text(msg, CX, 120, 8, '#ffffff', 'center');
 }
 const QR = { 1: null, 2: null };
 function controllerURL(p) { return new URL('controller.html?h=' + NET.id + '&p=' + p + '&v=155', location.href).href; }
@@ -4833,14 +4926,14 @@ const MUSIC_MAX = .55;   // niveau maximal de la musique (les MP3 sont mixés fo
 function bgmRoute() {
   if (bgmGain || location.protocol === 'file:') return;   // en local (file://) Web Audio rendrait la musique muette
   initAudio(); if (!AC) return;
-  try { const src = AC.createMediaElementSource(BGM); bgmGain = AC.createGain(); src.connect(bgmGain).connect(AC.destination); BGM.volume = 1; }
+  try { const src = AC.createMediaElementSource(BGM); bgmGain = AC.createGain(); src.connect(bgmGain).connect(AC.destination); BGM.volume = 1; if (CAST.dest) bgmGain.connect(CAST.dest); }
   catch (e) { bgmGain = null; }
 }
 
 /* ---------------- DÉMO (écran titre) ----------------
    2 s après le logo : fondu, 5 s de combat entre CPU, puis retour au travelling.
    Cycle de 3 démos : combat normal, Nitro + NITRO COMBO, Surge + NITRO SURGE COMBO */
-const DEMO_T = 300, DEMO_FADE = 20, DEMO_WAIT = 120;
+const DEMO_T = 300, DEMO_FADE = 20, DEMO_WAIT = 180;   // démo : 3 s après le logo
 const DEMO_PAIRS = [[0, 1], [6, 2], [3, 5], [4, 7], [1, 6], [7, 0], [5, 4], [2, 3]];
 function startDemo() {
   const n = G.demoN || 0, i = n % 3, [p1, p2] = DEMO_PAIRS[n % DEMO_PAIRS.length];
@@ -5021,6 +5114,7 @@ addEventListener('touchend', () => { if (!G.boot) syncFS(); }, { capture: true, 
 document.addEventListener('visibilitychange', () => { if (document.hidden) BGM.pause(); });
 
 function step() {
+  if (G.guest) { G.frame++; guestStep(); tap = null; return; }   // Player 2 en ligne : il n'envoie que ses touches
   updateMusic();
   G.frame++; G.st = (G.st || 0) + 1;
   netSendState();
@@ -5091,20 +5185,30 @@ function step() {
         if (backPress(pctl) || backPress(p2ctl) || okPress(pctl) || (tap && !inRect(tap, QR_POP))) { G.qrPop = false; sfx('beep'); }
         break;
       }
-      const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille
+      if (G.invPop) {   // fenêtre INVITE A PLAYER
+        if (edge(pctl, 'l') || edge(pctl, 'r')) { G.invSel = 1 - (G.invSel || 0); sfx('beep'); }
+        if (tap) { if (!inRect(tap, INV_POP)) G.invPop = false; else if (inRect(tap, INV_L)) G.invSel = 0; else if (inRect(tap, INV_R)) G.invSel = 1; }
+        if (backPress(pctl)) { G.invPop = false; sfx('beep'); }
+        else if (okPress(pctl) && G.invSel === 1 && G.frame - (G.shareF || -99) > 3) doShare();
+        break;
+      }
+      const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
       if (btnOn && tap && inRect(tap, ADD_BTN)) { G.qrPop = true; sfx('select'); break; }
+      if (tap && inRect(tap, INV_BTN)) { openInvite(); break; }
       {
         let sl = G.sel || 0;
-        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack || 4; }
+        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack || 4; if (edge(sc, 'd')) sl = 9; }
+        else if (sl === 9) { if (edge(sc, 'u')) sl = btnOn ? 8 : G.selBack || 4; }
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
           if (edge(sc, 'u') && sl > 3) sl -= 4;
-          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } }
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else { G.selBack = sl; sl = btnOn ? 8 : 9; } }
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
       if (G.sel === 8 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { G.qrPop = true; sfx('select'); break; }
+      if (G.sel === 9 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { openInvite(); break; }
       if (G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) {
         const c = ROSTER[G.sel || 0];
         if (c == null) sfx('block');
@@ -6043,10 +6147,73 @@ function drawSelect() {
       artText('P' + q, cx2, cy2 - 2.6, 5, '#ffffff');
     }
   }
+  {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
+    const bw = 76, bh = 11, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 7 + (isTouch ? 0 : 14), on = sel === 9;
+    INV_BTN[0] = bx; INV_BTN[1] = by; INV_BTN[2] = bw; INV_BTN[3] = bh;
+    artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
+    ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#ff6ae8');
+    artText('INVITE A PLAYER', CX, by + 2.4, 6.5, on ? '#ffd23a' : '#ffffff');
+    if (NET.guest) { artCircle(bx + bw + 9, by + bh / 2, 6.5, '#a83ae8'); artText('P2', bx + bw + 9, by + bh / 2 - 2.6, 5, '#ffffff'); }
+  }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
-  text(isTouch ? 'A: CONFIRM   B: BACK' : 'ENTER: CONFIRM   ESC: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
+  if (isTouch) text('A: CONFIRM   B: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
   for (const sd of [0, 1]) { const pf = G.pickF && G.pickF[sd] != null ? G.frame - G.pickF[sd] : 99; if (pf < 10) R(0, 0, W, H, `rgba(255,255,255,${(.45 * (1 - pf / 10)).toFixed(3)})`); }   // éclair blanc à la validation
   if (G.qrPop) drawQRPopup();
+  if (G.invPop) drawInvitePopup();
+}
+
+// ---- INVITE A PLAYER : QR code (local) ou lien à partager (à distance) ----
+const INV_BTN = [0, 0, 0, 0], INV_POP = [0, 0, 0, 0], INV_L = [0, 0, 0, 0], INV_R = [0, 0, 0, 0], INV_SHARE = [0, 0, 0, 0];
+function openInvite() { netStart(); G.invPop = true; G.invSel = G.invSel || 0; G.invMsg = ''; sfx('select'); }
+function doShare(gesture) {   // menu de partage du téléphone / PC (WhatsApp, Messenger...) ; sinon copie du lien
+  const url = inviteURL(); G.shareF = G.frame; sfx('select');
+  if (!url) { G.invMsg = 'PLEASE WAIT, CONNECTING...'; return; }
+  const copy = () => { try { navigator.clipboard.writeText(url).then(() => { G.invMsg = 'LINK COPIED! PASTE IT IN A MESSAGE'; }, () => { G.invMsg = 'COPY THE LINK BELOW'; }); } catch (e) { G.invMsg = 'COPY THE LINK BELOW'; } };
+  if (navigator.share) navigator.share({ title: 'Nitro Surge Fighters', text: 'Join my fight in Nitro Surge Fighters!', url }).then(() => { G.invMsg = 'INVITATION SENT!'; }, e => { if (!(e && e.name === 'AbortError')) copy(); });
+  else copy();
+}
+// le partage doit partir d'un vrai geste (clic / touche) : on l'appelle directement depuis l'événement
+const evPt = e => { const r = cv.getBoundingClientRect(); return ROT ? { x: (e.clientY - r.top) / r.height * W, y: (r.right - e.clientX) / r.width * H } : { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
+addEventListener('pointerup', e => { if (G.invPop && G.scene === 'select' && inRect(evPt(e), INV_SHARE)) { G.invSel = 1; doShare(true); } }, { passive: true });
+addEventListener('keydown', e => { if (G.invPop && G.scene === 'select' && G.invSel === 1 && (e.code === KEYS.s || e.code === 'Enter')) doShare(true); });
+function drawShareIcon(x, y, col) {   // icône de partage (vectorielle)
+  const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
+  g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1.6 * r;
+  const P = [[x + 7, y - 7], [x - 7, y], [x + 7, y + 7]];
+  g.beginPath(); g.moveTo(P[0][0] * r, P[0][1] * r); g.lineTo(P[1][0] * r, P[1][1] * r); g.lineTo(P[2][0] * r, P[2][1] * r); g.stroke();
+  for (const [px, py] of P) { g.beginPath(); g.arc(px * r, py * r, 3.2 * r, 0, 6.29); g.fill(); }
+  g.restore();
+}
+function drawInvitePopup() {
+  if (HI.width > W) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore(); }
+  artFill('rgba(0,0,0,.82)');
+  const pw = W - 16, ph = H - 16, px = 8, py = 8; INV_POP.splice(0, 4, px, py, pw, ph);
+  artFill('#120a1c', px, py, pw, ph); ring(px, py, pw, ph, 1, '#ffd23a');
+  artText('INVITE A PLAYER', CX, py + 7, 11, '#ffd23a');
+  const bw = Math.floor((pw - 30) / 2), bh = ph - 54, by = py + 26;
+  for (const i of [0, 1]) {
+    const bx = px + 10 + i * (bw + 10), on = (G.invSel || 0) === i; (i ? INV_R : INV_L).splice(0, 4, bx, by, bw, bh);
+    artFill(on ? 'rgba(255,210,58,.08)' : 'rgba(255,255,255,.03)', bx, by, bw, bh); ring(bx, by, bw, bh, on ? 2 : 1, on ? '#ffd23a' : '#5a4a60');
+    const cx2 = bx + bw / 2;
+    if (i === 0) {   // LOCAL : QR code
+      artText('LOCAL', cx2, by + 6, 9, on ? '#ffd23a' : '#ffffff');
+      artText('Player 2 nearby: scan this code', cx2, by + 19, 6, '#d8c8e0');
+      const q = inviteQR(), sz = Math.min(86, bh - 46);
+      if (q) artDraw(q, cx2 - sz / 2, by + 30, sz, sz, false); else { artFill('#222', cx2 - sz / 2, by + 30, sz, sz); artText('...', cx2, by + 30 + sz / 2 - 4, 8, '#9a8aa0'); }
+    } else {   // À DISTANCE : bouton Partager
+      artText('ONLINE', cx2, by + 6, 9, on ? '#ffd23a' : '#ffffff');
+      artText('Send an invitation link', cx2, by + 19, 6, '#d8c8e0');
+      artText('(WhatsApp, Messenger, e-mail...)', cx2, by + 28, 6, '#d8c8e0');
+      const sw = 84, sh = 22, sx = cx2 - sw / 2, sy = by + 46; INV_SHARE.splice(0, 4, sx, sy, sw, sh);
+      artFill(on ? '#ffd23a' : '#3a2a48', sx, sy, sw, sh); ring(sx, sy, sw, sh, 1, '#ffffff');
+      drawShareIcon(sx + 16, sy + sh / 2, on ? '#1a0a24' : '#ffffff');
+      artText('SHARE', sx + 50, sy + 6, 9, on ? '#1a0a24' : '#ffffff');
+      if (G.invMsg) artText(G.invMsg, cx2, sy + sh + 8, 6, '#5aff8a');
+      const u = inviteURL(); if (u) artText(u.replace(/^https?:\/\//, ''), cx2, by + bh - 12, 4.2, '#9a8ab0');
+    }
+  }
+  artText(NET.guest ? 'PLAYER 2 CONNECTED!' : NET.id ? 'WAITING FOR PLAYER 2...' : 'CONNECTING...', CX, py + ph - 24, 6.5, NET.guest ? '#5aff8a' : '#c8b8d8');
+  artText(isTouch || padOn() ? '< > : CHOOSE   B: CLOSE' : '< > : CHOOSE   ENTER: SHARE   ESC: CLOSE', CX, py + ph - 13, 6, '#ffffff');
 }
 function drawQRPopup() {   // deux QR codes : joueur 1 à gauche, joueur 2 à droite ; B pour fermer
   const pw = Math.min(W - 24, 300), phh = 150, px = Math.round(CX - pw / 2), py = 30;
@@ -6130,6 +6297,7 @@ function drawOver() {
 
 function render() {
   hiUsed = false;
+  if (G.guest) { ctx.save(); drawGuest(); ctx.restore(); if (HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden'; return; }
   ctx.save();
   const grp = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) ? 'fight' : G.scene;
   if (G.noWipe) { G.noWipe = false; prevGroup = grp; }
@@ -6151,8 +6319,10 @@ function render() {
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
   if (G.demo && (G.frame >> 5) % 2 === 0) text('PRESS ANY KEY', CX, H - 30, 8, '#ffffff', 'center');   // démo
+  drawNote();
   if (G.fadeK > 0) { R(0, 0, W, H, `rgba(0,0,0,${Math.min(1, G.fadeK).toFixed(3)})`); if (!G.demo && G.scene === 'title' && !(G.demoOut > 0)) G.fadeK = Math.max(0, G.fadeK - 1 / DEMO_FADE); }   // fondus de la démo
   if (!hiUsed && HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden';
+  castFrame();   // image envoyée au Player 2 en ligne
 }
 // Transition entre écrans : un volet diagonal noir bordé d'une lame de lumière balaie l'ancien écran
 let prevGroup = null, transT = 99;
@@ -6196,5 +6366,6 @@ if (document.fonts && document.fonts.load) {
 } else go();
 
 // Accès debug pour les tests
+if (JOIN) guestStart();   // ouvert depuis un lien d'invitation : Player 2 en ligne
 window.__SF = G; window.__QR = QR; window.__ERRS = ERRS; window.__sfx = n => { initAudio(); sfx(n); }; window.__NET = NET; window.__BGM = BGM; window.__bgmGain = () => bgmGain; window.__mkqr = () => makeQRs(); window.__start = (a, b, s) => startMatch(a, b, s); window.__spr = (f, skip) => { const keep = ctx; window.__skip = skip; drawFighter(f, -999, -999); window.__skip = null; return SPR.toDataURL(); };
 })();
