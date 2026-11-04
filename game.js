@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v261';
+const VERSION = 'v262';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -640,8 +640,10 @@ const POSES = {
   fpunch1: [9,-51, 7,-43, 3,-26, 3,-40, 6,-46, 16,-45, 32,-46, 13,-14, 20,0, -5,-11, -12,0],
   fkick0:  [-2,-55, -3,-47, -2,-30, 4,-42, 8,-48, -8,-40, -4,-46, 6,-15, 9,0, 12,-42, 9,-29],
   fkick1:  [-10,-52, -9,-44, -3,-30, -2,-42, 2,-48, -14,-40, -10,-46, 5,-15, 8,0, 22,-40, 48,-44],
-  gp0:     [2,-47, 0,-40, -2,-23, -3,-50, 2,-56, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
-  gp1:     [13,-37, 10,-31, 0,-19, 19,-17, 26,-2, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
+  gp0:     [2,-47, 0,-40, -2,-23, 6,-34, 10,-38, -3,-50, 2,-56, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
+  gpA:     [6,-44, 4,-37, -1,-21, 8,-30, 6,-24, 10,-50, 16,-60, 13,-12, 17,0, -8,-7, -16,0],     // rotation du bras : au-dessus de la tête
+  gpB:     [10,-40, 7,-34, 0,-20, 4,-28, 0,-22, 18,-36, 30,-32, 14,-12, 18,0, -8,-6, -16,0],     // rotation du bras : devant
+  gp1:     [13,-37, 10,-31, 0,-19, 2,-28, -3,-22, 19,-17, 26,-2, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
   special0:[-1,-52, -2,-44, -2,-26, -7,-34, -11,-30, -9,-35, -13,-31, 10,-13, 15,0, -9,-12, -16,0],
   special1:[6,-50, 4,-42, 1,-25, 15,-40, 26,-40, 13,-38, 24,-37, 11,-13, 18,0, -8,-11, -17,0],
   upper0:  [4,-46, 2,-38, 0,-22, 8,-30, 10,-24, 4,-30, 8,-36, 10,-12, 12,0, -6,-10, -10,0],
@@ -901,8 +903,9 @@ function drawFighter(f, x = f.x, y = f.y) {
     }
     const base = backView ? [h[0] - dir * 1, h[1] + 2] : [h[0] - dir * 4, h[1]];
     const slant = backView ? .6 : 1.4;
+    const windy = f.state === 'axgp' || (f.state === 'nsuper' && f.t >= 12);   // frappe au sol : la tresse flotte en arrière dans le vent
     for (let i = 0; i < 7; i++) {
-      const q = [base[0] - dir * (slant * i - .07 * i * i) + swing * i * .25, base[1] + 2.2 * i];
+      const q = windy ? [base[0] - dir * 2.4 * i, base[1] - 1 + .5 * i + Math.sin(G.frame * .45 - i * .9) * 1.7 * (i / 6)] : [base[0] - dir * (slant * i - .07 * i * i) + swing * i * .25, base[1] + 2.2 * i];
       sR(q[0] - 1, q[1] - 1, 3, 3, hp.a);
       sR(q[0] - 1, q[1] - 1, 2, 2, i % 2 ? hp.h : hp.H);
       if (i % 2 === 0) sR(q[0] - 1, q[1] - 1, 1, 1, hp.L);
@@ -2040,7 +2043,7 @@ function makeFighter(def, id, x, dir, cpu) {
   };
 }
 
-const chargeMax = f => { const T = f.def.twinFb ? 72 : f.def.fireUpper ? 90 : 120; return f.hp <= 80 ? T / 2 : T; };   // charge max : Hiro 1,2 s, Axel 1,5 s (moitié à 80 % d'énergie ou moins)
+const chargeMax = f => { const T = f.def.twinFb ? 72 : f.def.fireUpper ? 72 : 120; return f.hp <= 80 ? T / 2 : T; };   // charge max : Hiro 1,2 s, Axel 1,2 s (moitié à 80 % d'énergie ou moins)
 function setState(f, s) { if (f.chSnd && s !== f.state) vaneChargeStop(f); if (s !== 'pteleport' && s !== 'nyxtele') f.fadeK = 0; if (s !== 'sink') f.sinkK = 0; if (s === 'hit' || s === 'fall') f.wallT = 0; if (f.dizzy && s !== 'stunned') { f.dizzy = false; f.dizzyEnd = G.frame; } if (s !== 'jump') { f.rollT = 0; f.rollA0 = 0; f.airNoS = false; } f.fireDash = 0; f.state = s; f.t = 0; f.hasHit = false; f.rotAng = null; }
 function face(f, o) { f.dir = o.x >= f.x ? 1 : -1; }
 
@@ -2074,7 +2077,7 @@ function poseOf(f) {
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
     case 'nitroUp': return 'win';
-    case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
+    case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : f.t < 61 ? 'gpA' : f.t < 62 ? 'gpB' : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
     case 'kspin': return f.t < 2 ? 'jump' : 'tuck';   // roulade en boule, comme Grog (haut + A)
@@ -2096,7 +2099,7 @@ function poseOf(f) {
       return f.t < 5 ? 'fpunch0' : f.t < 13 ? 'fpunch1' : 'fpunch0';
     case 'fkick': return f.t < 9 || f.t >= 17 ? 'fkick0' : 'fkick1';
     case 'special': return f.t < 12 ? 'special0' : 'special1';
-    case 'axgp': return !f.fired || f.t - f.gpT < 2 ? 'gp0' : 'gp1';
+    case 'axgp': { if (!f.fired) return 'gp0'; const k = f.t - f.gpT; return k < 1 ? 'gpA' : k < 2 ? 'gpB' : 'gp1'; }
     case 'pthrow': return f.t < 7 ? 'special0' : 'special1';
     case 'holo': return f.t < 7 ? 'special0' : 'special1';
     case 'shadow': return 'tuck';
@@ -2543,9 +2546,9 @@ function updFighter(f, o) {
         } else if (f.t >= 12) { vaneChargeStop(f); f.fired = true; f.gpT = f.t; f.vx = 2.4 * f.dir; sfx('whoosh'); }   // il avance en frappant
       } else {
         const k = f.t - f.gpT;
-        if (k >= 4) f.vx = 0;
-        if (k === 4) spawnBounceFb(f, f.charged);
-        if (k >= 30) setState(f, 'idle');
+        if (k >= 3) f.vx = 0;
+        if (k === 2) spawnBounceFb(f, f.charged);   // frappe très rapide
+        if (k >= 26) setState(f, 'idle');
       }
       break;
     case 'special':
@@ -5510,7 +5513,12 @@ function stepFight() {
 
 /* ---------------- Rendu ---------------- */
 function drawFireball(fb) {
-  const pal = fb.owner.def.fb, x = Math.round(fb.x), y = Math.round(fb.y), d = fb.dir, t = fb.t, S = fb.sc || 1;
+  const vy = fb.bounce ? fb.bvy : fb.vy || 0, ang = vy ? Math.atan2(vy * fb.dir, Math.abs(fb.vx) || 1) : 0;   // la boule s'oriente selon sa trajectoire (rebond, diagonale)
+  if (ang) { ctx.save(); ctx.translate(Math.round(fb.x), Math.round(fb.y)); ctx.rotate(ang); drawFireball0(fb, 0, 0); ctx.restore(); }
+  else drawFireball0(fb, Math.round(fb.x), Math.round(fb.y));
+}
+function drawFireball0(fb, x, y) {
+  const pal = fb.owner.def.fb, d = fb.dir, t = fb.t, S = fb.sc || 1;
   const pulse = 1 + Math.sin(t * .5) * .08;
   // halo lumineux (mélange additif)
   ctx.save();
@@ -5706,6 +5714,23 @@ function drawBurn(f) {
   }
 }
 // Frappe enflammée : boule de feu dans la main pendant la frappe
+function drawAxFire(f) {   // Axel : bras en feu pendant la frappe au sol (même flamme que son shoryuken)
+  let on = false;
+  if (f.state === 'axgp') on = !f.fired ? f.t >= 6 : f.t - f.gpT < 12;
+  else if (f.state === 'nsuper' && superKit(f) === 'axel') on = f.t >= 40 && f.t < 74;
+  if (!on) return;
+  const P = POSES[poseOf(f)], pal = f.def.fb;
+  for (const [i, sz] of [[10, .6], [12, 1]]) {   // coude puis poing
+    const x = f.x + f.dir * P[i] * 1.4, y = f.y + P[i + 1] * 1.3, k = sz;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(x, y, 1, x, y, 18 * k + 5);
+    g.addColorStop(0, pal[1] + 'ee'); g.addColorStop(1, pal[3] + '00');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 18 * k + 5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    for (let j = 0; j < 6; j++) { const a = G.frame * .5 + j; disc(x + Math.cos(a) * 5 * k, y + Math.sin(a) * 4 * k - j * 1.5, Math.max(1, (5 - j) * k), j < 3 ? pal[2] : pal[3]); }
+    disc(x, y, 4 * k, pal[1]); disc(x, y, 2, pal[0]);
+  }
+}
 function drawFlameHand(f) {
   if (!f.fireState || f.state !== f.fireState) return;
   const at = ATK[f.state]; if (!at || f.t > at.act[1] + 6) return;
@@ -5766,7 +5791,7 @@ function drawFight() {
     drawSurgeGhost(f);
   });
   G.f.forEach(f => { if (f.toxT > 0) for (let b = 0; b < 3; b++) { const ph = (G.frame * 1.3 + b * 29) % 50; R(Math.round(f.x + Math.sin(b * 2.4 + G.frame * .05) * 12), Math.round(f.y - 10 - ph * 1.6), 2, 2, `rgba(120,255,100,${1 - ph / 50})`); } });   // vapeurs toxiques sur le combattant empoisonné
-  G.f.forEach(f => { if (f.burn > 0) drawBurn(f); drawFlameHand(f); if (f.dizzy) drawDizzy(f); });
+  G.f.forEach(f => { if (f.burn > 0) drawBurn(f); drawFlameHand(f); drawAxFire(f); if (f.dizzy) drawDizzy(f); });
   if (G.clash) drawClash();
   G.fbs.forEach(drawFireball);
   drawSupers();
@@ -5855,7 +5880,7 @@ const MOVES = [
     ['BACK', 'BLOCK  -  DOWN+BACK: LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
     ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: REFLECTS SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
-    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['A', 'AXEL: GROUND PUNCH, BOUNCING FIREBALL'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
+    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.2S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['A', 'AXEL: GROUND PUNCH, BOUNCING FIREBALL'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
     ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
     ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
     ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 8 HITS'], ['SURGE + YYBA', '8 HITS + CHARGED SUPER SHOT'], ['X X A', 'SURGE (PURPLE GAUGE FULL): DOUBLE 5 S'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
