@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v260';
+const VERSION = 'v261';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -640,6 +640,8 @@ const POSES = {
   fpunch1: [9,-51, 7,-43, 3,-26, 3,-40, 6,-46, 16,-45, 32,-46, 13,-14, 20,0, -5,-11, -12,0],
   fkick0:  [-2,-55, -3,-47, -2,-30, 4,-42, 8,-48, -8,-40, -4,-46, 6,-15, 9,0, 12,-42, 9,-29],
   fkick1:  [-10,-52, -9,-44, -3,-30, -2,-42, 2,-48, -14,-40, -10,-46, 5,-15, 8,0, 22,-40, 48,-44],
+  gp0:     [2,-47, 0,-40, -2,-23, -3,-50, 2,-56, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
+  gp1:     [13,-37, 10,-31, 0,-19, 19,-17, 26,-2, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
   special0:[-1,-52, -2,-44, -2,-26, -7,-34, -11,-30, -9,-35, -13,-31, 10,-13, 15,0, -9,-12, -16,0],
   special1:[6,-50, 4,-42, 1,-25, 15,-40, 26,-40, 13,-38, 24,-37, 11,-13, 18,0, -8,-11, -17,0],
   upper0:  [4,-46, 2,-38, 0,-22, 8,-30, 10,-24, 4,-30, 8,-36, 10,-12, 12,0, -6,-10, -10,0],
@@ -808,7 +810,7 @@ function drawFighter(f, x = f.x, y = f.y) {
   const dir = spinning && ((f.t >> 2) & 1) ? -f.dir : f.dir;
   // Regard vers la droite : vue de face 3/4 · regard vers la gauche : vue de dos 3/4
   const upRise = f.state === 'uppercut' && (f.apexT == null || f.t - f.apexT < 4);
-  const backView = f.state === 'rupper' || (upRise && f.t >= 3);
+  const backView = f.state === 'rupper' || (upRise && f.t >= 3) || f.state === 'axgp' || (f.state === 'nsuper' && superKit(f) === 'axel' && f.t >= 12);   // Axel : frappe au sol vue de dos 3/4
   const fullBack = upRise && f.t >= 6;   // shoryuken en montée : complètement de dos, bras levé du côté de l'adversaire   // l'uppercut accroupi est vu de dos, bras proche levé
   sx.clearRect(0, 0, SPR.width, SPR.height);
   // Jambes plus courtes que le haut du corps (proportions trapues)
@@ -2018,7 +2020,7 @@ const ATK = {
 };
 const FB_HIT = { dmg: 10, stun: 18, bstun: 14, push: 2.6, chip: 2, sfx: 'heavy' };
 const FB_BIG = { dmg: 22, knock: true, stun: 24, bstun: 20, push: 3.6, chip: 5, sfx: 'heavy' };
-const ATTACKING = ['bflip', 'vtripP', 'vtripK', 'vdive', 'hslide', 'fjump', 'grogroll', 'aflip', 'nyxspin', 'kbarrage', 'kspin', 'flipk', 'nslide', 'gpound', 'tpstrike', 'meteor', 'meteorD', 'voidcast', 'plasmawall', 'sonic', 'flask', 'geyser', 'wallslash', 'plunge', 'tornado', 'gust', 'cyclone', 'crushD', 'quake', 'zenith', 'holo', 'punch', 'kick', 'fpunch', 'fkick', 'flame', 'gtatsu', 'cpunch', 'rupper', 'ckick', 'jpunch', 'jkick', 'tatsu', 'dive', 'uppercut', 'special'];
+const ATTACKING = ['bflip', 'vtripP', 'vtripK', 'vdive', 'hslide', 'fjump', 'grogroll', 'aflip', 'nyxspin', 'kbarrage', 'kspin', 'flipk', 'nslide', 'gpound', 'axgp', 'tpstrike', 'meteor', 'meteorD', 'voidcast', 'plasmawall', 'sonic', 'flask', 'geyser', 'wallslash', 'plunge', 'tornado', 'gust', 'cyclone', 'crushD', 'quake', 'zenith', 'holo', 'punch', 'kick', 'fpunch', 'fkick', 'flame', 'gtatsu', 'cpunch', 'rupper', 'ckick', 'jpunch', 'jkick', 'tatsu', 'dive', 'uppercut', 'special'];
 const NEUTRAL = ['idle', 'walk', 'block', 'crouch', 'cblock'];
 
 /* ---------------- État du jeu ---------------- */
@@ -2072,7 +2074,7 @@ function poseOf(f) {
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
     case 'nitroUp': return 'win';
-    case 'nsuper': return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
+    case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
     case 'kspin': return f.t < 2 ? 'jump' : 'tuck';   // roulade en boule, comme Grog (haut + A)
@@ -2094,6 +2096,7 @@ function poseOf(f) {
       return f.t < 5 ? 'fpunch0' : f.t < 13 ? 'fpunch1' : 'fpunch0';
     case 'fkick': return f.t < 9 || f.t >= 17 ? 'fkick0' : 'fkick1';
     case 'special': return f.t < 12 ? 'special0' : 'special1';
+    case 'axgp': return !f.fired || f.t - f.gpT < 2 ? 'gp0' : 'gp1';
     case 'pthrow': return f.t < 7 ? 'special0' : 'special1';
     case 'holo': return f.t < 7 ? 'special0' : 'special1';
     case 'shadow': return 'tuck';
@@ -2206,6 +2209,13 @@ function reflectNear(g, R, yc, yr) {
 }
 // force d'un projectile : grosse boule de feu chargée 2, très grosse sphère de Lord Vane 3, le reste 1
 const shotPow = q => q.r != null ? ((q.big || q.c > .5) ? 3 : 1) : q.big ? 2 : 1;
+function spawnBounceFb(f, big) {   // Axel : la boule part du sol et avance en rebondissant
+  const sc = big ? 1.6 : 1;
+  f.fb = { owner: f, x: f.x + f.dir * 38, y: GROUND - 10 * sc, vx: (big ? 4.4 : 3.1) * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc, bounce: big ? 4.6 : 4.2, bvy: -(big ? 4.6 : 4.2) };
+  G.fbs.push(f.fb);
+  for (let i = 0; i < 3; i++) addSpark(f.x + f.dir * (34 + i * 6), GROUND - 4, 'fb', f.def.fb);
+  G.shake = Math.max(G.shake, big ? 7 : 4); sfx('fb'); sfx('heavy');
+}
 function spawnFireball(f, big) {
   f.fb = { owner: f, x: f.x + f.dir * (big ? 52 : 40), y: f.y - 56, vx: 3.8 * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc: big ? 2 : 1 };
   G.fbs.push(f.fb);
@@ -2291,11 +2301,17 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t < 12) f.vx = -3.4 * f.dir; else f.vx = 0;
   if (f.t < 58) G.darkT = Math.max(G.darkT, 24);
   if (f.t >= 14 && f.t < 56 && f.t % 3 === 0) {   // énergie qui converge vers les mains
-    const a = Math.random() * 6.28, d = 30 + Math.random() * 20, hx2 = f.x + f.dir * 22, hy = f.y - 56;
+    const ax = superKit(f) === 'axel', a = Math.random() * 6.28, d = 30 + Math.random() * 20, hx2 = f.x + f.dir * (ax ? 3 : 22), hy = f.y - (ax ? 78 : 56);
     (f.chg = f.chg || []).push({ x: hx2 + Math.cos(a) * d, y: hy + Math.sin(a) * d, tx: hx2, ty: hy, t: 0 });
     if (f.t % 12 === 0) sfx('parry');
   }
-  if (f.t === 58) {
+  if (f.t === 58 && superKit(f) === 'axel') { f.vx = 2.4 * f.dir; sfx('whoosh'); }   // Axel : avance et frappe le sol
+  if (f.t === 62 && superKit(f) === 'axel') {
+    f.vx = 0; (G.supers = G.supers || []).push({ owner: f, target: o, kit: 'axel', x: f.x + f.dir * 40, y: GROUND - 26, vx: f.dir * 5.5, dir: f.dir, t: 0, pal: SUPER_PAL.axel, bvy: -5.5 });
+    for (let i = 0; i < 4; i++) addSpark(f.x + f.dir * (34 + i * 8), GROUND - 4, 'fb', SUPER_PAL.axel);
+    G.flashT = 10; G.shake = Math.max(G.shake, 9); sfx('fb'); sfx('heavy');
+  }
+  if (f.t === 58 && superKit(f) !== 'axel') {
     const kit = superKit(f);
     (G.supers = G.supers || []).push({ owner: f, target: o, kit, x: f.x + f.dir * 30, y: f.y - 54, vx: f.dir * 5.5, dir: f.dir, t: 0, pal: SUPER_PAL[kit] || f.def.fb });
     G.flashT = 10; G.shake = Math.max(G.shake, 6); sfx('fb'); sfx('heavy');
@@ -2305,6 +2321,7 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
 function updSupers() {
   for (const q of G.supers || []) {
     q.t++; q.x += q.vx;
+    if (q.bvy != null) { q.bvy += .3; q.y += q.bvy; if (q.y >= GROUND - 26) { q.y = GROUND - 26; q.bvy = -5.5; addSpark(q.x, GROUND - 3, 'fb', q.pal); G.shake = Math.max(G.shake, 3); } }   // super d'Axel : rebondit
     const o = q.target;
     if (!q.dead && o && Math.abs(o.x - q.x) < 30) {
       q.dead = true; const f = q.owner, debt = f.rushDebt || 0; f.rushDebt = 0;
@@ -2326,7 +2343,7 @@ function drawSupers() {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const pal = SUPER_PAL[superKit(f)] || f.def.fb; ctx.fillStyle = pal[2]; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); ctx.restore();
   }
   for (const f of G.f) if (f.state === 'nsuper' && f.t > 14 && f.t < 58) {   // boule qui grossit dans les mains
-    const pal = SUPER_PAL[superKit(f)] || f.def.fb, r = 4 + (f.t - 14) * .45, x = f.x + f.dir * 24, y = f.y - 56;
+    const ax = superKit(f) === 'axel', pal = SUPER_PAL[superKit(f)] || f.def.fb, r = 4 + (f.t - 14) * .45, x = f.x + f.dir * (ax ? 3 : 24), y = f.y - (ax ? 78 : 56);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 1, x, y, r * 2.2);
     g.addColorStop(0, pal[0]); g.addColorStop(.35, pal[1]); g.addColorStop(.7, pal[2] + '99'); g.addColorStop(1, pal[3] + '00');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 6.29); ctx.fill(); ctx.restore();
@@ -2447,7 +2464,7 @@ function updFighter(f, o) {
         if (h.u && f.def.fireUpper && !(G.frame - (f.fjHitT || -999) < 45)) { setState(f, 'fjump'); f.vx = 0; f.upQ = false; break; }   // Axel : saut-poing en feu vers l'avant
         if (h.u) { setState(f, 'uppercut'); f.vx = 0; f.invuln = 11; f.apexT = null; break; }   // (Axel : après un saut-poing réussi, shoryuken en feu)
         if (back) { setState(f, 'flipk'); f.vx = 0; f.flipN = 1; f.flipHits = 0; f.flipQ = false; f.flipFin = false; f.flipS = FLIP_S; break; }   // arrière + A : salto avant coup de pied (x3, puis 4e en feu)
-        if (shotOK(f)) { shotUse(f); setState(f, 'special'); f.vx = 0; f.fired = false; f.chargeT = 0; f.charged = false; break; }
+        if (shotOK(f)) { shotUse(f); setState(f, (f.def.fireUpper && !f.def.kit) ? 'axgp' : 'special'); f.vx = 0; f.fired = false; f.chargeT = 0; f.charged = false; break; }
       }
       if (f.def.kit === 'kael' && f.kcharge > 0 && !h.d && take(c, 'p')) { setState(f, 'kbarrage'); f.vx = 0; f.kcharge = Math.max(f.kcharge, 40); f.barN = 0; break; }   // poing encore électrique : rafale de 5 coups
       // Prise après un contre réussi : Y renverse, B projette de l'autre côté
@@ -2517,6 +2534,20 @@ function updFighter(f, o) {
       if (f.t >= 62) setState(f, 'idle');
       break;
     }
+    case 'axgp':   // Axel : poing frappé au sol, boule de feu qui rebondit vers l'adversaire (A maintenu : plus grosse et plus rapide)
+      if (!f.fired) {
+        if (h.s && f.t >= 6 && live) {
+          f.chargeT = (f.chargeT || 0) + 1; f.t = Math.min(f.t, 10);
+          if (f.chargeT === 8) vaneChargeStart(f);
+          if (f.chargeT === chargeMax(f)) { f.charged = true; G.darkT = 60; G.flashT = 12; G.boltX = f.x + f.dir * 3; G.boltY = f.y - 78; vaneChargeStop(f); sfx('counter'); addPopup(f.x, f.y - 100, 'MAX!', '#ffd23a'); }
+        } else if (f.t >= 12) { vaneChargeStop(f); f.fired = true; f.gpT = f.t; f.vx = 2.4 * f.dir; sfx('whoosh'); }   // il avance en frappant
+      } else {
+        const k = f.t - f.gpT;
+        if (k >= 4) f.vx = 0;
+        if (k === 4) spawnBounceFb(f, f.charged);
+        if (k >= 30) setState(f, 'idle');
+      }
+      break;
     case 'special':
       if (!f.fired) {
         if (h.s && f.t >= 6 && live) {
@@ -4656,7 +4687,7 @@ const TUT_BTN = [['p', 'PRESS Y TO PUNCH'], ['k', 'PRESS B TO KICK'], ['s', 'PRE
 const st_ = n => f => f.state === n;
 const TUT_SP = {
   hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
-  axel: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
+  axel: [['A', 'GROUND FIREBALL', f => f.state === 'axgp' && f.fired], ['HOLD A', 'MAX GROUND FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
   vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
@@ -5371,7 +5402,8 @@ function stepFight() {
   // Boules d'énergie
   for (const fb of G.fbs) {
     fb.x += fb.vx; fb.t++;
-    if (fb.vy) { fb.y += fb.vy; if (fb.y > GROUND - 8) { fb.alive = false; addSpark(fb.x, GROUND - 8, 'fb', fb.owner.def.fb); } }   // boule de feu en diagonale (Hiro en l'air)
+    if (fb.bounce) { fb.bvy += .25; fb.y += fb.bvy; const gy = GROUND - 10 * fb.sc; if (fb.y >= gy) { fb.y = gy; fb.bvy = -fb.bounce; addSpark(fb.x, GROUND - 3, 'fb', fb.owner.def.fb); } }   // rebonds au sol (Axel)
+    else if (fb.vy) { fb.y += fb.vy; if (fb.y > GROUND - 8) { fb.alive = false; addSpark(fb.x, GROUND - 8, 'fb', fb.owner.def.fb); } }   // boule de feu en diagonale (Hiro en l'air)
     if (fb.y0 != null) fb.y = fb.y0 + Math.sin(fb.t * .16 + fb.ph) * 13;   // ondulation synchronisée des deux boules
     if (fb.x < (G.camL || 0) - 30 || fb.x > (G.camL || 0) + W + 30) fb.alive = false;
   }
@@ -5387,7 +5419,7 @@ function stepFight() {
   for (const fb of G.fbs) {
     if (!fb.alive) continue;
     const def = fb.owner === a ? b : a;
-    const hb = underShot(def) ? null : hurtbox(def);   // glissade / saut-poing d'Axel : la boule passe
+    const hb = underShot(def) && !(fb.bounce && fb.y > GROUND - 26 * fb.sc) ? null : hurtbox(def);   // glissade / saut-poing d'Axel : la boule passe
     if (overlap([fb.x - 12 * fb.sc, fb.y - 11 * fb.sc, fb.x + 12 * fb.sc, fb.y + 11 * fb.sc], hb)) {
       fb.alive = false;
       applyHit(fb.owner, def, fb.big ? FB_BIG : FB_HIT, fb.x + fb.dir * 4, fb.y, fb.x - fb.vx * 10, true);
@@ -5741,9 +5773,9 @@ function drawFight() {
   drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx();
   // énergie qui grossit entre les mains pendant la charge
   G.f.forEach(f => {
-    if (f.state !== 'special' || f.fired || !f.chargeT) return;
+    if ((f.state !== 'special' && f.state !== 'axgp') || f.fired || !f.chargeT) return;
     const pal = f.def.fb, k = Math.min(1, f.chargeT / chargeMax(f));
-    const cx = f.x - f.dir * 14, cy = f.y - 44;
+    const cx = f.state === 'axgp' ? f.x + f.dir * 3 : f.x - f.dir * 14, cy = f.state === 'axgp' ? f.y - 78 : f.y - 44;
     const r = 3 + k * 7 + (f.charged ? Math.sin(G.frame * .6) * 2 : 0);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.4);
@@ -5823,7 +5855,7 @@ const MOVES = [
     ['BACK', 'BLOCK  -  DOWN+BACK: LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
     ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: REFLECTS SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
-    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
+    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['A', 'AXEL: GROUND PUNCH, BOUNCING FIREBALL'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
     ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
     ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
     ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 8 HITS'], ['SURGE + YYBA', '8 HITS + CHARGED SUPER SHOT'], ['X X A', 'SURGE (PURPLE GAUGE FULL): DOUBLE 5 S'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
