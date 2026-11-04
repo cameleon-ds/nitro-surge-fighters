@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v251';
+const VERSION = 'v252';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1841,7 +1841,7 @@ function netStart() {
    Le Player 2 ouvre le lien d'invitation (?join=ID) : il voit le jeu en vidéo et envoie ses touches comme une manette. */
 const JOIN = (() => { try { return new URLSearchParams(location.search).get('join'); } catch (e) { return null; } })();
 const CAST = { cv: null, cx: null, stream: null, dest: null };
-const inviteURL = () => NET.id ? location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html?join=' + encodeURIComponent(NET.id) : '';
+const inviteURL = () => NET.id ? location.origin + location.pathname.replace(/[^/]*$/, '') + 'join.html?join=' + encodeURIComponent(NET.id) : '';
 let QR_INV = null, QR_INV_ID = null;
 function inviteQR() {   // QR code du lien d'invitation (option locale)
   if (!NET.id || typeof qrcode === 'undefined') return null;
@@ -6169,7 +6169,7 @@ function doShare(gesture) {   // menu de partage du téléphone / PC (WhatsApp, 
   const url = inviteURL(); G.shareF = G.frame; sfx('select');
   if (!url) { G.invMsg = 'PLEASE WAIT, CONNECTING...'; return; }
   const copy = () => { try { navigator.clipboard.writeText(url).then(() => { G.invMsg = 'LINK COPIED! PASTE IT IN A MESSAGE'; }, () => { G.invMsg = ''; }); } catch (e) { G.invMsg = ''; } };
-  if (navigator.share) navigator.share({ title: 'Nitro Surge Fighters', text: 'Join my fight in Nitro Surge Fighters!', url }).then(() => { G.invMsg = 'INVITATION SENT!'; }, e => { if (!(e && e.name === 'AbortError')) copy(); });
+  if (navigator.share) navigator.share({ title: 'YOU ARE INVITED AS PLAYER 2', url }).then(() => { G.invMsg = 'INVITATION SENT!'; }, e => { if (!(e && e.name === 'AbortError')) copy(); });
   else copy();
 }
 // le partage doit partir d'un vrai geste (clic / touche) : on l'appelle directement depuis l'événement
