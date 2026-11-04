@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v245';
+const VERSION = 'v246';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2126,8 +2126,8 @@ function spawnFireball(f, big) {
    NITRO (X X Y) : jauge pleine quand on a infligé ou reçu la moitié de l'énergie ; 8 s plus rapide, écho vert, NITRO COMBO (10 coups)
    SURGE (X X A) : pendant le Nitro, jauge pleine après un quart de plus ; 5 s, écho mauve et double mauve qui répète chaque coup */
 const NITRO_T = 480, SURGE_T = 300, NITRO_NEED = 50, SURGE_NEED = 25;
-const nitroFull = f => Math.max(f.nDeal || 0, f.nTake || 0) >= NITRO_NEED;
-const surgeFull = f => Math.max(f.sDeal || 0, f.sTake || 0) >= SURGE_NEED;
+const nitroFull = f => ((f.nDeal || 0) + (f.nTake || 0)) >= NITRO_NEED;
+const surgeFull = f => ((f.sDeal || 0) + (f.sTake || 0)) >= SURGE_NEED;
 function powerUp(f, o, surge) {   // activation : pose de puissance, écran noir et flash (style Denjin)
   if (surge) { if (!(f.nitroT > 0)) f.nDeal = f.nTake = 0; f.surgeT = SURGE_T; f.nitroT = Math.max(f.nitroT || 0, SURGE_T); f.sDeal = f.sTake = 0; }   // Surge possible directement, même sans Nitro
   else { f.nitroT = NITRO_T; f.nDeal = f.nTake = 0; f.sDeal = f.sTake = 0; }   // Nitro : les jauges verte et mauve repartent de zéro
@@ -3483,7 +3483,7 @@ function drawSurgeGhost(f) {   // le double mauve refait le même geste une frac
   ctx.save(); ctx.globalAlpha = .22; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, e, { ghostDraw: true, flash: 0, tint: 'rgba(200,70,255,1)' }), gx, e.y); ctx.restore();
 }
 function drawNitroGauge(f, x, w, left) {   // petite jauge sous l'énergie : verte (Nitro), puis la partie mauve (Surge) se remplit par-dessus
-  const nv = f.nitroT > 0 ? 0 : Math.min(1, Math.max(f.nDeal || 0, f.nTake || 0) / NITRO_NEED), sv = f.surgeT > 0 ? 0 : Math.min(1, Math.max(f.sDeal || 0, f.sTake || 0) / SURGE_NEED);
+  const nv = f.nitroT > 0 ? 0 : Math.min(1, ((f.nDeal || 0) + (f.nTake || 0)) / NITRO_NEED), sv = f.surgeT > 0 ? 0 : Math.min(1, ((f.sDeal || 0) + (f.sTake || 0)) / SURGE_NEED);
   const ease = (d, v) => d == null ? v : d + Math.max(-.05, Math.min(.012, v - d));   // se remplit petit à petit
   f.gDisp = ease(f.gDisp, nv); f.sDisp = ease(f.sDisp, sv);
   const gw = Math.round(w * .4), gx = left ? x : x + w - gw, y = 22;
