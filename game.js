@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v268';
+const VERSION = 'v269';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -351,7 +351,7 @@ function makeCityBG() {
   // enseignes néon
   const neon = (x, y, txt, col) => {
     g.save(); g.font = '8px "Press Start 2P", monospace'; g.textBaseline = 'top';
-    g.shadowColor = col; g.shadowBlur = 8; g.fillStyle = col; g.fillText(txt, x, y);
+    g.shadowColor = col; g.shadowBlur = 4; g.fillStyle = col; g.fillText(txt, x, y);
     g.shadowBlur = 0; g.fillStyle = '#ffffff'; g.globalAlpha = .55; g.fillText(txt, x, y); g.restore();
   };
   for (let x = 60; x < W - 60; x += 230) { neon(x, 70, 'BAR', '#ff3aa8'); neon(x + 110, 54, 'HOTEL', '#3af0ff'); }
@@ -3641,7 +3641,8 @@ function drawNitroGauge(f, x, w, left) {   // petite jauge sous l'énergie : ver
     glowText(sFull ? 'SURGE XXA' : 'NITRO XXY', left ? gx + gw + 4 : gx - 4, y - 1, sFull ? '#e080ff' : '#6aff9a', left ? 'left' : 'right');
 }
 function glowText(str, x, y, col, align) {   // texte pixel qui brille
-  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 6; text(str, x, y, 8, col, align); ctx.restore();
+  ctx.save(); ctx.globalAlpha *= .35; ctx.shadowColor = col; ctx.shadowBlur = 2; text(str, x, y, 8, col, align); ctx.restore();   // léger halo lumineux
+  text(str, x, y, 8, col, align);
 }
 function drawVaneBehind() {   // échos derrière Vane
   for (const f of G.f) {
@@ -5660,11 +5661,21 @@ function drawMedal(x, y) {
 function bigMsg(s, size, col, y = 84) { text(s, W / 2, y, size, col, 'center', '#3a0a04'); }
 
 // Étourdi : étoiles qui tournent au-dessus de la tête + jauge de martelage
+function shotIncoming(f) {   // un projectile adverse renvoyable arrive vers moi
+  const near = (q, vk, qy) => {
+    if (!q || q.owner === f || q.dead || q.alive === false || q.charging) return false;
+    const dx = f.x - q.x; if (Math.abs(dx) > 150 || Math.abs(qy - (f.y - 40)) > 70) return false;
+    const v = vk ? q[vk] : q.dir; return Math.sign(v) === Math.sign(dx);
+  };
+  return (G.fbs || []).some(q => near(q, 'vx', q.y)) || (G.blades || []).some(q => near(q, null, q.y)) || (G.sonics || []).some(q => near(q, null, q.y))
+    || (G.voids || []).some(q => near(q, 'vx', q.y)) || (G.flasks || []).some(q => near(q, 'vx', q.y)) || (G.holos || []).some(q => near(q, null, q.y - 50));
+}
 function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur humain
   if (f.ko || f.hp <= 0) return null;
   const o = G.f[0] === f ? G.f[1] : G.f[0];
   if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffffff'];   // objet lancé sur moi : X pour le renvoyer
-  if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];   // objet à portée : X pour le lancer
+  if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];
+  if (shotIncoming(f)) return ['XA', '#ffffff'];   // boule de feu, clone, projectile qui arrive : X puis A pour le renvoyer   // objet à portée : X pour le lancer
   if (f.nitroT > 0) return [(G.frame / 60 | 0) % 2 ? 'YYBA' : 'YYBB', f.surgeT > 0 ? '#ff80ff' : '#5aff8a'];   // Nitro / Surge : super coup
   return null;
 }
@@ -5869,7 +5880,7 @@ function drawFight() {
   if (G.bigPop) {   // NITRO COMBO / NITRO SURGE COMBO
     const P = G.bigPop; P.t++; const k = Math.min(1, P.t / 8), sc = 1 + (1 - k) * 2;
     if (P.t > (P.end || 110)) G.bigPop = null;
-    else { ctx.save(); ctx.globalAlpha = Math.min(1, ((P.end || 110) - P.t) / 15); ctx.translate(CX, 70); ctx.scale(sc, sc); ctx.shadowColor = P.col; ctx.shadowBlur = 10; text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); }
+    else { ctx.save(); ctx.globalAlpha = Math.min(1, ((P.end || 110) - P.t) / 15); ctx.translate(CX, 70); ctx.scale(sc, sc); ctx.save(); ctx.globalAlpha *= .4; ctx.shadowColor = P.col; ctx.shadowBlur = 3; text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); }
   }
   drawTut();
   if (G.scene === 'score') drawScore();
