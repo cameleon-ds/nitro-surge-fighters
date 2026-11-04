@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v248';
+const VERSION = 'v249';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5189,7 +5189,7 @@ function step() {
         if (edge(pctl, 'l') || edge(pctl, 'r')) { G.invSel = 1 - (G.invSel || 0); sfx('beep'); }
         if (tap) { if (!inRect(tap, INV_POP)) G.invPop = false; else if (inRect(tap, INV_L)) G.invSel = 0; else if (inRect(tap, INV_R)) G.invSel = 1; }
         if (backPress(pctl)) { G.invPop = false; sfx('beep'); }
-        else if (okPress(pctl) && G.invSel === 1 && G.frame - (G.shareF || -99) > 3) doShare();
+        else if (okPress(pctl) && G.invSel === 1 && !isTouch && G.frame - (G.shareF || -99) > 3) doShare();   // écran tactile : le partage part au relâché du bouton A (vrai geste)
         break;
       }
       const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
@@ -6168,13 +6168,18 @@ function openInvite() { netStart(); G.invPop = true; G.invSel = G.invSel || 0; G
 function doShare(gesture) {   // menu de partage du téléphone / PC (WhatsApp, Messenger...) ; sinon copie du lien
   const url = inviteURL(); G.shareF = G.frame; sfx('select');
   if (!url) { G.invMsg = 'PLEASE WAIT, CONNECTING...'; return; }
-  const copy = () => { try { navigator.clipboard.writeText(url).then(() => { G.invMsg = 'LINK COPIED! PASTE IT IN A MESSAGE'; }, () => { G.invMsg = 'COPY THE LINK BELOW'; }); } catch (e) { G.invMsg = 'COPY THE LINK BELOW'; } };
+  const copy = () => { try { navigator.clipboard.writeText(url).then(() => { G.invMsg = 'LINK COPIED! PASTE IT IN A MESSAGE'; }, () => { G.invMsg = ''; }); } catch (e) { G.invMsg = ''; } };
   if (navigator.share) navigator.share({ title: 'Nitro Surge Fighters', text: 'Join my fight in Nitro Surge Fighters!', url }).then(() => { G.invMsg = 'INVITATION SENT!'; }, e => { if (!(e && e.name === 'AbortError')) copy(); });
   else copy();
 }
 // le partage doit partir d'un vrai geste (clic / touche) : on l'appelle directement depuis l'événement
 const evPt = e => { const r = cv.getBoundingClientRect(); return ROT ? { x: (e.clientY - r.top) / r.height * W, y: (r.right - e.clientX) / r.width * H } : { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; };
-addEventListener('pointerup', e => { if (G.invPop && G.scene === 'select' && inRect(evPt(e), INV_SHARE)) { G.invSel = 1; doShare(true); } }, { passive: true });
+addEventListener('pointerup', e => {
+  if (!G.invPop || G.scene !== 'select') return;
+  if (inRect(evPt(e), INV_SHARE)) { G.invSel = 1; doShare(true); return; }
+  const el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest ? el.closest('.b') : null;   // bouton A de l'écran tactile
+  if (b && b.dataset.b === 's' && G.invSel === 1) doShare(true);
+}, { passive: true });
 addEventListener('keydown', e => { if (G.invPop && G.scene === 'select' && G.invSel === 1 && (e.code === KEYS.s || e.code === 'Enter')) doShare(true); });
 function drawShareIcon(x, y, col) {   // icône de partage (vectorielle)
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
@@ -6209,7 +6214,6 @@ function drawInvitePopup() {
       drawShareIcon(sx + 16, sy + sh / 2, on ? '#1a0a24' : '#ffffff');
       artText('SHARE', sx + 50, sy + 6, 9, on ? '#1a0a24' : '#ffffff');
       if (G.invMsg) artText(G.invMsg, cx2, sy + sh + 8, 6, '#5aff8a');
-      const u = inviteURL(); if (u) artText(u.replace(/^https?:\/\//, ''), cx2, by + bh - 12, 4.2, '#9a8ab0');
     }
   }
   artText(NET.guest ? 'PLAYER 2 CONNECTED!' : NET.id ? 'WAITING FOR PLAYER 2...' : 'CONNECTING...', CX, py + ph - 24, 6.5, NET.guest ? '#5aff8a' : '#c8b8d8');
