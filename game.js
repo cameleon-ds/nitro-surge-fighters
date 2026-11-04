@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v254';
+const VERSION = 'v255';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4837,9 +4837,9 @@ function stepMoves() {
   if (pctl.held.u) G.mscroll = Math.max(0, (G.mscroll || 0) - 1.5);
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
-const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'GUIDES', 'CHARACTER SELECT', 'BACK TO TITLE'];
+const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 4, 5] : [2, 6, 0, 1, 3, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 4, 5] : [6, 0, 1, 2, 3, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return o; };
+const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return o; };
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -4885,6 +4885,7 @@ function stepOptions() {
     saveOpt(); sfx('select');
   }
   if (L === 3 && ok) { OPT.blood = !OPT.blood; saveOpt(); sfx('select'); }
+  if (L === 10 && (l || r || ok)) { OPT.guides = !OPT.guides; saveOpt(); sfx('select'); }   // GUIDES : SHOW / HIDE
   if (L === 2 && (l || r || ok)) {
     { const ord = G.mode === 'arcade' && G.arc ? DIFF_ORDER.filter(v => v !== 3) : DIFF_ORDER, k = Math.max(0, ord.indexOf(OPT.diff)), n = ord.length; OPT.diff = ord[(k + (l ? n - 1 : 1)) % n]; }   // ARCADE : pas de TRAINING   // en boucle : EASY, NORMAL, HARD, EXTREME, TRAINING
     saveOpt(); sfx('select');
@@ -4913,8 +4914,7 @@ function stepPause() {
     if (G.pcur === 0) G.paused = false;
     else if (G.pcur === 1) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; }
     else if (G.pcur === 2) { G.showOpts = true; G.ocur = 0; }
-    else if (G.pcur === 3) { OPT.guides = !OPT.guides; saveOpt(); }   // GUIDES : SHOW / HIDE
-    else if (G.pcur === 4) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
+    else if (G.pcur === 3) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
 }
@@ -5566,7 +5566,7 @@ function drawGuides() {
     if (f.cpu) return;
     const g = guideOf(f); if (!g) return;
     const x = Math.round(f.x + f.dir * 6), y = Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;
-    R(x - w / 2, y - 2, w, 12, 'rgba(10,4,20,.75)'); ring(x - w / 2, y - 2, w, 12, 1, g[1]);
+    ctx.fillStyle = 'rgba(10,4,20,.75)'; ctx.beginPath(); ctx.arc(x - w / 2 + 6, y + 4, 6, Math.PI / 2, Math.PI * 1.5); ctx.arc(x + w / 2 - 6, y + 4, 6, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();   // bulle en pilule, sans contour
     text(g[0], x, y + 1, 8, g[1], 'center');
   });
 }
@@ -5826,12 +5826,12 @@ function panel(y0, h, title, small, w = 200) {
 }
 function drawOptions() {
   if (G.showKeys) { drawKeys(); return; }
-  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 9 ? 13 : 15) : (OB > 7 ? 17 : 19);
+  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 10 ? 12 : 13) : (OB > 8 ? 14 : 16);
   panel(8, 200, 'OPTIONS', true, PW);
   const c = G.ocur, x0 = CX - PW / 2 + 22, vx = CX + PW / 2 - 40, bx = vx - 6;
   const pos = i => optOrder().indexOf(i), col = i => c === pos(i) ? '#ffd23a' : 'rgba(255,255,255,.55)';
   const Y = i => 40 + pos(i) * RH;   // lignes bien espacées
-  const box = (y, on, i) => { R(bx, y - 2, 12, 12, col(i)); R(bx + 2, y, 8, 8, '#0e0816'); if (on) R(bx + 3, y + 1, 6, 6, '#ffffff'); };
+  const box = (y, on, i) => { R(bx + 1, y - 1, 10, 10, col(i)); R(bx + 2, y, 8, 8, '#0e0816'); if (on) R(bx + 3, y + 1, 6, 6, '#ffffff'); };
   const bars = (y, v) => {
     if (v === 0) { text('OFF', vx, y, 8, '#ffffff', 'center'); return; }
     for (let i = 0; i < 4; i++) R(vx - 16 + i * 9, y + 8 - (i + 1) * 2.5, 6, (i + 1) * 2.5, i < v ? '#ffffff' : 'rgba(255,255,255,.18)');
@@ -5845,6 +5845,7 @@ function drawOptions() {
   const dsel = c === pos(2);
   text((dsel ? '< ' : '') + DIFFS[OPT.diff] + (dsel ? ' >' : ''), vx, Y(2), 8, dsel ? '#ffd23a' : '#ffffff', 'center');
   text('BLOOD', x0, Y(3), 8, col(3), 'left'); box(Y(3), OPT.blood, 3);
+  { const gs = c === pos(10); text('GUIDES', x0, Y(10), 8, col(10), 'left'); text((gs ? '< ' : '') + (OPT.guides ? 'SHOW' : 'HIDE') + (gs ? ' >' : ''), vx, Y(10), 8, gs ? '#ffd23a' : '#ffffff', 'center'); }
   text('MUSIC VOLUME', x0, Y(4), 8, col(4), 'left'); bars(Y(4), OPT.music);
   text('SFX VOLUME', x0, Y(5), 8, col(5), 'left'); bars(Y(5), OPT.sfx);
   if (pc) {
@@ -5880,8 +5881,7 @@ function drawPause() {
   panel(34, 148, 'PAUSE');
   PAUSE_ITEMS.forEach((t, i) => {
     const sel = G.pcur === i;
-    if (i === 3) t = 'GUIDES: ' + (OPT.guides ? 'SHOW' : 'HIDE');
-    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 66 + i * 16, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
+    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 70 + i * 18, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
   });
   const kb = !isTouch && !padOn();
   text(kb ? keyName(KEYS.s) + ': SELECT   ' + keyName(KEYS.start) + ': RESUME' : 'A: SELECT   START: RESUME   B: BACK', CX, 166, 8, 'rgba(255,255,255,.35)', 'center');
