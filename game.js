@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v253';
+const VERSION = 'v254';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4634,6 +4634,7 @@ function endRound(winner) {
 const DL = () => OPT.diff === 4 ? 3 : Math.min(2, OPT.diff);   // niveau du CPU : 0 facile, 1 normal, 2 difficile, 3 extrême
 const OPT = { zoom: true, energy: 1, diff: 1, blood: true, music: 3, sfx: 4 };   // musique 75 %, bruitages 100 %
 try { Object.assign(OPT, JSON.parse(localStorage.getItem('sf2opt2') || '{}')); } catch (e) {}
+if (OPT.guides == null) OPT.guides = true;   // aides au-dessus de la tête, activées par défaut
 if (OPT.full == null) OPT.full = isTouch;   // plein écran par défaut sur mobile   // nouvelle clé : zoom et sang activés par défaut
 const saveOpt = () => { try { localStorage.setItem('sf2opt2', JSON.stringify(OPT)); } catch (e) {} };
 // Énergie des combattants : 1 étoile = dégâts normaux, 2 et 3 étoiles = plus résistants
@@ -4836,7 +4837,7 @@ function stepMoves() {
   if (pctl.held.u) G.mscroll = Math.max(0, (G.mscroll || 0) - 1.5);
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
-const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
+const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'GUIDES', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
 const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 4, 5] : [2, 6, 0, 1, 3, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 4, 5] : [6, 0, 1, 2, 3, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return o; };
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
@@ -4912,7 +4913,8 @@ function stepPause() {
     if (G.pcur === 0) G.paused = false;
     else if (G.pcur === 1) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; }
     else if (G.pcur === 2) { G.showOpts = true; G.ocur = 0; }
-    else if (G.pcur === 3) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
+    else if (G.pcur === 3) { OPT.guides = !OPT.guides; saveOpt(); }   // GUIDES : SHOW / HIDE
+    else if (G.pcur === 4) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
 }
@@ -5550,6 +5552,24 @@ function drawMedal(x, y) {
 function bigMsg(s, size, col, y = 84) { text(s, W / 2, y, size, col, 'center', '#3a0a04'); }
 
 // Étourdi : étoiles qui tournent au-dessus de la tête + jauge de martelage
+function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur humain
+  if (f.ko || f.hp <= 0) return null;
+  const o = G.f[0] === f ? G.f[1] : G.f[0];
+  if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffd23a'];   // objet lancé sur moi : X pour le renvoyer
+  if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffd23a'];   // objet à portée : X pour le lancer
+  if (f.nitroT > 0) return [(G.frame / 60 | 0) % 2 ? 'YYBA' : 'YYBB', f.surgeT > 0 ? '#ff80ff' : '#5aff8a'];   // Nitro / Surge : super coup
+  return null;
+}
+function drawGuides() {
+  if (!OPT.guides || G.demo || G.scene !== 'fight' || G.paused) return;
+  G.f.forEach(f => {
+    if (f.cpu) return;
+    const g = guideOf(f); if (!g) return;
+    const x = Math.round(f.x + f.dir * 6), y = Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;
+    R(x - w / 2, y - 2, w, 12, 'rgba(10,4,20,.75)'); ring(x - w / 2, y - 2, w, 12, 1, g[1]);
+    text(g[0], x, y + 1, 8, g[1], 'center');
+  });
+}
 function drawDizzy(f) {
   const hx = f.x + f.dir * 4 + Math.sin(G.frame * .15) * 2, hy = f.y - 90;
   for (let i = 0; i < 3; i++) {
@@ -5693,6 +5713,7 @@ function drawFight() {
     ctx.restore();
   }
   G.popups.forEach(pp => { if ((pp.t >> 2) % 4 !== 3 || pp.t < 30) text(pp.txt, pp.x, pp.y - pp.t * .4, 8, pp.col, 'center'); });
+  drawGuides();
   ctx.restore();
   if (G.flashT > 9) R(0, 0, W, H, 'rgba(220,245,255,.25)');   // très bref flash d'écran
   if (G.scene === 'intro' && G.preT > 0) {   // ouverture : nom du décor seulement
@@ -5859,7 +5880,8 @@ function drawPause() {
   panel(34, 148, 'PAUSE');
   PAUSE_ITEMS.forEach((t, i) => {
     const sel = G.pcur === i;
-    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 70 + i * 18, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
+    if (i === 3) t = 'GUIDES: ' + (OPT.guides ? 'SHOW' : 'HIDE');
+    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 66 + i * 16, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
   });
   const kb = !isTouch && !padOn();
   text(kb ? keyName(KEYS.s) + ': SELECT   ' + keyName(KEYS.start) + ': RESUME' : 'A: SELECT   START: RESUME   B: BACK', CX, 166, 8, 'rgba(255,255,255,.35)', 'center');
