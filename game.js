@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v246';
+const VERSION = 'v247';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4836,7 +4836,52 @@ function bgmRoute() {
   try { const src = AC.createMediaElementSource(BGM); bgmGain = AC.createGain(); src.connect(bgmGain).connect(AC.destination); BGM.volume = 1; }
   catch (e) { bgmGain = null; }
 }
+
+/* ---------------- DÉMO (écran titre) ----------------
+   2 s après le logo : fondu, 5 s de combat entre CPU, puis retour au travelling.
+   Cycle de 3 démos : combat normal, Nitro + NITRO COMBO, Surge + NITRO SURGE COMBO */
+const DEMO_T = 300, DEMO_FADE = 20, DEMO_WAIT = 120;
+const DEMO_PAIRS = [[0, 1], [6, 2], [3, 5], [4, 7], [1, 6], [7, 0], [5, 4], [2, 3]];
+function startDemo() {
+  const n = G.demoN || 0, i = n % 3, [p1, p2] = DEMO_PAIRS[n % DEMO_PAIRS.length];
+  const keepDiff = OPT.diff; if (OPT.diff === 3 || OPT.diff === 0) OPT.diff = 1;
+  startMatch(p1, p2, STAGES[n % STAGES.length][0]);
+  G.demoDiff = keepDiff;
+  const [a, b] = G.f;
+  a.cpu = true; a.ctl = makeCtl(); b.cpu = true; b.ctl = makeCtl();
+  a.x = SW / 2 - 46; b.x = SW / 2 + 46;
+  G.preT = 0; G.scene = 'fight'; G.fighting = true; G.t = 0; G.timer = 99;
+  G.demo = { i, t: 0 }; G.noWipe = true; G.fadeK = 1;
+}
+function endDemo(toMenu) {
+  const i = G.demo ? G.demo.i : 0;
+  G.demo = null; G.demoN = (G.demoN || 0) + 1; G.noWipe = true; G.fadeK = 1;
+  if (G.demoDiff != null) { OPT.diff = G.demoDiff; G.demoDiff = null; }
+  G.fbs = []; G.supers = []; G.ghostQ = []; G.freeze = 0; G.shake = 0; G.quakeT = 0; G.darkT = 0; G.flashT = 0; G.bigPop = null;
+  G.scene = 'title'; G.paused = false; G.introNoPres = true; G.demoOut = 0;
+  if (toMenu) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; G.t = SPLASH + INTRO_LOGO + 200; sfx('select'); sfx('heavy'); }
+  else { G.tstate = 0; G.t = SPLASH + INTRO_T0; }
+}
+function stepDemo() {   // script de la démo : Nitro / Surge déclenchés puis enchaînement spectaculaire
+  const D = G.demo; if (!D) return;
+  D.t++;
+  const [a, b] = G.f;
+  if (D.t < DEMO_FADE) G.fadeK = 1 - D.t / DEMO_FADE;
+  else if (D.t > DEMO_T) G.fadeK = Math.min(1, (D.t - DEMO_T) / DEMO_FADE);
+  else G.fadeK = 0;
+  G.timer = 99; [a, b].forEach(f => { f.hp = Math.max(f.hp, 20); });   // pas de K.O. pendant la démo
+  if (D.i > 0) {
+    if (D.t === 30) powerUp(a, b, D.i === 2);
+    if (D.t === 85 && !a.air) {   // NITRO COMBO (et coup chargé pour le Surge)
+      b.x = a.x + a.dir * 34; b.air = false; b.y = GROUND; setState(b, 'hit'); b.stun = 40; face(a, b);
+      setState(a, 'nrush'); a.rushN = 0; a.rushDebt = 0; a.vx = 0; a.rushSuper = D.i === 2;
+      addPopup(b.x, b.y - 100, 'NITRO RUSH!', '#5aff8a');
+    }
+  }
+  if (D.t >= DEMO_T + DEMO_FADE) endDemo(false);
+}
 function musicWanted() {
+  if (G.demo) return 'title';   // démo : la musique du titre continue
   if (G.scene === 'ending') return G.t < 50 ? bgmKey : 'title';   // fin ARCADE : la musique s'arrête puis le thème principal
   if (G.scene === 'title') return 'title';
   if (G.scene === 'select' || G.scene === 'stage' || G.scene === 'over') return 'select';
@@ -4989,6 +5034,10 @@ function step() {
   if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 10 && (edge(pctl, 's') || edge(pctl, 'back') || edge(pctl, 'start') || edge(pctl, 'p') || edge(pctl, 'k'))) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); } tap = null; return; }
   if (G.instClosed != null && G.frame - G.instClosed < 3) { tap = null; return; }
 
+  if (G.demo) {   // démo : n'importe quelle touche ramène à l'écran titre
+    if (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || edge(pctl, 'back') || tap) { endDemo(true); tap = null; return; }
+    stepDemo(); if (!G.demo) { tap = null; return; }
+  }
   // Pause (bouton START) pendant le combat
   if (['intro', 'fight', 'ko', 'timeup'].includes(G.scene)) {
     if (G.paused) { stepPause(); tap = null; return; }
@@ -5012,7 +5061,11 @@ function step() {
       const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap;
       if (G.tstate !== 1) {
         if (G.t < SPLASH) { if (G.t > 10 && any) G.t = SPLASH; break; }          // passer le logo Super Rocket Games
-        if (G.t > SPLASH + INTRO_LOGO + 40 && any) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
+        if (G.t > SPLASH + INTRO_LOGO + 40 && !any && G.t - SPLASH > INTRO_LOGO + DEMO_WAIT) {   // 2 s après le logo : fondu vers une démo
+          G.demoOut = (G.demoOut || 0) + 1; G.fadeK = Math.min(1, G.demoOut / DEMO_FADE);
+          if (G.demoOut >= DEMO_FADE) { startDemo(); break; }
+        }
+        if (G.t > SPLASH + INTRO_LOGO + 40 && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
@@ -5235,6 +5288,7 @@ function stepFight() {
 
   if (G.scene === 'fight') {
     if (OPT.diff !== 3 && !(G.tut && G.tut.phase !== 4) && ++G.tick >= 45) { G.tick = 0; G.timer = Math.max(0, G.timer - 1); }   // entraînement : temps infini
+    if (G.demo) { a.hp = Math.max(a.hp, 1); b.hp = Math.max(b.hp, 1); }   // démo : jamais de K.O.
     if (a.hp <= 0 || b.hp <= 0) {
       const loser = a.hp <= 0 ? a : b;
       loser.ko = true;
@@ -6078,6 +6132,7 @@ function render() {
   hiUsed = false;
   ctx.save();
   const grp = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) ? 'fight' : G.scene;
+  if (G.noWipe) { G.noWipe = false; prevGroup = grp; }
   if (prevGroup && grp !== prevGroup) {   // changement d'écran : on garde une image de l'ancien pour le volet de transition
     SNAP.width = cv.width; SNAP.height = cv.height; { const sc2 = SNAP.getContext('2d'); if (HI.style.visibility === 'visible') sc2.drawImage(HI, 0, 0, cv.width, cv.height); sc2.drawImage(cv, 0, 0); } transT = 0; G.st = 0;
   }
@@ -6095,6 +6150,8 @@ function render() {
   if (G.paused && grp === 'fight') drawPause();   // menu pause jamais secoué
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
+  if (G.demo && (G.frame >> 5) % 2 === 0) text('PRESS ANY KEY', CX, H - 30, 8, '#ffffff', 'center');   // démo
+  if (G.fadeK > 0) { R(0, 0, W, H, `rgba(0,0,0,${Math.min(1, G.fadeK).toFixed(3)})`); if (!G.demo && G.scene === 'title' && !(G.demoOut > 0)) G.fadeK = Math.max(0, G.fadeK - 1 / DEMO_FADE); }   // fondus de la démo
   if (!hiUsed && HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden';
 }
 // Transition entre écrans : un volet diagonal noir bordé d'une lame de lumière balaie l'ancien écran
