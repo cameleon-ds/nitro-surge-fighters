@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v250';
+const VERSION = 'v251';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6072,10 +6072,10 @@ function artDraw(im, x, y, w, h, flip, al = 1, op) {   // image nette (calque HD
   g.restore();
 }
 function artFill(col, x = 0, y = 0, w = W, h = H) { const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1; g.save(); g.fillStyle = col; g.fillRect(x * r, y * r, w * r, h * r); g.restore(); }
-function artText(str, x, y, size, col, align = 'center', grad) {   // texte lisse (police système grasse), comme sur la maquette
+function artText(str, x, y, size, col, align = 'center', grad, flat) {   // texte lisse (police système grasse), comme sur la maquette
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
   g.save(); g.font = '700 ' + Math.round(size * r) + 'px Arial, Helvetica, sans-serif'; g.textAlign = align; g.textBaseline = 'top';
-  g.lineJoin = 'round'; g.lineWidth = Math.max(2, size * r * .14); g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(str, x * r, y * r);
+  if (!flat) { g.lineJoin = 'round'; g.lineWidth = Math.max(2, size * r * .14); g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(str, x * r, y * r); }
   if (grad) { const gr = g.createLinearGradient(0, y * r, 0, (y + size) * r); gr.addColorStop(0, grad[0]); gr.addColorStop(1, grad[1]); g.fillStyle = gr; } else g.fillStyle = col;
   g.fillText(str, x * r, y * r); g.restore();
 }
@@ -6211,8 +6211,8 @@ function drawInvitePopup() {
       artText('(WhatsApp, Messenger, e-mail...)', cx2, by + 28, 6, '#d8c8e0');
       const sw = 84, sh = 22, sx = cx2 - sw / 2, sy = by + 46; INV_SHARE.splice(0, 4, sx, sy, sw, sh);
       artFill(on ? '#ffd23a' : '#3a2a48', sx, sy, sw, sh); ring(sx, sy, sw, sh, 1, '#ffffff');
-      drawShareIcon(sx + 22, sy + sh / 2 + .5, on ? '#1a0a24' : '#ffffff');
-      artText('SHARE', sx + 48, sy + 6.5, 9, on ? '#1a0a24' : '#ffffff');
+      drawShareIcon(sx + 12, sy + sh / 2 + .5, on ? '#1a0a24' : '#ffffff');
+      artText('TAP TO SHARE', sx + 49, sy + 7, 8, on ? '#1a0a24' : '#ffffff', 'center', null, true);
       if (G.invMsg) artText(G.invMsg, cx2, sy + sh + 8, 6, '#5aff8a');
     }
   }
