@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v259';
+const VERSION = 'v260';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5461,7 +5461,7 @@ function stepFight() {
   } else if (G.scene === 'score') {
     const S = G.score, T = G.t - SC_IN;
     if (T >= 0 && T < SC_RUN && T % 4 === 0) sfx('tally');   // décompte : petit son rapide
-    if (T === SC_RUN) sfx('tallyEnd');                        // fin du calcul : trois notes
+    if (T === SC_RUN) sfx('select');                        // fin du calcul : trois notes
     if (G.t > SC_IN + SC_RUN + SC_HOLD) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; }
   } else if (G.scene === 'ko' || G.scene === 'timeup') {
     const w = G.winner;
