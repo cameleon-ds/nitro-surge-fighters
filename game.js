@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v240';
+const VERSION = 'v241';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1975,6 +1975,8 @@ function poseOf(f) {
     case 'jpunch': return f.t < 3 ? 'jump' : 'jpunch';
     case 'airflask': return f.t < 4 ? 'jump' : 'jpunch';
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
+    case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
+    case 'nitroUp': return 'win';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
     case 'kspin': return f.t < 2 ? 'jump' : 'tuck';   // roulade en boule, comme Grog (haut + A)
@@ -2118,7 +2120,75 @@ function spawnFireball(f, big) {
   sfx('fb');
 }
 
-const LONG_ST = ['idle', 'walk', 'block', 'crouch', 'win', 'voidcast', 'down', 'stunned', 'jump', 'fall', 'hover', 'rampart'];
+
+/* ---------------- NITRO / SURGE ----------------
+   NITRO (X X Y) : jauge pleine quand on a infligé ou reçu la moitié de l'énergie ; 8 s plus rapide, écho vert, NITRO COMBO (10 coups)
+   SURGE (X X A) : pendant le Nitro, jauge pleine après un quart de plus ; 5 s, écho mauve et double mauve qui répète chaque coup */
+const NITRO_T = 480, SURGE_T = 300, NITRO_NEED = 50, SURGE_NEED = 25;
+const nitroFull = f => Math.max(f.nDeal || 0, f.nTake || 0) >= NITRO_NEED;
+const surgeFull = f => Math.max(f.sDeal || 0, f.sTake || 0) >= SURGE_NEED;
+function powerUp(f, o, surge) {   // activation : pose de puissance, écran noir et flash (style Denjin)
+  if (surge) { f.surgeT = SURGE_T; f.nitroT = Math.max(f.nitroT, SURGE_T); f.sDeal = f.sTake = 0; }
+  else { f.nitroT = NITRO_T; f.nDeal = f.nTake = 0; f.sDeal = f.sTake = 0; }
+  f.rotAng = null; f.slowT = 0; if (!f.air) { setState(f, 'nitroUp'); f.vx = 0; }
+  f.invuln = Math.max(f.invuln || 0, 40); f.powF = G.frame; f.powSurge = !!surge;
+  G.freeze = Math.max(G.freeze || 0, 38); G.darkT = Math.max(G.darkT, 56); G.flashT = 12; G.boltX = f.x; G.boltY = f.y - 54; G.shake = Math.max(G.shake, 5);
+  addPopup(f.x, f.y - 118, surge ? 'SURGE!' : 'NITRO!', surge ? '#d070ff' : '#5aff8a');
+  sfx('counter'); sfx('fb'); if (AC) playSample('fight', 1.25, VOX, true);
+}
+function nitroInput(f, o) {   // X X Y : Nitro ; X X A pendant le Nitro : Surge
+  if (!G.fighting || f.ko) return;
+  for (const b of ['x', 'p', 'k', 's']) if (edge(f.ctl, b)) { (f.pseq = f.pseq || []).push([b, G.frame]); if (f.pseq.length > 3) f.pseq.shift(); }
+  const q = f.pseq || []; if (q.length < 3 || G.frame - q[0][1] > 40) return;
+  const k = q.map(e => e[0]).join('');
+  if (k === 'xxp' && !(f.nitroT > 0) && nitroFull(f)) { f.pseq = []; powerUp(f, o, false); }
+  else if (k === 'xxs' && f.nitroT > 0 && !(f.surgeT > 0) && surgeFull(f)) { f.pseq = []; powerUp(f, o, true); }
+}
+function nitroGain(att, def, dmg) {   // les jauges se remplissent avec les dégâts infligés ou reçus
+  if (!(dmg > 0) || (G.tut && G.tut.phase !== 4)) return;
+  if (att) { if (att.nitroT > 0 && !(att.surgeT > 0)) att.sDeal = (att.sDeal || 0) + dmg; else if (!(att.nitroT > 0)) att.nDeal = (att.nDeal || 0) + dmg; }
+  if (def.nitroT > 0 && !(def.surgeT > 0)) def.sTake = (def.sTake || 0) + dmg; else if (!(def.nitroT > 0)) def.nTake = (def.nTake || 0) + dmg;
+}
+// NITRO COMBO : 10 coups très rapides (visage, ventre, pied au visage, tibia), le dernier fait tomber
+const RUSH_POSE = ['punch1', 'fpunch1', 'kick1', 'ckick'], RUSH_Y = [-74, -50, -76, -14];
+function updRush(f, o) {
+  f.vx = 0; f.invuln = 6; face(f, o);
+  if (f.rushN < 10) { o.x = f.x + f.dir * 34; o.vx = 0; if (o.state !== 'fall') { o.state = 'hit'; o.stun = 40; } o.air = false; o.y = GROUND; }
+  if (f.t >= 3 && (f.t - 3) % 5 === 0 && f.rushN < 10) {
+    f.rushN++; f.rushPose = RUSH_POSE[(f.rushN - 1) % 4];
+    const sx = f.x + f.dir * 28, sy = f.y + RUSH_Y[(f.rushN - 1) % 4], dmg = 3, last = f.rushN >= 10;
+    const before = o.hp;
+    if (!last) { const nh = o.hp - dmg; f.rushDebt = (f.rushDebt || 0) + Math.max(0, 1 - nh); o.hp = Math.max(1, nh); }
+    else { o.hp = Math.max(0, o.hp - dmg - (f.rushDebt || 0)); f.rushDebt = 0; }
+    nitroGain(f, o, before - o.hp); o.lagT = 32; o.flash = 3;
+    addSpark(sx, sy, 'hit'); spawnBlood(sx, sy, f.dir, 4); sfx(f.rushN % 2 ? 'hit' : 'heavy'); G.shake = Math.max(G.shake, 3); G.freeze = Math.max(G.freeze || 0, 2);
+    if (f.surgeT > 0) f.rushGhost = G.frame + 2;   // le double mauve frappe juste après
+    if (last) {
+      setState(o, 'fall'); o.air = true; o.vy = -6; o.vx = f.dir * 3.2; o.stun = 0;
+      const surge = f.surgeT > 0;
+      G.darkT = 50; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 14; G.shake = 9;
+      G.bigPop = { txt: surge ? 'NITRO SURGE COMBO!' : 'NITRO COMBO!', col: surge ? '#d070ff' : '#5aff8a', t: 0 };
+      sfx('fb'); sfx('heavy');
+    }
+  }
+  if (f.rushGhost && G.frame >= f.rushGhost) { f.rushGhost = 0; const sx = f.x + f.dir * 30, sy = f.y + RUSH_Y[(f.rushN + 1) % 4]; addSpark(sx, sy, 'parry'); if (o.hp > 1 && f.rushN < 10) o.hp = Math.max(1, o.hp - 1); sfx('hit'); }
+  if (f.rushN >= 10 && f.t > 3 + 50 + 10) setState(f, 'idle');
+}
+// double mauve du Surge : il répète chaque coup qui touche, et chaque projectile, un peu après
+function surgeStep() {
+  for (const g of G.ghostQ || []) if (G.frame >= g.f && !g.done) {
+    g.done = true;
+    if (g.hit) { const { att, def, data, sx, sy } = g.hit; if (!def.ko && G.fighting && def.state !== 'down') { G.ghostHit = true; applyHit(att, def, data, sx + att.dir * 4, sy, att.x, false); G.ghostHit = false; addSpark(sx, sy, 'parry'); } }
+    if (g.shot) { const c = Object.assign({}, g.shot, { t: 0, _ghost: true, _seen: true, mate: null, alive: true, dead: false }); (G[g.arr] = G[g.arr] || []).push(c); sfx('fb'); }
+  }
+  if (G.ghostQ) G.ghostQ = G.ghostQ.filter(g => !g.done);
+  for (const arr of ['fbs', 'blades', 'sonics', 'flasks', 'holos', 'voids']) for (const q of G[arr] || []) {
+    if (q._seen || q.charging) continue; q._seen = true;
+    const w = q.owner; if (!w || !(w.surgeT > 0) || q._ghost) continue;
+    (G.ghostQ = G.ghostQ || []).push({ f: G.frame + 8, arr, shot: Object.assign({}, q) });
+  }
+}
+const LONG_ST = ['nrush', 'idle', 'walk', 'block', 'crouch', 'win', 'voidcast', 'down', 'stunned', 'jump', 'fall', 'hover', 'rampart'];
 function startBflip(f) { f.slowT = 0; f.rotAng = null; const air = f.air; setState(f, 'bflip'); f.vx = 0; f.echo = []; if (air) { f.t = 3; f.vy = -3.5; f.vx = 1.5 * f.dir; f.flash = 5; } sfx('whoosh'); }
 function updFighter(f, o) {
   const c = f.ctl, h = c.held;
@@ -2376,6 +2446,8 @@ function updFighter(f, o) {
         else setState(f, 'idle');
       }
       break;
+    case 'nrush': updRush(f, o); break;
+    case 'nitroUp': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
     case 'parry': f.vx = 0; if (f.t <= 14 && take(c, 's')) { startBflip(f); break; } if (f.t >= 22) setState(f, 'idle'); break;   // X puis A : petit saut + coup de pied tournoyant vers l'arrière
     case 'stunned':
       f.vx *= .8;
@@ -3278,6 +3350,74 @@ function updVane() {
   if (G.shadowFx) G.shadowFx = G.shadowFx.filter(s2 => s2.t < 24);
   for (const f of G.f) { if (f.paraT > 0) f.paraT--; if (f.rampT > 0) f.rampT--; }
 }
+
+// Nitro / Surge : échos, double mauve, brasier de particules
+const CALM_POW = ['idle', 'crouch', 'block', 'cblock', 'down', 'getup'];
+function powerTrail(f) {
+  const on = f.nitroT > 0;
+  (f.hist = f.hist || []).push({ x: f.x, y: f.y - floatOff(f), state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll, rushPose: f.rushPose, rushN: f.rushN, flipFin: f.flipFin, fired: f.fired });
+  if (f.hist.length > 10) f.hist.shift();
+  f.necho = f.necho || [];
+  if (on && G.frame % 2 === 0 && (!CALM_POW.includes(f.state) || Math.abs(f.vx) > .2 || f.air)) { f.necho.push(f.hist[f.hist.length - 1]); if (f.necho.length > 6) f.necho.shift(); }
+  else if (f.necho.length && (!on || G.frame % 2 === 0)) f.necho.shift();
+}
+function drawPowerBehind() {
+  for (const f of G.f) {
+    const vane = f.def.kit === 'vane' && f.surgeT > 0, surge = f.surgeT > 0;
+    (f.necho || []).forEach((e, i, A) => {
+      const k = (i + 1) / (A.length + 1);
+      const tint = vane ? (i < A.length / 2 ? 'rgba(6,0,12,.92)' : 'rgba(170,40,255,.85)') : surge ? 'rgba(190,60,255,.85)' : 'rgba(60,255,120,.8)';
+      ctx.save(); ctx.globalAlpha = .5 * k; if (!vane || i >= A.length / 2) ctx.globalCompositeOperation = 'lighter';
+      drawFighter(Object.assign({}, f, e, { flash: 0, tint, ghostDraw: true }), e.x, e.y); ctx.restore();
+    });
+    if (f.nitroT > 0 && !f.ko) powerAura(f, vane, surge);
+  }
+}
+function powerAura(f, vane, surge) {   // brasier léger qui émane du personnage
+  const P = f.aura = f.aura || [];
+  if (P.length < 34) for (let i = 0; i < 2; i++) P.push({ x: f.x + (Math.random() - .5) * 30, y: f.y - Math.random() * 70, vx: (Math.random() - .5) * .4, vy: -.6 - Math.random() * .9, t: 0, life: 18 + Math.random() * 16, s: Math.random() < .3 ? 2 : 1 });
+  ctx.save();
+  for (const p of P) {
+    p.t++; p.x += p.vx + (f.x - (p.fx || f.x)) * 0; p.y += p.vy;
+    const a = Math.max(0, 1 - p.t / p.life), px = Math.round(p.x), py = Math.round(p.y);
+    if (vane) {   // Lord Vane : particules noires avec un halo mauve
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(170,40,255,${.35 * a})`; ctx.fillRect(px - 1, py - 1, p.s + 2, p.s + 2);
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(8,0,14,${.9 * a})`; ctx.fillRect(px, py, p.s + 1, p.s + 1);
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = surge ? `rgba(200,80,255,${.85 * a})` : `rgba(90,255,140,${.75 * a})`; ctx.fillRect(px, py, p.s, p.s);
+      if (p.s > 1) { ctx.fillStyle = surge ? `rgba(150,40,255,${.3 * a})` : `rgba(40,200,90,${.3 * a})`; ctx.fillRect(px - 1, py - 1, p.s + 2, p.s + 2); }
+    }
+  }
+  ctx.restore();
+  f.aura = P.filter(p => p.t < p.life);
+}
+function drawSurgeGhost(f) {   // le double mauve refait le même geste une fraction de seconde après
+  if (!(f.surgeT > 0) || !f.hist || f.hist.length < 8 || f.ko) return;
+  const e = f.hist[f.hist.length - 8]; if (CALM_POW.includes(e.state) || ['walk', 'jump', 'land', 'hit', 'fall', 'nitroUp'].includes(e.state)) return;
+  const vane = f.def.kit === 'vane', gx = e.x + e.dir * 12, col = vane ? '#a020ff' : '#c040ff';
+  ctx.save(); ctx.globalAlpha = .58; drawFighter(Object.assign({}, f, e, { ghostDraw: true, flash: 0, tintKeep: col }), gx, e.y); ctx.restore();
+  ctx.save(); ctx.globalAlpha = .22; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, e, { ghostDraw: true, flash: 0, tint: 'rgba(200,70,255,1)' }), gx, e.y); ctx.restore();
+}
+function drawNitroGauge(f, x, w, left) {   // petite jauge sous l'énergie : verte (Nitro) puis mauve (Surge)
+  const surgeMode = f.nitroT > 0, v = surgeMode ? Math.min(1, Math.max(f.sDeal || 0, f.sTake || 0) / SURGE_NEED) : Math.min(1, Math.max(f.nDeal || 0, f.nTake || 0) / NITRO_NEED);
+  f.gDisp = f.gDisp == null ? v : f.gDisp + Math.max(-.05, Math.min(.012, v - f.gDisp));   // se remplit petit à petit
+  const gw = Math.round(w * .4), gx = left ? x : x + w - gw, y = 22, full = surgeMode ? surgeFull(f) && !(f.surgeT > 0) : nitroFull(f);
+  const col = surgeMode ? '#c050ff' : '#3cf070', hi = surgeMode ? '#f0b0ff' : '#b0ffc8';
+  R(gx - 1, y - 1, gw + 2, 5, '#000'); R(gx, y, gw, 3, '#14281a');
+  const fw = Math.round(gw * f.gDisp), blink = full && (G.frame >> 3) % 2;
+  if (left) { R(gx, y, fw, 3, blink ? hi : col); R(gx, y, fw, 1, hi); } else { R(gx + gw - fw, y, fw, 3, blink ? hi : col); R(gx + gw - fw, y, fw, 1, hi); }
+  if (f.nitroT > 0) {   // temps restant du Nitro / Surge
+    const rem = f.surgeT > 0 ? f.surgeT / SURGE_T : f.nitroT / NITRO_T, tw = Math.round(gw * rem);
+    R(left ? gx : gx + gw - tw, y + 3, tw, 1, f.surgeT > 0 ? '#ff80ff' : '#80ffa0');
+  }
+  if (full && (G.frame >> 4) % 4 !== 3) {
+    glowText(surgeMode ? 'SURGE XXA' : 'NITRO XXY', left ? gx + gw + 4 : gx - 4, y - 1, surgeMode ? '#e080ff' : '#6aff9a', left ? 'left' : 'right');
+  }
+}
+function glowText(str, x, y, col, align) {   // texte pixel qui brille
+  ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 6; text(str, x, y, 8, col, align); ctx.restore();
+}
 function drawVaneBehind() {   // échos derrière Vane
   for (const f of G.f) {
     if (!f.echo || !f.echo.length) continue;
@@ -4059,7 +4199,7 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
   }
   // enchaînements : on mémorise la suite des coups qui touchent pendant que l'adversaire est sonné
   let finisher = false;
-  const kind = { punch: 'p', fpunch: 'p', kick: 'k', fkick: 'k', flame: 's' }[att.state];
+  const kind = G.ghostHit ? null : { punch: 'p', fpunch: 'p', kick: 'k', fkick: 'k', flame: 's' }[att.state];
   if (kind && !projectile) {
     att.combo = (def.state === 'hit' && G.frame - (att.comboLast || -999) < 50 ? (att.combo || '') : '') + kind;
     att.comboLast = G.frame;
@@ -4089,7 +4229,12 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
     att.spinN = def.state === 'hit' ? (att.spinN || 0) + 1 : 1;
     if (att.spinN >= 4) { data = Object.assign({}, data, { knock: true, dmg: 7 }); att.spinN = 0; }
   }
-  def.hp = Math.max(G.tut && G.tut.phase !== 4 ? 30 : 0, def.hp - dmgK(Math.round(data.dmg * (def.def.tough || 1) * (projectile ? 1 : att.def.power || 1)))); def.lagT = 32;
+  const rushGo = finisher && att.nitroT > 0 && !projectile && !G.ghostHit;   // Nitro : l'enchaînement continue en NITRO COMBO
+  if (rushGo) data = Object.assign({}, data, { knock: false, stun: 60 });
+  const hpBefore = def.hp;
+  def.hp = Math.max(G.tut && G.tut.phase !== 4 ? 30 : rushGo ? 1 : 0, def.hp - dmgK(Math.round(data.dmg * (def.def.tough || 1) * (projectile ? 1 : att.def.power || 1)))); def.lagT = 32;
+  nitroGain(att, def, hpBefore - def.hp);
+  if (att.surgeT > 0 && !projectile && !G.ghostHit && att.state !== 'nrush' && !rushGo) (G.ghostQ = G.ghostQ || []).push({ f: G.frame + 7, hit: { att, def, data, sx, sy } });   // le double mauve refrappe
   spawnBlood(sx, sy, away, data.dmg);
   def.flash = 3;
   if (def.air || data.knock || def.hp <= 0) {
@@ -4105,8 +4250,9 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
     // enchaînement réussi : l'adversaire s'enflamme et tombe au ralenti
     def.burn = 120; def.burnPal = att.def.fb; def.slowT = 60;
     G.darkT = 60; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 10; G.shake = 7;
-    addPopup(def.x, def.y - 100, 'COMBO FINISH!', '#ffd23a');
+    addPopup(def.x, def.y - 100, rushGo ? 'NITRO RUSH!' : 'COMBO FINISH!', rushGo ? '#5aff8a' : '#ffd23a');
     sfx('fb');
+    if (rushGo) { def.slowT = 0; def.burn = 0; G.darkT = 20; setState(att, 'nrush'); att.rushN = 0; att.rushDebt = 0; att.fireDash = 0; att.vx = 0; }
   }
 }
 
@@ -4187,6 +4333,10 @@ function aiInput(f, o) {
   if (G.tut && G.tut.phase !== 4) return tutAI(f, o);   // TUTORIAL : le double est scripté
   if (OPT.diff === 3) return {};   // entraînement, ou aveuglé par la fumée de Nyx   // entraînement : l'adversaire ne bouge pas
   const dk = [.3, 1, 1.7, 3][DL()], rnd = () => Math.random() / dk;   // difficulté : réactions plus ou moins fréquentes
+  if (G.fighting && DL() >= 1 && NEUTRAL.includes(f.state) && Math.random() < .006 * dk) {   // le CPU utilise aussi Nitro / Surge
+    if (!(f.nitroT > 0) && nitroFull(f)) { powerUp(f, o, false); return {}; }
+    if (f.nitroT > 0 && !(f.surgeT > 0) && surgeFull(f)) { powerUp(f, o, true); return {}; }
+  }
   const a = f.ai, held = {};
   const dx = o.x - f.x, dist = Math.abs(dx), fwd = dx > 0 ? 'r' : 'l', back = dx > 0 ? 'l' : 'r';
   if (a.holdT > 0) { a.holdT--; Object.assign(held, a.hold); }
@@ -4283,7 +4433,7 @@ function startRound() {
   const [a, b] = G.f;
   [[a, SW / 2 - 80, 1], [b, SW / 2 + 80, -1]].forEach(([f, x, d]) => {
     G.clash = null;
-    Object.assign(f, { dizzy: false, dizzyEnd: -9999, x, y: GROUND, vx: 0, vy: 0, dir: d, hp: 100, lag: 100, air: false, ko: false, fb: null, invuln: 0, flash: 0, counterT: 0, jumpQ: 0, slowT: 0, burn: 0, combo: '', run: 0, restT: 0, confT: 0, nyxBurnT: 0, sinkK: 0, kcharge: 0, ghosts: [], fadeK: 0, paraT: 0, echo: [], rampT: 0, ai: { cd: 30, hold: {}, holdT: 0, press: null, pressU: false, pressFrames: 0, reacted: false } });   // le CPU repart de zéro à chaque round
+    Object.assign(f, { nitroT: 0, surgeT: 0, necho: [], hist: [], rushN: 0, dizzy: false, dizzyEnd: -9999, x, y: GROUND, vx: 0, vy: 0, dir: d, hp: 100, lag: 100, air: false, ko: false, fb: null, invuln: 0, flash: 0, counterT: 0, jumpQ: 0, slowT: 0, burn: 0, combo: '', run: 0, restT: 0, confT: 0, nyxBurnT: 0, sinkK: 0, kcharge: 0, ghosts: [], fadeK: 0, paraT: 0, echo: [], rampT: 0, ai: { cd: 30, hold: {}, holdT: 0, press: null, pressU: false, pressFrames: 0, reacted: false } });   // le CPU repart de zéro à chaque round
     setState(f, 'idle');
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
@@ -4903,9 +5053,14 @@ function stepFight() {
     if (f.slowT > 0 && o.counterT > 0 && G.fighting && !f.ko && take(f.ctl, 's')) startBflip(f);   // contré : A pour s'échapper (au lieu du bras de fer)
   }
   [[a, b], [b, a]].forEach(([f, o]) => {
+    nitroInput(f, o);
+    if (f.nitroT > 0) { if (--f.nitroT === 0) f.surgeT = 0; }
+    if (f.surgeT > 0) f.surgeT--;
     if (f.noSpecT > 0) { f.noSpecT--; if (f.ctl.buf.s > 0) take(f.ctl, 's'); }   // sortie de la fumée : pas de coup spécial pendant 1 s
     if (f.slowT > 0) { f.slowT--; if (G.frame % 3) return; }
     updFighter(f, o);
+    if (f.nitroT > 0 && G.frame % 2 === 0 && !f.ko && f.state !== 'nitroUp') updFighter(f, o);   // Nitro : tout va 1,5x plus vite
+    powerTrail(f);
     if (f.bfEcho && f.state !== 'bflip') { if (f.echo && f.echo.length) f.echo.shift(); else f.bfEcho = false; }   // échos du bas + A qui s'effacent
     // garde-fou : un état bloqué trop longtemps (jamais terminé) remet le combattant en garde
     if (!f.ko && f.hp > 0 && G.fighting && f.t > 420 && !LONG_ST.includes(f.state)) { f.rotAng = null; f.air = f.y < GROUND - 1; if (f.air) { setState(f, 'fall'); f.vy = 1; } else { f.y = GROUND; f.vx = 0; setState(f, 'idle'); } }
@@ -4983,6 +5138,7 @@ function stepFight() {
     }
   }
 
+  surgeStep();
   updProps(); updBlood(); updVesper(); updGrog(); updZephyr(); updNyx(); updKael(); updVane(); clashProjectiles(); updToxics();
   // Étincelles
   G.sparks.forEach(s => s.t++);
@@ -5120,6 +5276,7 @@ function drawHUD() {
   drawPortrait(b.def.idx, W - 6 - PS, 4, PS, '#ff7a6a', -1);
   drawBar(bx, bw, a, true);
   drawBar(W - bx - bw, bw, b, false);
+  drawNitroGauge(a, bx, bw, true); drawNitroGauge(b, W - bx - bw, bw, false);
   // Badge K.O.
   const flash = (a.hp < 25 || b.hp < 25) && (G.frame >> 4) % 2;
   R(CX - 22, 7, 44, 15, '#000');
@@ -5128,12 +5285,12 @@ function drawHUD() {
   // Chrono
   if (OPT.diff !== 3) text(String(G.timer).padStart(2, '0'), CX, 26, 16, '#ffffff', 'center');   // entraînement : pas de chrono ni de symbole
   // Noms + victoires
-  text(a.def.name, bx, 24, 8, '#ffffff', 'left');
-  text(b.def.name, W - bx, 24, 8, '#ffffff', 'right');
+  text(a.def.name, bx, 30, 8, '#ffffff', 'left');
+  text(b.def.name, W - bx, 30, 8, '#ffffff', 'right');
   if (a.cpu === false) text('1P', 6, 35, 8, '#5ac8ff', 'left');
   text(b.cpu ? 'CPU' : '2P', W - 6, 35, 8, '#ff7a6a', 'right');
-  for (let i = 0; i < a.wins; i++) drawMedal(bx + 18 + i * 12, 38);
-  for (let i = 0; i < b.wins; i++) drawMedal(W - bx - 26 - i * 12, 38);
+  for (let i = 0; i < a.wins; i++) drawMedal(bx + 18 + i * 12, 45);
+  for (let i = 0; i < b.wins; i++) drawMedal(W - bx - 26 - i * 12, 45);
 }
 function drawMedal(x, y) {
   disc(x, y, 4, OUT); disc(x, y, 3, '#e8a820'); R(x - 1, y - 2, 2, 2, '#fff2a8');
@@ -5226,6 +5383,7 @@ function drawFight() {
   drawProps();
   drawShadow(a); drawShadow(b);
   const order = ATTACKING.includes(a.state) && !ATTACKING.includes(b.state) ? [b, a] : [a, b];
+  drawPowerBehind();
   drawVaneBehind();
   order.forEach(f => {
     if (f.sinkK > 0) {   // Zephyr à moitié sous terre : on coupe tout ce qui passe sous le sol
@@ -5237,6 +5395,7 @@ function drawFight() {
     drawFighter(f, f.dizzy ? f.x + Math.round(Math.sin(G.frame * .15) * 2) : f.x, f.y - fl);
     if (f.fadeK > 0) ctx.restore();
     drawVaneGhost(f);
+    drawSurgeGhost(f);
   });
   G.f.forEach(f => { if (f.toxT > 0) for (let b = 0; b < 3; b++) { const ph = (G.frame * 1.3 + b * 29) % 50; R(Math.round(f.x + Math.sin(b * 2.4 + G.frame * .05) * 12), Math.round(f.y - 10 - ph * 1.6), 2, 2, `rgba(120,255,100,${1 - ph / 50})`); } });   // vapeurs toxiques sur le combattant empoisonné
   G.f.forEach(f => { if (f.burn > 0) drawBurn(f); drawFlameHand(f); if (f.dizzy) drawDizzy(f); });
@@ -5289,6 +5448,11 @@ function drawFight() {
     return;
   }
   drawHUD();
+  if (G.bigPop) {   // NITRO COMBO / NITRO SURGE COMBO
+    const P = G.bigPop; P.t++; const k = Math.min(1, P.t / 8), sc = 1 + (1 - k) * 2;
+    if (P.t > 110) G.bigPop = null;
+    else { ctx.save(); ctx.globalAlpha = Math.min(1, (110 - P.t) / 15); ctx.translate(CX, 70); ctx.scale(sc, sc); ctx.shadowColor = P.col; ctx.shadowBlur = 10; text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); }
+  }
   drawTut();
 
   if (G.scene === 'intro') {
@@ -5321,7 +5485,7 @@ const MOVES = [
     ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.5S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
     ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
     ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
-    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
+    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 10 HITS'], ['X X A', 'SURGE (IN NITRO): PURPLE DOUBLE 5 S'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
   { title: 'VESPER SPECIALS', lines: [
     ['A', 'HOLO FLASH'], ['', 'UP TO 3 CLONES, 3 HITS = PARALYZED'], ['BACK + A', 'SHADOW STEP'], ['', 'DODGES BACK, LEAVES A MINE'],
     ['UP + A', 'ZENITH BLADE'], ['', 'FLIP SLASH, LANDS BEHIND THE FOE'], ['JUMP + A', 'NEON DIVE'], ['', 'FAST DIAGONAL DIVE KICK'] ] },
