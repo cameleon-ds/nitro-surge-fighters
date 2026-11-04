@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v267';
+const VERSION = 'v268';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5257,7 +5257,7 @@ function step() {
           G.demoOut = (G.demoOut || 0) + 1; G.fadeK = Math.min(1, G.demoOut / DEMO_FADE);
           if (G.demoOut >= DEMO_FADE) { startDemo(); break; }
         }
-        if (G.t > SPLASH + INTRO_LOGO + 40 && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
+        if (G.t > SPLASH + INTRO_LOGO && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
@@ -6158,7 +6158,7 @@ function drawIntro(L) {
     if (gl) { const pulse = lt < 24 ? 1.6 * (1 - lt / 24) + .5 : .45 + .2 * Math.sin(G.frame * .08); artDraw(gl, CX - w2 * .62, cy - h2 * .66, w2 * 1.24, h2 * 1.32, false, Math.min(1, pulse) * a, 'lighter'); }
     artDraw(LOGO_NSF, CX - w2 / 2, cy - h2 / 2, w2, h2, false, a);
     if (lt < 14) artFill(`rgba(255,240,200,${(.5 * (1 - lt / 14)).toFixed(3)})`);   // éclair à l'apparition
-    if (lt > 40 && (G.frame >> 5) % 2 === 0) artTextA('PRESS ANY KEY', CX, cy + lh / 2 + 14, 9, '#ffffff', 1);
+    if (((lt - 1) >> 5) % 2 === 0) artTextA('PRESS ANY KEY', CX, cy + lh / 2 + 14, 9, '#ffffff', 1);
   }
 }
 function artTextA(str, x, y, size, col, al) {   // texte pixel net (calque HD), avec transparence
