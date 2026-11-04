@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v255';
+const VERSION = 'v256';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5555,19 +5555,25 @@ function bigMsg(s, size, col, y = 84) { text(s, W / 2, y, size, col, 'center', '
 function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur humain
   if (f.ko || f.hp <= 0) return null;
   const o = G.f[0] === f ? G.f[1] : G.f[0];
-  if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffd23a'];   // objet lancé sur moi : X pour le renvoyer
-  if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffd23a'];   // objet à portée : X pour le lancer
+  if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffffff'];   // objet lancé sur moi : X pour le renvoyer
+  if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];   // objet à portée : X pour le lancer
   if (f.nitroT > 0) return [(G.frame / 60 | 0) % 2 ? 'YYBA' : 'YYBB', f.surgeT > 0 ? '#ff80ff' : '#5aff8a'];   // Nitro / Surge : super coup
   return null;
 }
 function drawGuides() {
-  if (!OPT.guides || G.demo || G.scene !== 'fight' || G.paused) return;
+  if (!OPT.guides || G.demo || G.scene !== 'fight' || G.paused) { G.f.forEach(f => { f.guideA = 0; }); return; }
   G.f.forEach(f => {
-    if (f.cpu) return;
-    const g = guideOf(f); if (!g) return;
+    const g = f.cpu ? null : guideOf(f);
+    if (!g) { f.guideA = 0; f.guideTxt = null; return; }
+    if (f.guideTxt !== g[0].replace(/YYB./, 'YYB')) { f.guideTxt = g[0].replace(/YYB./, 'YYB'); f.guideA = 0; }   // nouvelle bulle : elle réapparaît
+    f.guideA = (f.guideA || 0) + 1;
+    const k = Math.min(1, f.guideA / 10), pop = k < 1 ? 1.25 * Math.sin(k * Math.PI * .5) - .25 * Math.sin(k * Math.PI) : 1;   // apparition : zoom avec léger rebond
+    const sc = Math.max(.01, pop * (1 + .06 * Math.sin(G.frame * .12)));   // puis léger zoom continu
     const x = Math.round(f.x + f.dir * 6), y = Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;
-    ctx.fillStyle = 'rgba(10,4,20,.75)'; ctx.beginPath(); ctx.arc(x - w / 2 + 6, y + 4, 6, Math.PI / 2, Math.PI * 1.5); ctx.arc(x + w / 2 - 6, y + 4, 6, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();   // bulle en pilule, sans contour
-    text(g[0], x, y + 1, 8, g[1], 'center');
+    ctx.save(); ctx.translate(x, y + 4); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, k * 1.5);
+    ctx.fillStyle = 'rgba(10,4,20,.75)'; ctx.beginPath(); ctx.arc(-w / 2 + 6, 0, 6, Math.PI / 2, Math.PI * 1.5); ctx.arc(w / 2 - 6, 0, 6, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();   // bulle en pilule, sans contour
+    text(g[0], 0, -3, 8, g[1], 'center');
+    ctx.restore();
   });
 }
 function drawDizzy(f) {
