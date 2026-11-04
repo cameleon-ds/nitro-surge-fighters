@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v256';
+const VERSION = 'v257';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5724,7 +5724,7 @@ function drawFight() {
   if (G.flashT > 9) R(0, 0, W, H, 'rgba(220,245,255,.25)');   // très bref flash d'écran
   if (G.scene === 'intro' && G.preT > 0) {   // ouverture : nom du décor seulement
     const nm = (STAGES.find(q => q[0] === G.stage) || [0, ''])[1], al = Math.min(1, (PRE_T - G.preT) / 15, G.preT / 15);
-    ctx.save(); ctx.globalAlpha = al; text(nm, CX, 22, 16, '#ffd23a', 'center'); ctx.restore();
+    ctx.save(); ctx.globalAlpha = al; text(nm, CX, 22, 16, '#ffffff', 'center'); ctx.restore();
     return;
   }
   drawHUD();
