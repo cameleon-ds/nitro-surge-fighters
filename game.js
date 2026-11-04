@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v252';
+const VERSION = 'v253';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5194,21 +5194,21 @@ function step() {
       }
       const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
       if (btnOn && tap && inRect(tap, ADD_BTN)) { G.qrPop = true; sfx('select'); break; }
-      if (tap && inRect(tap, INV_BTN)) { openInvite(); break; }
+      if (tap && !NET.guest && inRect(tap, INV_BTN)) { openInvite(); break; }
       {
         let sl = G.sel || 0;
         if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; }   // ADD CONTROLLERS (sous la grille)
-        else if (sl === 9) { if (edge(sc, 'd')) sl = G.selBack != null && G.selBack < 4 ? G.selBack : 0; }   // INVITE A PLAYER (en haut)
+        else if (sl === 9) { if (NET.guest || edge(sc, 'd')) sl = G.selBack != null && G.selBack < 4 ? G.selBack : 0; }   // INVITE A PLAYER (en haut)
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
-          if (edge(sc, 'u')) { if (sl > 3) sl -= 4; else { G.selBack = sl; sl = 9; } }
+          if (edge(sc, 'u')) { if (sl > 3) sl -= 4; else if (!NET.guest) { G.selBack = sl; sl = 9; } }
           if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } }
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
       if (G.sel === 8 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { G.qrPop = true; sfx('select'); break; }
-      if (G.sel === 9 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { openInvite(); break; }
+      if (G.sel === 9 && !NET.guest && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { openInvite(); break; }
       if (G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) {
         const c = ROSTER[G.sel || 0];
         if (c == null) sfx('block');
@@ -6149,11 +6149,16 @@ function drawSelect() {
   }
   {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
     const bw = 84, bh = 14, bx = Math.round(CX - bw / 2), by = 23, on = sel === 9;   // juste sous SELECT YOUR FIGHTER
+    if (NET.guest) {   // Player 2 connecté : plus de bouton, juste CONNECTED
+      INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0;
+      artCircle(CX - 30, by + bh / 2, 6.5, '#a83ae8'); artText('P2', CX - 30, by + bh / 2 - 2.6, 5, '#ffffff');
+      artText('CONNECTED', CX + 8, by + 3.6, 7, '#5aff8a');
+    } else {
     INV_BTN[0] = bx; INV_BTN[1] = by; INV_BTN[2] = bw; INV_BTN[3] = bh;
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#ff6ae8');
     artText('INVITE A PLAYER', CX, by + 3.6, 7, on ? '#ffd23a' : '#ffffff');
-    if (NET.guest) { artCircle(bx + bw + 9, by + bh / 2, 6.5, '#a83ae8'); artText('P2', bx + bw + 9, by + bh / 2 - 2.6, 5, '#ffffff'); }
+    }
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
   if (isTouch) text('A: CONFIRM   B: BACK', CX, 206, 8, 'rgba(216,200,168,.8)', 'center');
