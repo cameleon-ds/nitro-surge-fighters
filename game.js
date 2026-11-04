@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v257';
+const VERSION = 'v258';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1457,6 +1457,8 @@ function sfx(n) {
   if (!AC || (typeof OPT !== 'undefined' && OPT.sfx === 0)) return;
   try {
     switch (n) {
+      case 'tally': { const g = tone('square', 1568, 1568, .035, .16); try { g.connect(ECHO); } catch (e) {} break; }   // décompte du score (écho + réverbe)
+      case 'tallyEnd': [1046, 1318, 1568].forEach((fq, i) => { const g = tone('square', fq, fq, i === 2 ? .5 : .14, .2, i * .13); try { g.connect(ECHO); } catch (e) {} }); break;   // fin du décompte : trois notes
       case 'whoosh': if (!playSample('swing', .8)) noise(.13, .4, 500, 'bandpass', 2600, 1.4); break;   // coup donné dans l'air
       case 'jump': if (!playSample('jump', .55, .9)) noise(.18, .3, 400, 'bandpass', 1600, 1.2); break;   // saut   // fouetté qui siffle vers l'aigu
       case 'hit': if (!playSample('light', 1)) smack(2400, .8, 190, 60, .12, .9); break;                 // coup léger
@@ -1758,7 +1760,7 @@ function readRemote(p) {
 const remoteOn = p => !!(NET.rem[p] && NET.rem[p].open);
 // État envoyé à chaque manette smartphone : personnage choisi, énergie, résultat (YOU WIN / YOU LOSE)
 function netStateFor(p) {
-  const fi = p - 1, fightSc = ['intro', 'fight', 'ko', 'timeup', 'over'].includes(G.scene);
+  const fi = p - 1, fightSc = ['intro', 'fight', 'ko', 'timeup', 'score', 'over'].includes(G.scene);
   if (fightSc && G.f && G.f[fi]) {
     const f = G.f[fi];
     return { t: 'st', ch: f.def.idx, name: f.def.name, hp: Math.round(f.hp), res: G.scene === 'over' ? (f.wins >= 2 ? 'win' : 'lose') : null };
@@ -2271,6 +2273,7 @@ function updRush(f, o) {
       const surge = f.surgeT > 0;
       G.darkT = 50; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 14; G.shake = 9;
       G.bigPop = { txt: surge ? 'NITRO SURGE COMBO!' : 'NITRO COMBO!', col: surge ? '#d070ff' : '#5aff8a', t: 0 };
+      addScore(f, surge ? SCORE_PTS.surge : SCORE_PTS.nitro);
       sfx('fb'); sfx('heavy');
     }
   }
@@ -2310,6 +2313,7 @@ function updSupers() {
       for (let i = 0; i < 3; i++) addSpark(q.x + (Math.random() - .5) * 30, q.y + (Math.random() - .5) * 30, 'fb', q.pal);
       G.darkT = 50; G.flashT = 12; G.boltX = q.x; G.boltY = q.y; G.freeze = 18; G.shake = 12;
       G.bigPop = { txt: 'NITRO SURGE COMBO!', col: '#d070ff', t: 0 };
+      addScore(f, SCORE_PTS.surge);
       sfx('fb'); sfx('heavy'); sfx('thud');
     }
     if (q.x < (G.camL || 0) - 80 || q.x > (G.camL || 0) + W + 80) q.dead = true;
@@ -4350,6 +4354,7 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
     if (att.state === 'nyxspin') { att.rotAng = null; att.nHits = 0; setState(att, 'jump'); att.airAtk = true; att.vy = 0; att.vx = 0; }   // plongeon de Nyx contré : elle retombe
     setState(def, 'idle'); def.counterT = 60; def.vx = 0;
     G.flashT = 12; G.darkT = 60; G.boltX = sx; G.boltY = sy;
+    addScore(def, SCORE_PTS.counter);   // contre réussi
     addPopup(def.x, def.y - 100, 'COUNTER!', '#7af0ff');
     return;
   }
@@ -4412,6 +4417,7 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
   if (['hit', 'fall', 'stunned'].includes(def.state) || def.paraT > 0) comboHit(att); else { att.cmbN = 1; att.cmbLast = G.frame; }   // compteur de combo
   if (att.cpu && !def.cpu && DL() === 0 && !(G.tut && G.tut.phase !== 4)) data = Object.assign({}, data, { dmg: data.dmg * .55 });   // facile : le CPU fait beaucoup moins mal
   def.hp = Math.max(G.tut && G.tut.phase !== 4 ? 30 : rushGo ? 1 : 0, def.hp - dmgK(Math.round(data.dmg * (def.def.tough || 1) * (projectile ? 1 : att.def.power || 1)))); def.lagT = 32;
+  addScore(att, projectile || !NORMAL_HITS.includes(att.state) ? SCORE_PTS.special : SCORE_PTS.normal);   // coup normal / coup spécial
   nitroGain(att, def, hpBefore - def.hp);
   if (att.surgeT > 0 && !projectile && !G.ghostHit && att.state !== 'nrush' && !rushGo) (G.ghostQ = G.ghostQ || []).push({ f: G.frame + 7, hit: { att, def, data, sx, sy } });   // le double mauve refrappe
   spawnBlood(sx, sy, away, data.dmg);
@@ -4597,6 +4603,7 @@ const ALT = [
 const fighterDef = (i, alt) => alt ? Object.assign({}, DEFS[i], ALT[i], { idx: i, alt: true }) : Object.assign(DEFS[i], { idx: i });
 const PRE_T = 110, NYX_TOP = 74;   // NYX_TOP : hauteur max du vol plané de Nyx (barre d'énergie au niveau du buste)
 function startMatch(p1, p2, stage) {
+  G.sc = [{ pts: 0, taken: 0 }, { pts: 0, taken: 0 }]; G.mTime = 0; G.score = null;   // score du combat
   G.hurt = [false, false];   // « PERFECT » : aucun coup encaissé de tout le combat
   if (p2 == null) p2 = G.p2 != null ? G.p2 : 1 - p1;
   G.p1 = p1; G.p2 = p2;
@@ -4625,6 +4632,7 @@ function startRound() {
 
 function endRound(winner) {
   G.fighting = false;
+  if (G.sc) G.f.forEach((f, i) => { G.sc[i].taken += Math.max(0, 100 - Math.max(0, f.hp)); });   // dégâts reçus pendant le round
   G.winner = winner;
   if (winner) winner.wins++;
 }
@@ -4735,6 +4743,49 @@ function drawTut() {
   if (L1) text(L1, CX, by + 17, 8, '#ffffff', 'center');
   if (L2) text(L2, CX, by + 28, 8, '#7af0ff', 'center');
 }
+/* ---------------- SCORE ----------------
+   Pendant le combat : coups normaux, spéciaux, contres, NITRO COMBO, NITRO SURGE COMBO.
+   À la fin (vainqueur) : bonus de temps (plus on gagne vite, plus on marque) et bonus de vitalité (moins on a reçu de dégâts, plus on marque). */
+const SCORE_PTS = { normal: 100, special: 300, counter: 500, nitro: 5000, surge: 10000 };
+const NORMAL_HITS = ['punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick', 'jpunch', 'jkick', 'rupper', 'throw'];
+const SC_IN = 24, SC_RUN = 120, SC_HOLD = 70;   // apparition, calcul (2 s), pause avant YOU WIN / YOU LOSE
+function addScore(f, n) { if (!G.sc || G.demo || (G.tut && G.tut.phase !== 4) || !G.fighting) return; const i = G.f.indexOf(f); if (i >= 0) G.sc[i].pts += n; }
+function startScore() {
+  const secs = (G.mTime || 0) / 60;
+  const rows = G.f.map((f, i) => {
+    const won = f.wins >= 2, sc = G.sc[i];
+    const time = won ? Math.max(0, Math.round(120 - secs)) * 200 : 0;
+    const vit = won ? Math.max(0, 300 - Math.round(sc.taken)) * 50 : 0;
+    return { pts: sc.pts, time, vit, total: sc.pts + time + vit };
+  });
+  if (G.mode === 'arcade' && G.arc) { G.arc.total = (G.arc.total || 0) + rows[0].total; }   // ARCADE : les scores s'additionnent
+  G.score = { rows, secs };
+  G.scene = 'score'; G.t = 0;
+}
+const fmtSc = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+function drawScore() {
+  const S = G.score; if (!S) return;
+  const T = G.t, a = Math.min(1, T / SC_IN), p = Math.max(0, Math.min(1, (T - SC_IN) / SC_RUN));
+  R(0, 0, W, H, `rgba(4,2,10,${(.72 * a).toFixed(3)})`);
+  if (T < 6) return;
+  const two = !(G.mode === 'arcade' && G.arc) , cols = two ? [0, 1] : [0];
+  ctx.save(); ctx.globalAlpha = a;
+  text('SCORE', CX, 30, 16, '#ffd23a', 'center');
+  const lx = CX - 150, labels = ['HITS', 'TIME BONUS', 'VITALITY BONUS', 'TOTAL'], y0 = 66, st = 20;
+  labels.forEach((l, k) => text(l, lx, y0 + k * st + (k === 3 ? 8 : 0), 8, k === 3 ? '#ffd23a' : '#ffffff', 'left'));
+  R(lx, y0 + 3 * st - 1, 300, 1, 'rgba(255,255,255,.25)');
+  cols.forEach(c => {
+    const r = S.rows[c], x = two ? (c === 0 ? CX + 50 : CX + 145) : CX + 145, f = G.f[c];
+    text(c === 0 ? 'P1' : f.cpu ? 'CPU' : 'P2', x, y0 - 18, 8, c === 0 ? '#5ac8ff' : '#ff6ae8', 'right');
+    const vals = [r.pts, r.time * (1 - p), r.vit * (1 - p), r.pts + (r.time + r.vit) * p];
+    vals.forEach((v, k) => text(fmtSc(v), x, y0 + k * st + (k === 3 ? 8 : 0), 8, k === 3 ? '#ffd23a' : '#ffffff', 'right'));
+  });
+  if (!two) {
+    const tot = (G.arc.total || 0) - S.rows[0].total * (1 - p);
+    text('ARCADE TOTAL', lx, y0 + 4 * st + 16, 8, '#5aff8a', 'left'); text(fmtSc(tot), CX + 145, y0 + 4 * st + 16, 8, '#5aff8a', 'right');
+  }
+  ctx.restore();
+}
 /* ---------------- ARCADE MODE ---------------- */
 // Tous les personnages dans l'ordre (y compris son double), Lord Vane en dernier
 function arcadeStart() {
@@ -4753,7 +4804,7 @@ const CONF_COL = ['#ffd23a', '#ff4a8a', '#5ac8ff', '#5ae06a', '#c88aff', '#ff8a3
 function startEnding() {
   const f = makeFighter(fighterDef(G.p1), 0, CX, 1, false); f.state = 'idle'; f.t = 0;
   const conf = []; for (let i = 0; i < 140; i++) conf.push({ x: Math.random() * (W + 80), y: -Math.random() * H * 1.2, vy: .25 + Math.random() * .4, ph: Math.random() * 6.28, c: CONF_COL[i % CONF_COL.length], s: 1 + (Math.random() < .35) });
-  G.end = { f, conf, out: 0 }; G.scene = 'ending'; G.t = 0; G.arc = null;
+  G.end = { f, conf, out: 0, total: G.arc ? G.arc.total || 0 : 0 }; G.scene = 'ending'; G.t = 0; G.arc = null;
 }
 const END_ATK = ['punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick'];
 function stepEnding() {
@@ -4787,6 +4838,7 @@ function drawEnding() {
   }
   drawConf(true);   // quelques confettis devant
   if (t > 110) { const k = Math.min(1, (t - 110) / 24), e = 1 - Math.pow(1 - k, 3), sc = 1 + (1 - e) * 7; ctx.save(); ctx.globalAlpha = a * k; ctx.translate(CX, 158); ctx.scale(sc, sc); text('CONGRATULATIONS !', 0, -8, 16, (G.frame >> 4) % 2 ? '#ffd23a' : '#ffe98a', 'center'); ctx.restore(); }
+  if (t > 140 && E.total) text('FINAL SCORE ' + fmtSc(E.total), CX, 178, 8, '#ffffff', 'center');
   if (t > 300 && (G.frame >> 5) % 2 === 0) text('PRESS ANY BUTTON', CX, 196, 8, '#ffffff', 'center');
   ctx.restore();
   if (E.out) R(0, 0, W, H, `rgba(0,0,0,${Math.min(1, E.out / 40)})`);   // fondu de sortie
@@ -5123,7 +5175,7 @@ function step() {
   if (loadDone()) netStart();   // manettes smartphone : connexion possible dès le démarrage du jeu
   const raw1 = readPlayer(), raw2 = readP2();
   // Menus (écran titre, options, pause, choix du stage, fin de combat) : les deux joueurs connectés peuvent les manipuler
-  const menuShared = G.paused || !['intro', 'fight', 'ko', 'timeup', 'select'].includes(G.scene);
+  const menuShared = G.paused || !['intro', 'fight', 'ko', 'timeup', 'score', 'select'].includes(G.scene);
   if (menuShared) for (const b in raw2) if (raw2[b]) raw1[b] = true;
   ctlUpdate(pctl, confuse(raw1, G.f && G.f[0] && G.f[0].ctl === pctl ? G.f[0] : null));
   ctlUpdate(p2ctl, confuse(raw2, G.f && G.f[1] && G.f[1].ctl === p2ctl ? G.f[1] : null));
@@ -5233,7 +5285,7 @@ function step() {
       else if (G.t > 10 && backPress(pctl)) { G.scene = 'select'; G.selPhase = 1; G.t = 0; sfx('beep'); }
       break;
     }
-    case 'intro': case 'fight': case 'ko': case 'timeup':
+    case 'intro': case 'fight': case 'ko': case 'timeup': case 'score':
       stepFight();
       break;
     case 'ending': stepEnding(); break;
@@ -5393,6 +5445,7 @@ function stepFight() {
   G.sparks = G.sparks.filter(s => s.t < 12);
 
   if (G.scene === 'fight') {
+    G.mTime = (G.mTime || 0) + 1;
     if (OPT.diff !== 3 && !(G.tut && G.tut.phase !== 4) && ++G.tick >= 45) { G.tick = 0; G.timer = Math.max(0, G.timer - 1); }   // entraînement : temps infini
     if (G.demo) { a.hp = Math.max(a.hp, 1); b.hp = Math.max(b.hp, 1); }   // démo : jamais de K.O.
     if (a.hp <= 0 || b.hp <= 0) {
@@ -5405,6 +5458,11 @@ function stepFight() {
       endRound(a.hp === b.hp ? null : (a.hp > b.hp ? a : b));
       G.scene = 'timeup'; G.t = 0;
     }
+  } else if (G.scene === 'score') {
+    const S = G.score, T = G.t - SC_IN;
+    if (T >= 0 && T < SC_RUN && T % 4 === 0) sfx('tally');   // décompte : petit son rapide
+    if (T === SC_RUN) sfx('tallyEnd');                        // fin du calcul : trois notes
+    if (G.t > SC_IN + SC_RUN + SC_HOLD) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; }
   } else if (G.scene === 'ko' || G.scene === 'timeup') {
     const w = G.winner;
     if (w && G.t > 100 + (G.koDelay || 0) && !w.air && [...NEUTRAL, 'land'].includes(w.state)) {
@@ -5412,7 +5470,7 @@ function stepFight() {
       if (w.hp >= 100 && G.rPerf == null) { G.rPerf = G.t; if (AC) playSample('perfect', 1.5, VOX, true); }   // round gagné sans prendre de coup
     }
     if (G.t > 260 + (G.scene === 'ko' ? G.koDelay || 0 : 0)) {
-      if (G.f.some(f => f.wins >= 2)) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; }
+      if (G.f.some(f => f.wins >= 2)) { if (G.tut || !G.sc) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; } else startScore(); }
       else { G.round++; startRound(); }
     }
   }
@@ -5734,6 +5792,7 @@ function drawFight() {
     else { ctx.save(); ctx.globalAlpha = Math.min(1, ((P.end || 110) - P.t) / 15); ctx.translate(CX, 70); ctx.scale(sc, sc); ctx.shadowColor = P.col; ctx.shadowBlur = 10; text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); }
   }
   drawTut();
+  if (G.scene === 'score') drawScore();
 
   if (G.scene === 'intro') {
     if (G.t < 84) bigMsg('ROUND ' + G.round, 16, '#ffd23a');
@@ -6324,7 +6383,12 @@ function drawOver() {
   text('VS', CX, y0 + BS / 2 - 8, 16, '#ff4a2a', 'center');
   const won = a.cpu === false ? aw : bw;
   if (G.t > 20) text(won ? 'YOU WIN!' : 'YOU LOSE...', CX, 4, 8, won ? '#ffd23a' : '#ff5a4a', 'center');
-  if (G.perfect && G.t > 100) { const k = Math.min(1, (G.t - 100) / 8), sc = 1 + (1 - k) * 2; ctx.save(); ctx.globalAlpha = k; ctx.translate(CX, 158); ctx.scale(sc, sc); text('PERFECT!', 0, -8, 16, (G.frame >> 3) % 2 ? '#ffd23a' : '#ffffff', 'center'); ctx.restore(); }
+  if (G.perfect && G.t > 100) { const k = Math.min(1, (G.t - 100) / 8), sc = 1 + (1 - k) * 2; ctx.save(); ctx.globalAlpha = k; ctx.translate(CX, 162); ctx.scale(sc, sc); text('PERFECT!', 0, -8, 16, (G.frame >> 3) % 2 ? '#ffd23a' : '#ffffff', 'center'); ctx.restore(); }
+  if (G.score) {   // score du combat sous chaque personnage
+    text('SCORE ' + fmtSc(G.score.rows[0].total), lx + BS / 2, y0 + BS + 28, 8, '#5ac8ff', 'center');
+    if (!(G.mode === 'arcade' && G.arc)) text('SCORE ' + fmtSc(G.score.rows[1].total), rx + BS / 2, y0 + BS + 28, 8, '#ff6ae8', 'center');
+    else text('TOTAL ' + fmtSc(G.arc.total || 0), rx + BS / 2, y0 + BS + 28, 8, '#5aff8a', 'center');
+  }
   if (G.mode === 'arcade' && G.arc && won) text('STAGE ' + (G.arc.i + 1) + ' / ' + G.arc.list.length + ' CLEAR', CX, 14, 8, '#ffffff', 'center');
   if (G.t > 30) overItems(won).forEach((m, i) => {
     const sel = (G.ocurOver || 0) === i;
@@ -6336,7 +6400,7 @@ function render() {
   hiUsed = false;
   if (G.guest) { ctx.save(); drawGuest(); ctx.restore(); if (HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden'; return; }
   ctx.save();
-  const grp = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) ? 'fight' : G.scene;
+  const grp = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) ? 'fight' : G.scene;
   if (G.noWipe) { G.noWipe = false; prevGroup = grp; }
   if (prevGroup && grp !== prevGroup) {   // changement d'écran : on garde une image de l'ancien pour le volet de transition
     SNAP.width = cv.width; SNAP.height = cv.height; { const sc2 = SNAP.getContext('2d'); if (HI.style.visibility === 'visible') sc2.drawImage(HI, 0, 0, cv.width, cv.height); sc2.drawImage(cv, 0, 0); } transT = 0; G.st = 0;
