@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v266';
+const VERSION = 'v267';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -917,7 +917,7 @@ function drawFighter(f, x = f.x, y = f.y) {
       sR(q[0] - 1, q[1] - 1, 3, 3, hp.a);
       sR(q[0] - 1, q[1] - 1, 2, 2, i % 2 ? hp.h : hp.H);
       if (i % 2 === 0) sR(q[0] - 1, q[1] - 1, 1, 1, hp.L);
-      if (i === 6) { sR(q[0] - 1, q[1] + 2, 3, 1, top[2]); sR(q[0], q[1] + 3, 1, 3, hp.H); }
+      if (i === 6) { if (windy) { sR(q[0] - dir * 2 - .5, q[1] - 1, 1, 3, top[2]); sR(dir > 0 ? q[0] - 6 : q[0] + 3, q[1], 3, 1, hp.H); } else { sR(q[0] - 1, q[1] + 2, 3, 1, top[2]); sR(q[0], q[1] + 3, 1, 3, hp.H); } }   // bout pointu : horizontal vers l'arrière dans le vent
     }
   };
   // Bras : lead = bras avant (celui qui frappe), rear = bras arrière
