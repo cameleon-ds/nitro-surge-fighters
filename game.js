@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v264';
+const VERSION = 'v265';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -641,7 +641,7 @@ const POSES = {
   fkick0:  [-2,-55, -3,-47, -2,-30, 4,-42, 8,-48, -8,-40, -4,-46, 6,-15, 9,0, 12,-42, 9,-29],
   fkick1:  [-10,-52, -9,-44, -3,-30, -2,-42, 2,-48, -14,-40, -10,-46, 5,-15, 8,0, 22,-40, 48,-44],
   gp0:     [2,-47, 0,-40, -2,-23, -3,-50, 2,-56, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
-  gp1:     [13,-37, 10,-31, 0,-19, 19,-17, 26,-2, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
+  gp1:     [13,-37, 10,-31, 0,-19, 16,-19, 19,-4, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
   special0:[-1,-52, -2,-44, -2,-26, -7,-34, -11,-30, -9,-35, -13,-31, 10,-13, 15,0, -9,-12, -16,0],
   special1:[6,-50, 4,-42, 1,-25, 15,-40, 26,-40, 13,-38, 24,-37, 11,-13, 18,0, -8,-11, -17,0],
   upper0:  [4,-46, 2,-38, 0,-22, 8,-30, 10,-24, 4,-30, 8,-36, 10,-12, 12,0, -6,-10, -10,0],
@@ -689,7 +689,7 @@ const POSES = {
 };
 
 // Axel : images intermédiaires du coup de poing au sol (le poing décrit un arc de cercle vers l'avant jusqu'au sol)
-const GP_A0 = Math.atan2(-16, 2), GP_A1 = Math.atan2(29, 16), GP_R0 = 16, GP_R1 = 33;
+const GP_A0 = Math.atan2(-16, 2), GP_A1 = Math.atan2(27, 9), GP_R0 = 16, GP_R1 = 28;
 const gpArc = k => { const a = GP_A0 + (GP_A1 - GP_A0) * k, r = GP_R0 + (GP_R1 - GP_R0) * k; return [a, r]; };
 [.25, .5, .75].forEach((k, i) => {
   const A = POSES.gp0, B = POSES.gp1, P = A.map((v, j) => v + (B[j] - v) * k);
@@ -2224,9 +2224,9 @@ const shotPow = q => q.r != null ? ((q.big || q.c > .5) ? 3 : 1) : q.big ? 2 : 1
 const GP_BV = sc => Math.sqrt(2 * .25 * (56 - 10 * sc));
 function spawnBounceFb(f, big) {   // Axel : la boule part du sol et avance en rebondissant
   const sc = big ? 1.6 : 1;
-  f.fb = { owner: f, x: f.x + f.dir * 38, y: GROUND - 10 * sc, vx: (big ? 4.4 : 3.1) * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc, bounce: GP_BV(sc), bvy: -GP_BV(sc) };   // même hauteur de rebond pour la petite et la grosse boule (assez haut pour passer dessous en glissade)
+  f.fb = { owner: f, x: f.x + f.dir * 30, y: GROUND - 10 * sc, vx: (big ? 4.4 : 3.1) * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc, bounce: GP_BV(sc), bvy: -GP_BV(sc) };   // même hauteur de rebond pour la petite et la grosse boule (assez haut pour passer dessous en glissade)
   G.fbs.push(f.fb);
-  for (let i = 0; i < 3; i++) addSpark(f.x + f.dir * (34 + i * 6), GROUND - 4, 'fb', f.def.fb);
+  for (let i = 0; i < 3; i++) addSpark(f.x + f.dir * (26 + i * 6), GROUND - 4, 'fb', f.def.fb);
   G.shake = Math.max(G.shake, big ? 7 : 4); sfx('fb'); sfx('heavy');
 }
 function spawnFireball(f, big) {
