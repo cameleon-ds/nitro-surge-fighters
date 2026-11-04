@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v263';
+const VERSION = 'v264';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -688,6 +688,16 @@ const POSES = {
   down:    [-24,-6, -17,-6, 0,-5, -14,-12, -8,-14, -20,-3, -26,-2, 9,-9, 18,-3, 10,-4, 20,-2],
 };
 
+// Axel : images intermédiaires du coup de poing au sol (le poing décrit un arc de cercle vers l'avant jusqu'au sol)
+const GP_A0 = Math.atan2(-16, 2), GP_A1 = Math.atan2(29, 16), GP_R0 = 16, GP_R1 = 33;
+const gpArc = k => { const a = GP_A0 + (GP_A1 - GP_A0) * k, r = GP_R0 + (GP_R1 - GP_R0) * k; return [a, r]; };
+[.25, .5, .75].forEach((k, i) => {
+  const A = POSES.gp0, B = POSES.gp1, P = A.map((v, j) => v + (B[j] - v) * k);
+  const sh = [P[2], P[3]], [a, r] = gpArc(k);
+  P[8] = sh[0] + Math.cos(a) * r; P[9] = sh[1] + Math.sin(a) * r;                       // poing sur l'arc
+  P[6] = sh[0] + Math.cos(a - .35) * r * .52; P[7] = sh[1] + Math.sin(a - .35) * r * .52;   // coude
+  POSES['gpI' + (i + 1)] = P;
+});
 const OUT = '#140c08';
 // Les sprites sont dessinés en basse résolution puis agrandis x2 (pixels « gros »).
 const K = 0.7, UP = 2;
@@ -2075,7 +2085,7 @@ function poseOf(f) {
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
     case 'nitroUp': return 'win';
-    case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
+    case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : f.t < 63 ? 'gpI' + (f.t - 59) : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
     case 'kspin': return f.t < 2 ? 'jump' : 'tuck';   // roulade en boule, comme Grog (haut + A)
@@ -2097,7 +2107,7 @@ function poseOf(f) {
       return f.t < 5 ? 'fpunch0' : f.t < 13 ? 'fpunch1' : 'fpunch0';
     case 'fkick': return f.t < 9 || f.t >= 17 ? 'fkick0' : 'fkick1';
     case 'special': return f.t < 12 ? 'special0' : 'special1';
-    case 'axgp': return !f.fired || f.t - f.gpT < 2 ? 'gp0' : 'gp1';
+    case 'axgp': { if (!f.fired) return 'gp0'; const k = f.t - f.gpT; return k < 3 ? 'gpI' + (k + 1) : 'gp1'; }
     case 'pthrow': return f.t < 7 ? 'special0' : 'special1';
     case 'holo': return f.t < 7 ? 'special0' : 'special1';
     case 'shadow': return 'tuck';
@@ -2210,9 +2220,11 @@ function reflectNear(g, R, yc, yr) {
 }
 // force d'un projectile : grosse boule de feu chargée 2, très grosse sphère de Lord Vane 3, le reste 1
 const shotPow = q => q.r != null ? ((q.big || q.c > .5) ? 3 : 1) : q.big ? 2 : 1;
+// rebond : le sommet arrive pile à la hauteur de la boule de feu d'Hiro (les deux s'annulent là-haut) ; au ras du sol elle passe dessous
+const GP_BV = sc => Math.sqrt(2 * .25 * (56 - 10 * sc));
 function spawnBounceFb(f, big) {   // Axel : la boule part du sol et avance en rebondissant
   const sc = big ? 1.6 : 1;
-  f.fb = { owner: f, x: f.x + f.dir * 38, y: GROUND - 10 * sc, vx: (big ? 4.4 : 3.1) * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc, bounce: big ? 4.6 : 4.2, bvy: -(big ? 4.6 : 4.2) };
+  f.fb = { owner: f, x: f.x + f.dir * 38, y: GROUND - 10 * sc, vx: (big ? 4.4 : 3.1) * f.dir, dir: f.dir, t: 0, alive: true, big: !!big, sc, bounce: GP_BV(sc), bvy: -GP_BV(sc) };   // même hauteur de rebond pour la petite et la grosse boule (assez haut pour passer dessous en glissade)
   G.fbs.push(f.fb);
   for (let i = 0; i < 3; i++) addSpark(f.x + f.dir * (34 + i * 6), GROUND - 4, 'fb', f.def.fb);
   G.shake = Math.max(G.shake, big ? 7 : 4); sfx('fb'); sfx('heavy');
@@ -2307,7 +2319,7 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
     if (f.t % 12 === 0) sfx('parry');
   }
   if (f.t === 58 && superKit(f) === 'axel') { f.vx = 2.4 * f.dir; sfx('whoosh'); }   // Axel : avance et frappe le sol
-  if (f.t === 62 && superKit(f) === 'axel') {
+  if (f.t === 63 && superKit(f) === 'axel') {
     f.vx = 0; (G.supers = G.supers || []).push({ owner: f, target: o, kit: 'axel', x: f.x + f.dir * 40, y: GROUND - 26, vx: f.dir * 5.5, dir: f.dir, t: 0, pal: SUPER_PAL.axel, bvy: -5.5 });
     for (let i = 0; i < 4; i++) addSpark(f.x + f.dir * (34 + i * 8), GROUND - 4, 'fb', SUPER_PAL.axel);
     G.flashT = 10; G.shake = Math.max(G.shake, 9); sfx('fb'); sfx('heavy');
@@ -2537,16 +2549,16 @@ function updFighter(f, o) {
     }
     case 'axgp':   // Axel : poing frappé au sol, boule de feu qui rebondit vers l'adversaire (A maintenu : plus grosse et plus rapide)
       if (!f.fired) {
-        if (h.s && f.t >= 6 && live) {
-          f.chargeT = (f.chargeT || 0) + 1; f.t = Math.min(f.t, 10);
+        if (h.s && f.t >= 4 && live) {
+          f.chargeT = (f.chargeT || 0) + 1; f.t = Math.min(f.t, 5);
           if (f.chargeT === 8) vaneChargeStart(f);
           if (f.chargeT === chargeMax(f)) { f.charged = true; G.darkT = 60; G.flashT = 12; G.boltX = f.x + f.dir * 3; G.boltY = f.y - 78; vaneChargeStop(f); sfx('counter'); addPopup(f.x, f.y - 100, 'MAX!', '#ffd23a'); }
-        } else if (f.t >= 12) { vaneChargeStop(f); f.fired = true; f.gpT = f.t; f.vx = 2.4 * f.dir; sfx('whoosh'); }   // il avance en frappant
+        } else if (f.t >= 4) { vaneChargeStop(f); f.fired = true; f.gpT = f.t; f.vx = 2.4 * f.dir; sfx('whoosh'); }   // il avance en frappant
       } else {
         const k = f.t - f.gpT;
-        if (k >= 4) f.vx = 0;
-        if (k === 4) spawnBounceFb(f, f.charged);
-        if (k >= 30) setState(f, 'idle');
+        if (k >= 3) f.vx = 0;
+        if (k === 3) spawnBounceFb(f, f.charged);   // le poing touche le sol
+        if (k >= 26) setState(f, 'idle');
       }
       break;
     case 'special':
@@ -5718,6 +5730,19 @@ function drawAxFire(f) {   // Axel : bras en feu pendant la frappe au sol (même
   else if (f.state === 'nsuper' && superKit(f) === 'axel') on = f.t >= 40 && f.t < 74;
   if (!on) return;
   const P = POSES[poseOf(f)], pal = f.def.fb;
+  const k0 = f.state === 'axgp' ? (f.fired ? f.t - f.gpT : -1) : f.t - 60;
+  if (k0 >= 0 && k0 < 14) {   // traînée de feu en arc de cercle, du haut vers l'avant jusqu'au sol
+    const kk = Math.min(1, (k0 + 1) / 4), [ae] = gpArc(kk), A0 = POSES.gp0, B0 = POSES.gp1, m = Math.min(1, kk);
+    const shx = f.x + f.dir * (A0[2] + (B0[2] - A0[2]) * m) * 1.4, shy = f.y + (A0[3] + (B0[3] - A0[3]) * m) * 1.3;
+    const fade = k0 < 4 ? 1 : Math.max(0, 1 - (k0 - 3) / 10), rr = (GP_R0 + (GP_R1 - GP_R0) * kk) * 1.35;
+    const map = a => f.dir > 0 ? a : Math.PI - a;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    [[11, pal[3], .55], [7, pal[2], .8], [3.5, pal[1], 1], [1.5, pal[0], 1]].forEach(([lw, col, al]) => {
+      ctx.globalAlpha = al * fade; ctx.strokeStyle = col; ctx.lineWidth = lw * (.6 + .4 * fade);
+      ctx.beginPath(); ctx.arc(shx, shy, rr, map(GP_A0), map(ae), f.dir < 0); ctx.stroke();
+    });
+    ctx.restore();
+  }
   for (const [i, sz] of [[6, .6], [8, 1]]) {   // coude puis poing
     const x = f.x + f.dir * P[i] * 1.4, y = f.y + P[i + 1] * 1.3, k = sz;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
