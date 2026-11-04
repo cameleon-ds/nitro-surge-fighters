@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v249';
+const VERSION = 'v250';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5197,13 +5197,13 @@ function step() {
       if (tap && inRect(tap, INV_BTN)) { openInvite(); break; }
       {
         let sl = G.sel || 0;
-        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack || 4; if (edge(sc, 'd')) sl = 9; }
-        else if (sl === 9) { if (edge(sc, 'u')) sl = btnOn ? 8 : G.selBack || 4; }
+        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; }   // ADD CONTROLLERS (sous la grille)
+        else if (sl === 9) { if (edge(sc, 'd')) sl = G.selBack != null && G.selBack < 4 ? G.selBack : 0; }   // INVITE A PLAYER (en haut)
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
-          if (edge(sc, 'u') && sl > 3) sl -= 4;
-          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else { G.selBack = sl; sl = btnOn ? 8 : 9; } }
+          if (edge(sc, 'u')) { if (sl > 3) sl -= 4; else { G.selBack = sl; sl = 9; } }
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } }
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
@@ -6148,11 +6148,11 @@ function drawSelect() {
     }
   }
   {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
-    const bw = 76, bh = 11, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 7 + (isTouch ? 0 : 14), on = sel === 9;
+    const bw = 84, bh = 14, bx = Math.round(CX - bw / 2), by = 23, on = sel === 9;   // juste sous SELECT YOUR FIGHTER
     INV_BTN[0] = bx; INV_BTN[1] = by; INV_BTN[2] = bw; INV_BTN[3] = bh;
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#ff6ae8');
-    artText('INVITE A PLAYER', CX, by + 2.4, 6.5, on ? '#ffd23a' : '#ffffff');
+    artText('INVITE A PLAYER', CX, by + 3.6, 7, on ? '#ffd23a' : '#ffffff');
     if (NET.guest) { artCircle(bx + bw + 9, by + bh / 2, 6.5, '#a83ae8'); artText('P2', bx + bw + 9, by + bh / 2 - 2.6, 5, '#ffffff'); }
   }
   if (hov == null && sel < 8) text('COMING SOON', CX, 196, 8, '#9a8aa0', 'center');
@@ -6183,10 +6183,10 @@ addEventListener('pointerup', e => {
 addEventListener('keydown', e => { if (G.invPop && G.scene === 'select' && G.invSel === 1 && (e.code === KEYS.s || e.code === 'Enter')) doShare(true); });
 function drawShareIcon(x, y, col) {   // icône de partage (vectorielle)
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
-  g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1.6 * r;
-  const P = [[x + 7, y - 7], [x - 7, y], [x + 7, y + 7]];
+  g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = .9 * r;
+  const P = [[x + 3.5, y - 3.6], [x - 3.5, y], [x + 3.5, y + 3.6]];   // même hauteur que le texte SHARE
   g.beginPath(); g.moveTo(P[0][0] * r, P[0][1] * r); g.lineTo(P[1][0] * r, P[1][1] * r); g.lineTo(P[2][0] * r, P[2][1] * r); g.stroke();
-  for (const [px, py] of P) { g.beginPath(); g.arc(px * r, py * r, 3.2 * r, 0, 6.29); g.fill(); }
+  for (const [px, py] of P) { g.beginPath(); g.arc(px * r, py * r, 1.7 * r, 0, 6.29); g.fill(); }
   g.restore();
 }
 function drawInvitePopup() {
@@ -6211,8 +6211,8 @@ function drawInvitePopup() {
       artText('(WhatsApp, Messenger, e-mail...)', cx2, by + 28, 6, '#d8c8e0');
       const sw = 84, sh = 22, sx = cx2 - sw / 2, sy = by + 46; INV_SHARE.splice(0, 4, sx, sy, sw, sh);
       artFill(on ? '#ffd23a' : '#3a2a48', sx, sy, sw, sh); ring(sx, sy, sw, sh, 1, '#ffffff');
-      drawShareIcon(sx + 16, sy + sh / 2, on ? '#1a0a24' : '#ffffff');
-      artText('SHARE', sx + 50, sy + 6, 9, on ? '#1a0a24' : '#ffffff');
+      drawShareIcon(sx + 22, sy + sh / 2 + .5, on ? '#1a0a24' : '#ffffff');
+      artText('SHARE', sx + 48, sy + 6.5, 9, on ? '#1a0a24' : '#ffffff');
       if (G.invMsg) artText(G.invMsg, cx2, sy + sh + 8, 6, '#5aff8a');
     }
   }
