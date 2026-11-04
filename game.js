@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v258';
+const VERSION = 'v259';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5596,7 +5596,7 @@ function drawHUD() {
   if (a.cpu === false) text('1P', 6, 35, 8, '#5ac8ff', 'left');
   text(b.cpu ? 'CPU' : '2P', W - 6, 35, 8, '#ff7a6a', 'right');
   for (const [f, L] of [[a, true], [b, false]]) if ((f.cmbN || 0) >= 2 && G.frame - (f.cmbLast || -999) < 80) {   // compteur de combo : chiffre en grand, COMBO en petit
-    const x = L ? 10 : W - 10, k = Math.min(1, (G.frame - f.cmbLast) / 4), sc = 1.4 - .4 * k;
+    const x = L ? 34 : W - 34, k = Math.min(1, (G.frame - f.cmbLast) / 4), sc = 1.4 - .4 * k;
     ctx.save(); ctx.translate(x, 62); ctx.scale(sc, sc); text(String(f.cmbN), 0, 0, 24, '#ffd23a', L ? 'left' : 'right', '#3a0a04'); ctx.restore();
     text('COMBO', x, 62 + 26, 8, '#ffffff', L ? 'left' : 'right');
   }
