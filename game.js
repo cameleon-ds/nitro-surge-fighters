@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v265';
+const VERSION = 'v266';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -640,7 +640,7 @@ const POSES = {
   fpunch1: [9,-51, 7,-43, 3,-26, 3,-40, 6,-46, 16,-45, 32,-46, 13,-14, 20,0, -5,-11, -12,0],
   fkick0:  [-2,-55, -3,-47, -2,-30, 4,-42, 8,-48, -8,-40, -4,-46, 6,-15, 9,0, 12,-42, 9,-29],
   fkick1:  [-10,-52, -9,-44, -3,-30, -2,-42, 2,-48, -14,-40, -10,-46, 5,-15, 8,0, 22,-40, 48,-44],
-  gp0:     [2,-47, 0,-40, -2,-23, -3,-50, 2,-56, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
+  gp0:     [2,-47, 0,-40, -2,-23, 8,-49, 16,-58, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
   gp1:     [13,-37, 10,-31, 0,-19, 16,-19, 19,-4, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
   special0:[-1,-52, -2,-44, -2,-26, -7,-34, -11,-30, -9,-35, -13,-31, 10,-13, 15,0, -9,-12, -16,0],
   special1:[6,-50, 4,-42, 1,-25, 15,-40, 26,-40, 13,-38, 24,-37, 11,-13, 18,0, -8,-11, -17,0],
@@ -689,7 +689,7 @@ const POSES = {
 };
 
 // Axel : images intermédiaires du coup de poing au sol (le poing décrit un arc de cercle vers l'avant jusqu'au sol)
-const GP_A0 = Math.atan2(-16, 2), GP_A1 = Math.atan2(27, 9), GP_R0 = 16, GP_R1 = 28;
+const GP_A0 = Math.atan2(-18, 16), GP_A1 = Math.atan2(27, 9), GP_R0 = 24, GP_R1 = 28;   // bras tendu en diagonale vers le haut et l'avant pendant la charge
 const gpArc = k => { const a = GP_A0 + (GP_A1 - GP_A0) * k, r = GP_R0 + (GP_R1 - GP_R0) * k; return [a, r]; };
 [.25, .5, .75].forEach((k, i) => {
   const A = POSES.gp0, B = POSES.gp1, P = A.map((v, j) => v + (B[j] - v) * k);
@@ -2314,7 +2314,7 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t < 12) f.vx = -3.4 * f.dir; else f.vx = 0;
   if (f.t < 58) G.darkT = Math.max(G.darkT, 24);
   if (f.t >= 14 && f.t < 56 && f.t % 3 === 0) {   // énergie qui converge vers les mains
-    const ax = superKit(f) === 'axel', a = Math.random() * 6.28, d = 30 + Math.random() * 20, hx2 = f.x + f.dir * (ax ? 3 : 22), hy = f.y - (ax ? 78 : 56);
+    const ax = superKit(f) === 'axel', a = Math.random() * 6.28, d = 30 + Math.random() * 20, hx2 = f.x + f.dir * 22, hy = f.y - (ax ? 75 : 56);
     (f.chg = f.chg || []).push({ x: hx2 + Math.cos(a) * d, y: hy + Math.sin(a) * d, tx: hx2, ty: hy, t: 0 });
     if (f.t % 12 === 0) sfx('parry');
   }
@@ -2356,7 +2356,7 @@ function drawSupers() {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const pal = SUPER_PAL[superKit(f)] || f.def.fb; ctx.fillStyle = pal[2]; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); ctx.restore();
   }
   for (const f of G.f) if (f.state === 'nsuper' && f.t > 14 && f.t < 58) {   // boule qui grossit dans les mains
-    const ax = superKit(f) === 'axel', pal = SUPER_PAL[superKit(f)] || f.def.fb, r = 4 + (f.t - 14) * .45, x = f.x + f.dir * (ax ? 3 : 24), y = f.y - (ax ? 78 : 56);
+    const ax = superKit(f) === 'axel', pal = SUPER_PAL[superKit(f)] || f.def.fb, r = 4 + (f.t - 14) * .45, x = f.x + f.dir * (ax ? 22 : 24), y = f.y - (ax ? 75 : 56);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 1, x, y, r * 2.2);
     g.addColorStop(0, pal[0]); g.addColorStop(.35, pal[1]); g.addColorStop(.7, pal[2] + '99'); g.addColorStop(1, pal[3] + '00');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 6.29); ctx.fill(); ctx.restore();
@@ -2552,7 +2552,7 @@ function updFighter(f, o) {
         if (h.s && f.t >= 4 && live) {
           f.chargeT = (f.chargeT || 0) + 1; f.t = Math.min(f.t, 5);
           if (f.chargeT === 8) vaneChargeStart(f);
-          if (f.chargeT === chargeMax(f)) { f.charged = true; G.darkT = 60; G.flashT = 12; G.boltX = f.x + f.dir * 3; G.boltY = f.y - 78; vaneChargeStop(f); sfx('counter'); addPopup(f.x, f.y - 100, 'MAX!', '#ffd23a'); }
+          if (f.chargeT === chargeMax(f)) { f.charged = true; G.darkT = 60; G.flashT = 12; G.boltX = f.x + f.dir * 22; G.boltY = f.y - 75; vaneChargeStop(f); sfx('counter'); addPopup(f.x, f.y - 100, 'MAX!', '#ffd23a'); }
         } else if (f.t >= 4) { vaneChargeStop(f); f.fired = true; f.gpT = f.t; f.vx = 2.4 * f.dir; sfx('whoosh'); }   // il avance en frappant
       } else {
         const k = f.t - f.gpT;
@@ -5737,7 +5737,7 @@ function drawAxFire(f) {   // Axel : bras en feu pendant la frappe au sol (même
     const fade = k0 < 4 ? 1 : Math.max(0, 1 - (k0 - 3) / 10), rr = (GP_R0 + (GP_R1 - GP_R0) * kk) * 1.35;
     const map = a => f.dir > 0 ? a : Math.PI - a;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    [[11, pal[3], .55], [7, pal[2], .8], [3.5, pal[1], 1], [1.5, pal[0], 1]].forEach(([lw, col, al]) => {
+    [[26, pal[3], .45], [18, pal[2], .7], [10, pal[1], .95], [4, pal[0], 1]].forEach(([lw, col, al]) => {
       ctx.globalAlpha = al * fade; ctx.strokeStyle = col; ctx.lineWidth = lw * (.6 + .4 * fade);
       ctx.beginPath(); ctx.arc(shx, shy, rr, map(GP_A0), map(ae), f.dir < 0); ctx.stroke();
     });
@@ -5823,7 +5823,7 @@ function drawFight() {
   G.f.forEach(f => {
     if ((f.state !== 'special' && f.state !== 'axgp') || f.fired || !f.chargeT) return;
     const pal = f.def.fb, k = Math.min(1, f.chargeT / chargeMax(f));
-    const cx = f.state === 'axgp' ? f.x + f.dir * 3 : f.x - f.dir * 14, cy = f.state === 'axgp' ? f.y - 78 : f.y - 44;
+    const cx = f.state === 'axgp' ? f.x + f.dir * 22 : f.x - f.dir * 14, cy = f.state === 'axgp' ? f.y - 75 : f.y - 44;
     const r = 3 + k * 7 + (f.charged ? Math.sin(G.frame * .6) * 2 : 0);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.4);
