@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v287';
+const VERSION = 'v288';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5165,25 +5165,26 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
   const PW = 260, WH = '#ffffff', DIM = 'rgba(255,255,255,.55)';
   R(CX - PW / 2, 36, PW, 144, '#0e0816');
   panel(36, 144, INSTALL_LBL(), true, PW);
-  const x0 = CX - PW / 2 + 22;
+  const x0 = CX - PW / 2 + 22, at = G.frame - (G.instOpen || 0);
+  const ap = (t0, fn) => { const k = Math.min(1, (at - t0) / 14); if (k <= 0) return; const e = 1 - Math.pow(1 - k, 3); ctx.save(); ctx.globalAlpha = e; ctx.translate(Math.round(-16 * (1 - e)), 0); fn(); ctx.restore(); };   // apparition : phrase 1, puis phrase 2, puis la suite
   if (IOS) {
-    text('1. TAP THE SHARE BUTTON', x0, 68, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 71; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ix - 2, iy - 2.5); ctx.lineTo(ix - 4.5, iy - 2.5); ctx.lineTo(ix - 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy - 2.5); ctx.lineTo(ix + 2, iy - 2.5); ctx.moveTo(ix, iy + 3); ctx.lineTo(ix, iy - 7); ctx.moveTo(ix - 2.5, iy - 4.5); ctx.lineTo(ix, iy - 7); ctx.lineTo(ix + 2.5, iy - 4.5); ctx.stroke(); ctx.restore(); }   // icône de partage (calque pixel)
-    text('   OF THE BROWSER TOOLBAR', x0, 80, 8, DIM, 'left');
-    text('2. ADD TO HOME SCREEN', x0, 96, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 99; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.strokeRect(ix - 4.5, iy - 4.5, 9, 9); ctx.beginPath(); ctx.moveTo(ix, iy - 2.5); ctx.lineTo(ix, iy + 2.5); ctx.moveTo(ix - 2.5, iy); ctx.lineTo(ix + 2.5, iy); ctx.stroke(); ctx.restore(); }   // icône « + » de l'écran d'accueil
-    text('   (SCROLL DOWN THE MENU)', x0, 108, 8, DIM, 'left');
-    text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center');
+    ap(6, () => { text('1. TAP THE SHARE BUTTON', x0, 68, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 71; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ix - 2, iy - 2.5); ctx.lineTo(ix - 4.5, iy - 2.5); ctx.lineTo(ix - 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy - 2.5); ctx.lineTo(ix + 2, iy - 2.5); ctx.moveTo(ix, iy + 3); ctx.lineTo(ix, iy - 7); ctx.moveTo(ix - 2.5, iy - 4.5); ctx.lineTo(ix, iy - 7); ctx.lineTo(ix + 2.5, iy - 4.5); ctx.stroke(); ctx.restore(); } });   // icône de partage (calque pixel)
+    ap(6, () => { text('   OF THE BROWSER TOOLBAR', x0, 80, 8, DIM, 'left'); });
+    ap(30, () => { text('2. ADD TO HOME SCREEN', x0, 96, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 99; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.strokeRect(ix - 4.5, iy - 4.5, 9, 9); ctx.beginPath(); ctx.moveTo(ix, iy - 2.5); ctx.lineTo(ix, iy + 2.5); ctx.moveTo(ix - 2.5, iy); ctx.lineTo(ix + 2.5, iy); ctx.stroke(); ctx.restore(); } });   // icône « + » de l'écran d'accueil
+    ap(30, () => { text('   (SCROLL DOWN THE MENU)', x0, 108, 8, DIM, 'left'); });
+    ap(54, () => { text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center'); });
   } else if (ANDROID || isTouch) {
-    text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left');
-    ctx.fillStyle = WH; for (let i = 0; i < 3; i++) ctx.fillRect(CX + PW / 2 - 31, 73 + i * 4, 2, 2);
-    text('2. ADD TO HOME SCREEN', x0, 98, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 101, WH);
-    text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center');
+    ap(6, () => { text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left'); });
+    ap(6, () => { ctx.fillStyle = WH; for (let i = 0; i < 3; i++) ctx.fillRect(CX + PW / 2 - 31, 73 + i * 4, 2, 2); });
+    ap(30, () => { text('2. ADD TO HOME SCREEN', x0, 98, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 101, WH); });
+    ap(54, () => { text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center'); });
   } else {
-    text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left');
-    text('2. INSTALL THE GAME', x0, 92, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 95, WH);
-    text('   (SAFARI: FILE > ADD TO DOCK)', x0, 106, 8, DIM, 'left');
-    text('WORKS WITH CHROME, EDGE', CX, 126, 8, DIM, 'center'); text('AND SAFARI', CX, 138, 8, DIM, 'center');
+    ap(6, () => { text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left'); });
+    ap(30, () => { text('2. INSTALL THE GAME', x0, 92, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 95, WH); });
+    ap(30, () => { text('   (SAFARI: FILE > ADD TO DOCK)', x0, 106, 8, DIM, 'left'); });
+    ap(54, () => { text('WORKS WITH CHROME, EDGE', CX, 126, 8, DIM, 'center'); text('AND SAFARI', CX, 138, 8, DIM, 'center'); });
   }
-  text('PRESS ' + bootKeys()[1] + ' TO CLOSE', CX, 162, 8, '#ffffff', 'center');   // B (mobile) / K (PC) pour fermer
+  ap(70, () => { text('PRESS ' + bootKeys()[1] + ' TO CLOSE', CX, 162, 8, '#ffffff', 'center'); });   // B (mobile) / K (PC) pour fermer
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
 const bootStep = () => fsAvail() ? (G.bootStep || 0) : 1;
