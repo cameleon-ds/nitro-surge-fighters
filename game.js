@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v277';
+const VERSION = 'v278';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5139,7 +5139,11 @@ const isStandalone = () => !!(navigator.standalone || matchMedia('(display-mode:
   (matchMedia('(display-mode: fullscreen)').matches && !document.fullscreenElement && !document.webkitFullscreenElement));
 const installAvail = () => !G.installed && !isStandalone();
 const INSTALL_LBL = () => isTouch ? 'ADD TO HOME SCREEN' : 'INSTALL ON DESKTOP';
-function doInstall() {
+function doInstall(gesture) {
+  if (!installEvt && IPHONE && gesture && navigator.share) {   // iPhone : ouvre le menu de partage du navigateur (« Sur l'écran d'accueil »)
+    navigator.share({ title: 'Nitro Surge Fighters', url: location.origin + location.pathname }).catch(e => { if (!(e && e.name === 'AbortError')) { G.instHelp = true; G.instOpen = G.frame; } });
+    return;
+  }
   if (installEvt) {   // Chrome / Edge / Android : vraie fenêtre d'installation
     const e = installEvt; installEvt = null;
     try { e.prompt(); e.userChoice.then(r => { if (r && r.outcome === 'accepted') G.installed = true; }).catch(() => {}); }
@@ -5185,7 +5189,7 @@ const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (i
 const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
 function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
-function bootOk() { if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
+function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   if (!G.boot) return;
   G.boot = false; G.t = 0; G.volT = 0;   // puis message « monte le son », puis logo
@@ -5206,12 +5210,19 @@ addEventListener('pointerup', e => {
   if (G.boot && loadDone()) {
     const r = cv.getBoundingClientRect();
     const p = ROT ? { x: (e.clientY - r.top) / r.height * W, y: (r.right - e.clientX) / r.width * H } : { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+    const el = document.elementFromPoint(e.clientX, e.clientY), btn = el && el.closest ? el.closest('.b') : null;
+    if (btn && btn.dataset.b === 's' && G.bcur === 2 && bootItems().includes(2)) { G.bootKey = G.frame; bootOk(true); return; }   // bouton A sur ADD TO HOME SCREEN : vrai geste
+    const two = bootItems().includes(2);
     if (Math.abs(p.x - CX) < 110) {
       if (bootStep() === 0) {
-        if (Math.abs(p.y - 88) < 10) { G.bcur = 0; bootToggleFS(); }                         // FULL SCREEN : OFF / ON
-        else if (Math.abs(p.y - 106) < 9) { G.bcur = 0; bootOk(); }                           // PRESS A
-        else if (installAvail() && Math.abs(p.y - 144) < 10) { G.bcur = 2; bootOk(); }
-      } else if (!fsAvail() && installAvail() && Math.abs(p.y - 154) < 8) { G.bcur = 2; bootOk(); }   // ADD TO HOME SCREEN
+        if (Math.abs(p.y - 88) < 7) { G.bcur = 0; bootToggleFS(); }                          // FULL SCREEN : OFF / ON
+        else if (two && Math.abs(p.y - 102) < 7) { G.bcur = 2; bootOk(true); }                // INSTALL / ADD TO HOME SCREEN
+        else if (Math.abs(p.y - 120) < 7) bootOk(true);                                      // PRESS A TO CONFIRM
+      } else if (two) {
+        if (Math.abs(p.y - 88) < 7) { G.bcur = 1; bootStart(); }                             // START
+        else if (Math.abs(p.y - 102) < 8) { G.bcur = 2; bootOk(true); }                      // ADD TO HOME SCREEN
+        else if (Math.abs(p.y - 128) < 7) bootOk(true);
+      }
       else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
       else if (Math.abs(p.y - 132) < 6) bootBack();
     }
@@ -5251,7 +5262,7 @@ function step() {
     case 'title': {
       // l'intro (logo Super Rocket Games) ne démarre qu'une fois le message "Rotate your phone" fermé
       if (G.tstate !== 1 && G.t < SPLASH && rotateShown()) { G.t = 0; break; }
-      if (G.tstate !== 1 && G.t < 2 && (G.boot || !loadDone())) { G.t = 0; if (G.boot && loadDone()) { const m = navStep(); if (m) bootMove(m); if (bootStep() === 0 && G.bcur === 0 && (edge(pctl, 'l') || edge(pctl, 'r'))) bootToggleFS(); if ((edge(pctl, 's') || edge(pctl, 'start')) && G.bootKey !== G.frame && G.frame - (G.bootKey || -9) > 2) { G.bootKey = G.frame; bootOk(); } else if (backPress(pctl)) bootBack(); } break; }   // chargement puis écran de démarrage
+      if (G.tstate !== 1 && G.t < 2 && (G.boot || !loadDone())) { G.t = 0; if (G.boot && loadDone()) { const m = navStep(); if (m) bootMove(m); if (bootStep() === 0 && G.bcur === 0 && (edge(pctl, 'l') || edge(pctl, 'r'))) bootToggleFS(); if ((edge(pctl, 's') || edge(pctl, 'start')) && G.bootKey !== G.frame && G.frame - (G.bootKey || -9) > 2 && !(isTouch && G.bcur === 2)) { G.bootKey = G.frame; bootOk(); } else if (backPress(pctl)) bootBack(); } break; }   // chargement puis écran de démarrage
       if (G.volT != null && G.volT < VOL_N) {   // message « monte le son » avant le logo (passable)
         G.volT++; G.t = 0;
         if (G.volT > 15 && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) G.volT = VOL_N;
@@ -6108,18 +6119,20 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   text('POWERED BY SUPER ROCKET GAMES', CX, 186, 8, '#5a5a5a', 'center');
   text('ALL RIGHTS RESERVED 2026', CX, 197, 8, '#4a4a4a', 'center');
   const [kA, kB] = bootKeys(), blink = (G.frame >> 5) % 2 === 0;
-  if (bootStep() === 0) {
+  const two = items.includes(2), row2 = () => { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 98, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); };
+  if (bootStep() === 0) {   // FULL SCREEN < OFF / ON >, puis INSTALL juste en dessous, puis PRESS ... TO CONFIRM
     const sel = c === 0;
     text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    if (sel && blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 102, 8, '#ffffff', 'center');
-    if (items.includes(2)) { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 140, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); }
+    if (two) row2();
+    if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center');
+  } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
+    text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 84, 8, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
+    row2();
+    text('FOR FULL SCREEN', CX, 109, 6, '#9a8aa0', 'center');   // un peu plus petit, juste sous ADD TO HOME SCREEN
+    if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center');
   } else {
-    const s1 = c !== 2;
-    text('START', CX, 86, 16, s1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    if (items.includes(2)) {   // iPhone dans le navigateur : le plein écran passe par l'icône sur l'écran d'accueil
-      text('FOR FULL SCREEN:', CX, 140, 8, '#9a8aa0', 'center');
-      text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 152, 8, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    }
+    const s1 = true;
+    text('START', CX, 86, 16, '#ffd23a', 'center');
     if (blink && s1) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
   }
 }
