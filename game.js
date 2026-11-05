@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v323';
+const VERSION = 'v324';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2113,6 +2113,9 @@ function poseOf(f) {
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
     case 'nitroUp': return 'win';
+    case 'vsuper': return 'special0';
+    case 'vsrel': return f.t < 10 ? 'special1' : 'vidle';
+    case 'vgrabC': return 'punch1';
     case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : f.t < 63 ? 'gpI' + (f.t - 59) : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
@@ -2327,12 +2330,19 @@ function updRush(f, o) {
   if (f.t >= 3 && (f.t - 3) % 5 === 0 && f.rushN < RUSH_N) {
     f.rushN++; f.rushPose = RUSH_POSE[(f.rushN - 1) % 4];
     const sx = f.x + f.dir * 28, sy = f.y + RUSH_Y[(f.rushN - 1) % 4], dmg = dmgK(4), last = f.rushN >= RUSH_N;
-    const before = o.hp, keep = !last || f.rushSuper;   // l'adversaire reste à 1 tant que l'enchaînement n'est pas fini
+    const vfin = last && f.def.kit === 'vane' && f.surgeT > 0 && (f.rushSuper || f.ctl.held.x);   // Vane : X maintenu (ou Y Y B A) à la fin du Surge → clone qui attrape
+    const before = o.hp, keep = !last || f.rushSuper || vfin;   // l'adversaire reste à 1 tant que l'enchaînement n'est pas fini
     if (keep) { const nh = o.hp - dmg; f.rushDebt = (f.rushDebt || 0) + Math.max(0, 1 - nh); o.hp = Math.max(1, nh); }
     else { o.hp = Math.max(0, o.hp - dmg - (f.rushDebt || 0)); f.rushDebt = 0; }
     nitroGain(f, o, before - o.hp); o.lagT = 32; o.flash = 3; comboHit(f);
     addSpark(sx, sy, 'hit'); spawnBlood(sx, sy, f.dir, 4); sfx(f.rushN % 2 ? 'hit' : 'heavy'); G.shake = Math.max(G.shake, 3); G.freeze = Math.max(G.freeze || 0, 2);
     if (f.surgeT > 0) f.rushGhost = G.frame + 2;   // le double mauve frappe juste après
+    if (vfin) {   // Lord Vane : l'adversaire est paralysé, Vane charge un clone mauve (X maintenu 1 s, puis A)
+      o.paraT = 240; o.stun = 240; G.darkT = Math.max(G.darkT, 30); G.flashT = 10; G.boltX = sx; G.boltY = sy; G.freeze = 10; G.shake = 6;
+      addPopup(o.x, o.y - 104, 'PARALYZED!', '#c88aff'); sfx('parry');
+      const auto = !!f.rushSuper && !f.ctl.held.x; o.x = f.x + f.dir * 96; setState(f, 'vsuper');   // l'adversaire est repoussé : le clone aura de la place pour foncer
+      f.vx = 0; f.chargeT = 0; f.vsAuto = auto; return;
+    }
     if (last && f.rushSuper) {   // SURGE + Y Y B A : l'adversaire est paralysé, écran noir, coup spécial chargé
       o.paraT = 240; o.stun = 240; G.darkT = Math.max(G.darkT, 30); G.flashT = 10; G.boltX = sx; G.boltY = sy; G.freeze = 10; G.shake = 6;
       addPopup(o.x, o.y - 104, 'PARALYZED!', '#c88aff'); sfx('parry');
@@ -2405,7 +2415,7 @@ function drawGrogRush() {   // Grog : charge (électricité qui grossit) puis co
   }
 }
 function drawZFloor() {
-  drawGrogRush();
+  drawGrogRush(); drawVClones();
   for (const q of G.zfloor || []) {
     const a = q.t > 30 ? (48 - q.t) / 18 : 1, reach = q.t * 11;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = a;
@@ -2530,7 +2540,81 @@ function drawHats() {
     }   // électricité : arrêt en l'air (invincible) et tornade
   }
 }
+function vaneFinish(f, o, k) {   // fin du Surge de Vane : l'adversaire prend les dégâts restants et tombe
+  const debt = f.rushDebt || 0; f.rushDebt = 0; const before = o.hp; o.hp = Math.max(0, o.hp - dmgK(k) - debt); nitroGain(f, o, before - o.hp); comboHit(f);
+  o.paraT = 0; setState(o, 'fall'); o.air = true; o.vy = -2; o.vx = f.dir * 2.5; o.flash = 4;
+  G.bigPop = { txt: 'NITRO SURGE COMBO!', col: '#d070ff', t: 0 }; addScore(f, SCORE_PTS.surge);
+}
+function updVaneSuper(f, o) {   // X maintenu : énergie mauve dans les mains ; chargé (1 s) puis A : clone qui fonce sur l'adversaire
+  const c = f.ctl, h = c.held;
+  if (!(o.ko)) { o.vx = 0; if (o.state !== 'fall') { o.state = 'hit'; o.stun = 60; } o.paraT = Math.max(o.paraT || 0, 30); }
+  f.invuln = 6; face(f, o); f.vx = 0;
+  const hx = f.x + f.dir * 22, hy = f.y - 56;
+  if (f.chargeT < 60) {
+    if (h.x || f.vsAuto) f.chargeT++;
+    else if (f.t > 20) { vaneChargeStop(f); vaneFinish(f, o, 8); setState(f, 'idle'); return; }   // X lâché trop tôt : fin normale
+    if (f.chargeT === 8) vaneChargeStart(f);
+    if (f.t % 3 === 0) { const a = Math.random() * 6.28, d = 30 + Math.random() * 20; (f.chg = f.chg || []).push({ x: hx + Math.cos(a) * d, y: hy + Math.sin(a) * d, tx: hx, ty: hy, t: 0 }); }
+    if (f.chargeT === 60) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); f.chgT = f.t; }
+    return;
+  }
+  if (take(c, 's') || (f.vsAuto && f.t - f.chgT > 20) || f.t - f.chgT > 150) {   // A : le clone mauve part
+    f.chg = null; (G.vclones = G.vclones || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y, dir: f.dir, t: 0, ph: 'fly', lift: 0, trail: [] });
+    G.flashT = Math.max(G.flashT, 8); G.shake = Math.max(G.shake, 5); sfx('fb'); sfx('tele'); setState(f, 'vsrel');
+  }
+}
+function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire au cou, monte doucement, puis explose
+  for (const q of G.vclones || []) {
+    const o = q.target, f = q.owner; q.t++;
+    q.trail.unshift([q.x, q.y, o.x, o.y]); if (q.trail.length > 7) q.trail.pop();
+    if (q.ph === 'fly') {
+      q.x += q.dir * 7;
+      if (Math.abs(o.x - q.x) < 34) { q.ph = 'grab'; q.gt = 0; sfx('heavy'); sfx('parry'); G.shake = Math.max(G.shake, 5); addSpark(o.x - q.dir * 8, o.y - 66, 'parry'); }
+      if (q.t > 120) q.dead = true;
+      continue;
+    }
+    q.gt++; q.lift = Math.min(70, q.lift + .85);   // monte lentement avec l'adversaire
+    o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = Math.max(o.paraT || 0, 4);
+    q.x = o.x - q.dir * 30; q.y = GROUND - q.lift;
+    if (q.gt % 10 === 0) sfx('parry');
+    if (q.gt >= 84) {   // explosion mauve et noire, l'adversaire retombe
+      q.dead = true; (G.vblasts = G.vblasts || []).push({ x: (q.x + o.x) / 2, y: q.y - 50, t: 0 });
+      G.darkT = Math.max(G.darkT, 40); G.flashT = 14; G.boltX = o.x; G.boltY = o.y - 50; G.freeze = 16; G.shake = 14; sfx('fb'); sfx('heavy'); sfx('thud');
+      vaneFinish(f, o, 22);
+    }
+  }
+  if (G.vclones) G.vclones = G.vclones.filter(q => !q.dead);
+  for (const b of G.vblasts || []) b.t++;
+  if (G.vblasts) G.vblasts = G.vblasts.filter(b => b.t < 36);
+}
+function drawVClones() {
+  for (const f of G.f) if (f.state === 'vsuper') { const k = Math.min(1, f.chargeT / 60); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
+  for (const q of G.vclones || []) {
+    const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
+    q.trail.forEach(([tx, ty, ox, oy], i) => {   // échos mauves (clone et adversaire qui monte)
+      if (i === 0 || i % 2) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .22 * (1 - i / 7);
+      drawFighter(Object.assign(fig(tx, ty), { tint: 'rgba(170,60,255,.9)' }), tx, ty);
+      if (q.ph === 'grab') drawFighter(Object.assign({}, q.target, { flash: 0, tint: 'rgba(200,90,255,.9)' }), ox, oy);
+      ctx.restore();
+    });
+    ctx.save(); ctx.globalAlpha = .75; drawFighter(Object.assign(fig(q.x, q.y), { tint: 'rgba(120,30,200,.9)' }), q.x, q.y);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .18; drawFighter(Object.assign(fig(q.x, q.y), { tint: 'rgba(230,140,255,1)' }), q.x, q.y); ctx.restore();
+    glowAt(q.x, q.y - 50, 40, 'rgba(170,60,255,.9)', .28);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore();
+  }
+  for (const b of G.vblasts || []) {   // explosion mauve et noire
+    const k = b.t / 36, R0 = 16 + b.t * 5, a = 1 - k;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, R0); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(.3, `rgba(220,120,255,${.9 * a})`); g.addColorStop(.7, `rgba(138,42,208,${.6 * a})`); g.addColorStop(1, 'rgba(20,4,32,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, R0, 0, 6.29); ctx.fill();
+    for (let i = 0; i < 6; i++) { const an = Math.random() * 6.28, L = [[b.x, b.y]]; for (let s2 = 1; s2 <= 4; s2++) L.push([b.x + Math.cos(an) * R0 * s2 / 4 + (Math.random() - .5) * 10, b.y + Math.sin(an) * R0 * s2 / 4 + (Math.random() - .5) * 10]); elecArc(L, 'rgba(255,140,240,.9)', 1.4); }
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(10,0,20,${.6 * a})`; ctx.beginPath(); ctx.arc(b.x, b.y, R0 * .45, 0, 6.29); ctx.fill();   // cœur noir
+    ctx.strokeStyle = `rgba(20,0,40,${.8 * a})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(b.x, b.y, R0 * .85, 0, 6.29); ctx.stroke();
+    ctx.restore();
+  }
+}
 function updSupers() {
+  updVClones();
   for (const q of G.supers || []) {
     q.t++; q.x += q.vx;
     if (q.bvy != null) { q.bvy += .3; q.y += q.bvy; if (q.y >= GROUND - 26) { q.y = GROUND - 26; q.bvy = -5.5; addSpark(q.x, GROUND - 3, 'fb', q.pal); G.shake = Math.max(G.shake, 3); } }   // super d'Axel : rebondit
@@ -2599,7 +2683,7 @@ function surgeStep() {
     (G.ghostQ = G.ghostQ || []).push({ f: G.frame + 8, arr, shot: Object.assign({}, q) });
   }
 }
-const LONG_ST = ['nrush', 'nsuper', 'idle', 'walk', 'block', 'crouch', 'win', 'voidcast', 'down', 'stunned', 'jump', 'fall', 'hover', 'rampart'];
+const LONG_ST = ['nrush', 'nsuper', 'vsuper', 'idle', 'walk', 'block', 'crouch', 'win', 'voidcast', 'down', 'stunned', 'jump', 'fall', 'hover', 'rampart'];
 function startBflip(f) { f.slowT = 0; f.rotAng = null; const air = f.air; setState(f, 'bflip'); f.vx = 0; f.echo = []; if (air) { f.t = 3; f.vy = -3.5; f.vx = 1.5 * f.dir; f.flash = 5; } sfx('whoosh'); }
 function updFighter(f, o) {
   const c = f.ctl, h = c.held;
@@ -2885,6 +2969,8 @@ function updFighter(f, o) {
       break;
     case 'nrush': updRush(f, o); break;
     case 'nsuper': updSuper(f, o); break;
+    case 'vsuper': updVaneSuper(f, o); break;
+    case 'vsrel': f.vx = 0; if (f.t >= 24) setState(f, 'idle'); break;
     case 'nitroUp': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
     case 'parry': f.vx = 0; if (f.t <= 14 && take(c, 's')) { startBflip(f); break; } if (f.t >= 22) setState(f, 'idle'); break;   // X puis A : petit saut + coup de pied tournoyant vers l'arrière
     case 'stunned':
@@ -5085,7 +5171,7 @@ function startRound() {
     setState(f, 'idle');
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
-  G.hats = []; G.zfloor = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
+  G.hats = []; G.zfloor = []; G.vclones = []; G.vblasts = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
   G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.snakes = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
   G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
