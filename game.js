@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v278';
+const VERSION = 'v279';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6112,6 +6112,12 @@ function drawImg(img, cx, cy, w, al) {
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   ctx.restore(); return true;
 }
+function bootUpDown(y) {   // aide : haut / bas pour choisir (flèches vectorielles + texte)
+  ctx.font = '8px "Press Start 2P", monospace'; const col = 'rgba(255,255,255,.55)', w = ctx.measureText('USE UP OR DOWN TO SELECT').width, x = Math.round(CX - w / 2 - 8);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 3); ctx.lineTo(x + 3, y + 3); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x - 3, y + 5); ctx.lineTo(x + 3, y + 5); ctx.fill();
+  text('USE UP OR DOWN TO SELECT', CX, y, 8, col, 'center');
+}
 function drawBoot() {   // écran de démarrage : même style que le menu du titre (> CHOIX <)
   const PW = 240, items = bootItems(), c = items.includes(G.bcur) ? G.bcur : 1;
   R(0, 0, W, H, '#000');   // fond noir, sans cadre
@@ -6125,11 +6131,13 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     if (two) row2();
     if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center');
+    if (two) bootUpDown(128);
   } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
     text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 84, 8, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     row2();
     text('FOR FULL SCREEN', CX, 109, 6, '#9a8aa0', 'center');   // un peu plus petit, juste sous ADD TO HOME SCREEN
     if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center');
+    bootUpDown(136);
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
