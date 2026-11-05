@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v352';
+const VERSION = 'v353';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5776,7 +5776,34 @@ function drawShareIcon(x, y, col) {   // icône « partager » d'iOS (carré ouv
   ctx.beginPath(); ctx.moveTo(x - 3, y - 2); ctx.lineTo(x - 6, y - 2); ctx.lineTo(x - 6, y + 7); ctx.lineTo(x + 6, y + 7); ctx.lineTo(x + 6, y - 2); ctx.lineTo(x + 3, y - 2);
   ctx.moveTo(x, y + 3); ctx.lineTo(x, y - 7); ctx.moveTo(x - 3, y - 4); ctx.lineTo(x, y - 7); ctx.lineTo(x + 3, y - 4); ctx.stroke(); ctx.restore();
 }
+// Mobile : tutoriel « ADD TO HOME SCREEN » en 3 étapes (images défilables de gauche à droite)
+const TUT_ON = () => isTouch;
+let tutEl = null;
+function tutBuild() {
+  tutEl = document.createElement('div'); tutEl.id = 'instTut';
+  const arrow = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="${d < 0 ? '15 5 8 12 15 19' : '9 5 16 12 9 19'}"/></svg>`;
+  tutEl.innerHTML = `<div class="tt-card"><div class="tt-head"><span>ADD TO HOME SCREEN</span><button class="tt-x" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
+    <div class="tt-body"><button class="tt-nav tt-prev" aria-label="Previous">${arrow(-1)}</button><div class="tt-track">${[1, 2, 3].map(i => `<div class="tt-slide"><div class="tt-step">STEP ${i}</div><img src="tut${i}.jpg?v=1" alt="Step ${i}" draggable="false"></div>`).join('')}</div><button class="tt-nav tt-next" aria-label="Next">${arrow(1)}</button></div>
+    <div class="tt-dots"><i></i><i></i><i></i></div></div>`;
+  document.body.appendChild(tutEl);
+  const tr = tutEl.querySelector('.tt-track');
+  tr.addEventListener('scroll', () => { const k = Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)); tutEl.querySelectorAll('.tt-dots i').forEach((d, i) => d.classList.toggle('on', i === k)); }, { passive: true });
+  tutEl.querySelector('.tt-x').addEventListener('click', () => { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); });
+  tutEl.querySelector('.tt-prev').addEventListener('click', () => tutGo(-1));
+  tutEl.querySelector('.tt-next').addEventListener('click', () => tutGo(1));
+  ['touchstart', 'touchend', 'pointerdown'].forEach(ev => tutEl.addEventListener(ev, e => e.stopPropagation()));
+}
+function tutIdx() { const tr = tutEl && tutEl.querySelector('.tt-track'); return tr ? Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)) : 0; }
+function tutGo(d) { const tr = tutEl && tutEl.querySelector('.tt-track'); if (!tr) return; const k = Math.max(0, Math.min(2, tutIdx() + d)); tr.scrollTo({ left: k * tr.clientWidth, behavior: 'smooth' }); sfx('beep'); }
+function tutSync() {
+  const show = !!G.instHelp && TUT_ON();
+  if (show && !tutEl) tutBuild();
+  if (!tutEl) return;
+  if (show && !tutEl.shown) { tutEl.shown = true; tutEl.style.display = 'flex'; const tr = tutEl.querySelector('.tt-track'); tr.scrollLeft = 0; tutEl.querySelectorAll('.tt-dots i').forEach((d, i) => d.classList.toggle('on', i === 0)); }
+  if (!show && tutEl.shown) { tutEl.shown = false; tutEl.style.display = 'none'; }
+}
 function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fenêtre d'installation
+  if (TUT_ON()) { R(0, 0, W, H, 'rgba(0,0,0,.7)'); return; }   // mobile : tutoriel en images (HTML)
   R(0, 0, W, H, 'rgba(0,0,0,.7)');
   const PW = 260, WH = '#ffffff', DIM = 'rgba(255,255,255,.55)';
   R(CX - PW / 2, 36, PW, 144, '#0e0816');
@@ -5883,6 +5910,7 @@ function step() {
   if (menuShared) for (const b in raw2) if (raw2[b]) raw1[b] = true;
   ctlUpdate(pctl, confuse(raw1, G.f && G.f[0] && G.f[0].ctl === pctl ? G.f[0] : null));
   ctlUpdate(p2ctl, confuse(raw2, G.f && G.f[1] && G.f[1].ctl === p2ctl ? G.f[1] : null));
+  if (G.instHelp && TUT_ON()) { if (edge(pctl, 'l')) tutGo(-1); else if (edge(pctl, 'r')) tutGo(1); else if (edge(pctl, 's')) { if (tutIdx() >= 2) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); } else tutGo(1); } else if (G.frame - (G.instOpen || 0) > 10 && (edge(pctl, 'back') || edge(pctl, 'k') || edge(pctl, 'start'))) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); } tap = null; return; }   // tutoriel : < > / A = étape suivante, B = fermer
   if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 10 && (edge(pctl, 's') || edge(pctl, 'back') || edge(pctl, 'start') || edge(pctl, 'p') || edge(pctl, 'k'))) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); } tap = null; return; }
   if (G.instClosed != null && G.frame - G.instClosed < 3) { tap = null; return; }
 
@@ -7308,6 +7336,7 @@ function render() {
   }
   ctx.restore();
   if (G.paused && grp === 'fight' && !G.photo) drawPause();   // menu pause jamais secoué
+  tutSync();
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
   if (G.demo && (G.frame >> 5) % 2 === 0) text('PRESS ANY KEY', CX, H - 30, 8, '#ffffff', 'center');   // démo
