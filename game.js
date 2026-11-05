@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v336';
+const VERSION = 'v337';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2402,7 +2402,7 @@ const HAT_HIT = { dmg: 9, stun: 22, bstun: 12, push: 2, chip: 1, sfx: 'hit' };
 const HATJUMP_HIT = { dmg: 10, knock: true, stun: 20, bstun: 12, push: 3, chip: 1, sfx: 'heavy' };
 function hatReady(f) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = f.x + f.dir * 4; G.boltY = f.y - 82; vaneChargeStop(f); sfx('counter'); }
 function throwHat(f, o) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 11, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); sfx('whoosh'); G.flashT = Math.max(G.flashT, 6); G.shake = Math.max(G.shake, 4); }
-const ZFLOOR_HIT = { dmg: 7, stun: 40, bstun: 12, push: 1, chip: 0, sfx: 'heavy', unblock: true };
+const ZFLOOR_HIT = { dmg: 7, stun: 40, bstun: 12, push: 1, chip: 0, sfx: 'heavy', unblock: true, low: true };
 function updZFloor() {   // éclairs qui courent sur tout le sol après le plongeon de Zephyr : paralysent qui les touche
   for (const q of G.zfloor || []) {
     q.t++; if (q.t > 48) { q.dead = true; continue; }
@@ -3981,7 +3981,7 @@ function updVane() {
     if (q.charging) {   // sphère en charge, tenue devant Vane
       const w = q.owner; if (w.state !== 'voidcast') { q.dead = true; vaneChargeStop(w); continue; }
       q.r = 10 + Math.min(1, q.ch / 90) * 28; q.x = w.x + w.dir * (26 + q.r * .9); q.y = w.y - 54 - floatOff(w) - Math.max(0, q.r - 24) * .6;
-      if (q.ch >= 90) {   // chargée à fond (A encore tenu) : bouclier, annule les projectiles adverses qui la touchent, sans blesser l'adversaire
+      if (q.ch >= 45) {   // dès la moitié de la charge (A encore tenu) : bouclier, annule les projectiles adverses qui la touchent, sans blesser l'adversaire
         let n = killShots(w, q.x - q.r, q.x + q.r, q.y - q.r, q.y + q.r);
         for (const s2 of G.snakes || []) if (!s2.dead && s2.owner !== w && Math.abs(s2.x - q.x) < q.r + 10 && Math.abs(s2.y - q.y) < q.r + 10) { s2.dead = true; n++; (G.clashFx = G.clashFx || []).push({ x: s2.x, y: s2.y, t: 0 }); }
         if (n) { G.flashT = Math.max(G.flashT, 3); G.shake = Math.max(G.shake, 4); sfx('parry'); sfx('heavy'); }
@@ -4924,7 +4924,14 @@ function stepClash() {
   applyHit(w, l, CLASH_HIT, sx, sy, w.x, true);
   addPopup(w.x, w.y - 100, 'CLASH WIN!', '#ffd23a');
 }
+const VSHIELD_LOW = ['ckick', 'nslide', 'hslide', 'grogroll', 'rupper'];   // coups au ras du sol : passent sous le bouclier de Vane
 function applyHit(att, def, data, sx, sy, fromX, projectile) {
+  if (def.state === 'voidcast' && (G.voids || []).some(q => q.owner === def && q.charging && q.ch >= 45) && !data.low && !VSHIELD_LOW.includes(att.state)) {   // sphère de Vane à mi-charge ou plus : bouclier
+    const q = G.voids.find(v => v.owner === def && v.charging);
+    addSpark(q.x - def.dir * q.r * .6, q.y, 'parry'); G.flashT = Math.max(G.flashT, 3); G.freeze = Math.max(G.freeze || 0, 4); sfx('parry');
+    if (!projectile) { att.vx = -att.dir * 3; att.hasHit = true; }
+    return;
+  }
   // coups de pied bas enchaînés : le 3e qui touche d'affilée fait tomber l'adversaire
 
   // Contre réussi : l'attaquant est bloqué une demi-seconde
