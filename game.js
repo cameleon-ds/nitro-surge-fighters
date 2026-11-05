@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v332';
+const VERSION = 'v333';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2586,7 +2586,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
       continue;
     }
     q.gt++; q.lift = Math.min(70, q.lift + .85);   // monte lentement avec l'adversaire
-    o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = 0;
+    o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = Math.max(o.paraT || 0, 4);   // électricité autour de l'adversaire pendant la montée
     q.x = o.x - q.dir * 30; q.y = GROUND - q.lift;
     if (q.gt % 10 === 0) sfx('parry');
     if (q.gt >= 84) {   // explosion mauve et noire, l'adversaire retombe
@@ -2622,7 +2622,7 @@ function drawVClones() {
       ctx.save(); ctx.globalAlpha = .18; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(gx, gy), { tint: 'rgba(255,60,210,1)' }), gx, gy); ctx.restore();
     }
     glowAt(q.x, q.y - 50, 40, 'rgba(170,60,255,.9)', .28);
-    if (q.ph !== 'grab') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore(); }
+    { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore(); }
   }
   for (const b of G.vblasts || []) {   // explosion mauve et noire
     const k = b.t / 36, R0 = 16 + b.t * 5, a = 1 - k;
