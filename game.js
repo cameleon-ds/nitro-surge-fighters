@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v283';
+const VERSION = 'v284';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6114,10 +6114,10 @@ function drawImg(img, cx, cy, w, al) {
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   ctx.restore(); return true;
 }
-function upDownIcons(x, y, col) {   // icônes HAUT et BAS (triangles vectoriels), 8 px de haut, à partir de x
-  ctx.save(); ctx.fillStyle = col;
-  ctx.beginPath(); ctx.moveTo(x + 3.5, y); ctx.lineTo(x, y + 7); ctx.lineTo(x + 7, y + 7); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x + 10, y); ctx.lineTo(x + 17, y); ctx.lineTo(x + 13.5, y + 7); ctx.fill();
+function upDownIcons(x, y, col) {   // icônes HAUT et BAS : flèches classiques (tige + pointe), 8 px de haut
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.lineCap = 'square';
+  ctx.beginPath(); ctx.moveTo(x + 3.5, y + 8); ctx.lineTo(x + 3.5, y + .5); ctx.moveTo(x + .5, y + 3.5); ctx.lineTo(x + 3.5, y + .5); ctx.lineTo(x + 6.5, y + 3.5);
+  ctx.moveTo(x + 13.5, y); ctx.lineTo(x + 13.5, y + 7.5); ctx.moveTo(x + 10.5, y + 4.5); ctx.lineTo(x + 13.5, y + 7.5); ctx.lineTo(x + 16.5, y + 4.5); ctx.stroke();
   ctx.restore(); return 17;
 }
 function iconLine(y, txt, col) {   // ligne centrée : [HAUT][BAS] + texte
