@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v291';
+const VERSION = 'v292';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4936,7 +4936,7 @@ function stepMoves() {
   if (pctl.held.u) G.mscroll = Math.max(0, (G.mscroll || 0) - 1.5);
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
-const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
+const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
 const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 0, 3, 10, 4, 5] : [6, 2, 1, 0, 3, 10, 4, 5, 7, 8];   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
@@ -5011,8 +5011,8 @@ function stepPause() {
   if (edge(pctl, 's')) {   // A = valider le choix
     sfx('select');
     if (G.pcur === 0) G.paused = false;
-    else if (G.pcur === 1) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; }
-    else if (G.pcur === 2) { G.showOpts = true; G.ocur = 0; }
+    else if (G.pcur === 1) { G.showOpts = true; G.ocur = 0; }
+    else if (G.pcur === 2) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; }
     else if (G.pcur === 3) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
