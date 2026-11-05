@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v328';
+const VERSION = 'v329';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5598,7 +5598,7 @@ function endDemo(toMenu) {
   G.fbs = []; G.supers = []; G.ghostQ = []; G.freeze = 0; G.shake = 0; G.quakeT = 0; G.darkT = 0; G.flashT = 0; G.bigPop = null;
   G.scene = 'title'; G.paused = false; G.introNoPres = true; G.demoOut = 0;
   if (toMenu) { G.tstate = 1; G.tcur = 0; G.tmenu = 0; G.t = SPLASH + INTRO_LOGO + 200; sfx('select'); sfx('heavy'); }
-  else { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.introSkip = false; }
+  else { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.logoAt = null; }
 }
 function stepDemo() {   // script de la démo : Nitro / Surge déclenchés puis enchaînement spectaculaire
   const D = G.demo; if (!D) return;
@@ -5833,7 +5833,7 @@ function step() {
       if (G.tstate !== 1 && G.t < 2 && (G.boot || !loadDone())) { G.t = 0; if (G.boot && loadDone()) { const m = navStep(); if (m) bootMove(m); if (bootStep() === 0 && G.bcur === 0 && (edge(pctl, 'l') || edge(pctl, 'r'))) bootToggleFS(); if ((edge(pctl, 's') || edge(pctl, 'start')) && G.bootKey !== G.frame && G.frame - (G.bootKey || -9) > 2 && !(isTouch && G.bcur === 2)) { G.bootKey = G.frame; bootOk(); } else if (backPress(pctl)) bootBack(); } break; }   // chargement puis écran de démarrage
       if (G.volT != null && G.volT < VOL_N) {   // message « monte le son » avant le logo (passable)
         G.volT++; G.t = 0;
-        if (G.volT > 15 && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) { G.volT = VOL_N; G.t = SPLASH + INTRO_LOGO + 1; G.introSkip = true; G.introNoPres = true; sfx('select'); }   // une touche : directement le logo + PRESS ANY KEY
+        if (G.volT > 15 && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) { G.volT = VOL_N; G.t = SPLASH + INTRO_T0; G.logoAt = INTRO_T0; G.introNoPres = true; sfx('select'); }   // une touche : directement le logo + PRESS ANY KEY
         tap = null; break;
       }
       if (G.musicHold && (G.t >= 60 || G.tstate === 1)) { G.musicHold = false; BGM.currentTime = 0; }   // 1 s après l'apparition du logo
@@ -5842,19 +5842,19 @@ function step() {
       if (G.showOpts) { stepOptions(); break; }
       const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap;
       if (G.tstate !== 1) {
-        if (G.t <= SPLASH + INTRO_LOGO && any && G.t > 10) { G.t = SPLASH + INTRO_LOGO + 1; G.introSkip = true; G.introNoPres = true; sfx('select'); break; }   // une touche pendant l'intro : logo + PRESS ANY KEY tout de suite
+        if (G.t <= SPLASH + INTRO_LOGO && G.logoAt == null && any && G.t > 10) { if (G.t < SPLASH + INTRO_T0) { G.t = SPLASH + INTRO_T0; G.introNoPres = true; } G.logoAt = G.t - SPLASH; sfx('select'); break; }   // une touche pendant l'intro : le logo + PRESS ANY KEY apparaissent tout de suite (le travelling continue)
         if (G.t < SPLASH) break;
         if (G.t > SPLASH + INTRO_LOGO + 40 && !any && G.t - SPLASH > INTRO_LOGO + DEMO_WAIT) {   // 2 s après le logo : fondu vers une démo
           G.demoOut = (G.demoOut || 0) + 1; G.fadeK = Math.min(1, G.demoOut / DEMO_FADE);
           if (G.demoOut >= DEMO_FADE) { startDemo(); break; }
         }
-        if (G.t > SPLASH + INTRO_LOGO && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
+        if ((G.t > SPLASH + INTRO_LOGO || G.logoAt != null) && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
         const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
         if (tc !== (G.tcur || 0)) { G.tcur = tc; sfx('beep'); }
         if (tap) { const i = Math.floor((tap.y - 136) / 10); if (i >= 0 && i < TITLE_ITEMS.length) G.tcur = i; else break; }
-        if (backPress(pctl)) { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.introNoPres = true; G.introSkip = false; G.tmenu = null; sfx('beep'); }   // retour : on rejoue le travelling et le logo (sans PRESENTS)
+        if (backPress(pctl)) { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.introNoPres = true; G.logoAt = null; G.tmenu = null; sfx('beep'); }   // retour : on rejoue le travelling et le logo (sans PRESENTS)
         else if (okPress(pctl) || tap) {
           sfx('select');
           if ((G.tcur || 0) <= 2) { G.mode = ['arcade', 'vs', 'tutorial'][G.tcur || 0]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }   // ARCADE MODE / V.S. BATTLE / TUTORIAL
@@ -6813,7 +6813,6 @@ function drawEmbers(k) {   // petites braises en pixels qui montent du bas, lég
   g.restore();
 }
 function drawIntro(L) {
-  if (G.introSkip) L = Math.max(L, INTRO_T0 + INTRO_TRAVEL + 11 + (L - INTRO_LOGO - 1));   // intro passée : affiche déjà en place, logo affiché
   R(0, 0, W, H, '#000');
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
   artFill('#000');
@@ -6828,7 +6827,7 @@ function drawIntro(L) {
   const pa = L < 25 ? L / 25 : L < INTRO_T0 + 20 ? 1 : Math.max(0, 1 - (L - INTRO_T0 - 20) / 25);
   if (pa > 0 && !G.introNoPres) { artTextA('PRESENTS', CX, H / 2 - 6, 11, '#ffffff', pa); }
   // logo : apparaît avec un éclat lumineux, puis halo qui pulse
-  const lt = L - INTRO_LOGO;
+  const lt = L - (G.logoAt != null ? Math.min(G.logoAt, INTRO_LOGO) : INTRO_LOGO);   // logo affiché plus tôt si on a appuyé sur une touche
   if (lt > 0 && imgOk(LOGO_NSF)) {
     const lw = Math.min(W * .78, 300), lh = lw * LOGO_NSF.naturalHeight / LOGO_NSF.naturalWidth, a = Math.min(1, lt / 18);
     const sc = lt < 18 ? 1.35 - .35 * (1 - Math.pow(1 - lt / 18, 3)) : 1, w2 = lw * sc, h2 = lh * sc, cy = H / 2 - 8;   // logo au milieu de l'écran
