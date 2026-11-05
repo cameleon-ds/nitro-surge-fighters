@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v318';
+const VERSION = 'v320';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -848,7 +848,7 @@ function drawFighter(f, x = f.x, y = f.y) {
   const sh = add(n, [ux, uy], 1);
   // épaules écartées : avant (côté adversaire) et arrière (côté caméra)
   // marche : les épaules suivent les bras (l'épaule du bras qui avance avance aussi), le buste pivote
-  const walking = f.state === 'walk' && !d.float;   // Vane glisse sans marcher
+  const walking = (f.state === 'walk' || (f.state === 'hatcharge' && Math.abs(f.vx) > .1)) && !d.float;   // Vane glisse sans marcher
   const rs = walking ? -Math.sin(f.walkPh || 0) : 0, RK = 2.6;
   const sdA = add(sh, fwd, (d.bulk ? 7 : 3.5) + RK * rs), sdB = add(sh, fwd, (d.bulk ? -9 : -4.5) - RK * rs);   // colosse : épaules très larges
   if (walking) {
@@ -2168,7 +2168,11 @@ function poseOf(f) {
     case 'geyser': return f.t < 8 ? 'upper1' : 'gq1';
     case 'wallslash': return f.t < 8 ? 'upper1' : f.t < 11 ? 'fpunch1' : f.t < 28 ? 'cpunch' : 'crouch';
     case 'plunge': return 'sho0';
-    case 'hatcharge': case 'hatcatch': return 'hatc';
+    case 'hatcharge': if (Math.abs(f.vx) > .1) {   // charge du chapeau en se déplaçant : animation de marche normale
+        const step = WALK_A * 4 * K * UP / WALK_N, i = Math.floor(f.t * Math.abs(f.vx) / step) % WALK_N, wi = f.vx * f.dir < 0 ? (WALK_N - i) % WALK_N : i;
+        f.walkPh = wi / WALK_N * Math.PI * 2; return 'wk' + wi;
+      } return 'hatc';
+    case 'hatcatch': return 'hatc';
     case 'hatthrow': return f.t < 4 ? 'hatc' : 'punch1';
     case 'zslash': { if (f.t < 2) return 'crouch'; const ph = (f.t - 2) % 8; return ph < 2 ? 'upper1' : ph < 5 ? 'fpunch1' : 'punch1'; }   // 3 coups de sabre en arc (comme avant + Y), rapides
     case 'zenith': return f.t < 3 ? 'crouch' : 'tuck';
@@ -2378,13 +2382,13 @@ function updZFloor() {   // éclairs qui courent sur tout le sol après le plong
   for (const q of G.zfloor || []) {
     q.t++; if (q.t > 48) { q.dead = true; continue; }
     const o = G.f.find(g => g !== q.owner); if (!o || q.hit || o.air || o.ko || q.t > 40 || !hurtbox(o)) continue;
-    if (Math.abs(o.x - q.x) <= q.t * 5.5 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
+    if (Math.abs(o.x - q.x) <= q.t * 11 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
   }
   if (G.zfloor) G.zfloor = G.zfloor.filter(q => !q.dead);
 }
 function drawZFloor() {
   for (const q of G.zfloor || []) {
-    const a = q.t > 30 ? (48 - q.t) / 18 : 1, reach = q.t * 5.5;
+    const a = q.t > 30 ? (48 - q.t) / 18 : 1, reach = q.t * 11;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(47,180,255,.25)'; ctx.fillRect(Math.round(q.x - reach), GROUND - 2, Math.round(reach * 2), 3);
     for (const dd of [-1, 1]) {
