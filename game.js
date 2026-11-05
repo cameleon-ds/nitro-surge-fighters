@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v321';
+const VERSION = 'v323';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2141,6 +2141,9 @@ function poseOf(f) {
     case 'vcharge': return 'special0';
     case 'shadow': return 'tuck';
     case 'quake': return f.t < 12 ? 'gq0' : 'gq1';
+    case 'grogcharge': return 'gq0';
+    case 'grogrush': return f.t < 3 ? 'gq0' : 'wk' + (Math.floor(f.t / 2) % WALK_N);
+    case 'grogstop': return 'gq1';
     case 'rampart': return 'rampart';
     case 'rburst': return 'rburst';
     case 'crush': return f.t < 6 ? 'crouch' : 'tuck';
@@ -2389,7 +2392,20 @@ function updZFloor() {   // éclairs qui courent sur tout le sol après le plong
   }
   if (G.zfloor) G.zfloor = G.zfloor.filter(q => !q.dead);
 }
+const GRUSH_HIT = { dmg: 18, knock: true, stun: 24, bstun: 16, push: 6, chip: 4, sfx: 'heavy', unblock: true };
+function drawGrogRush() {   // Grog : charge (électricité qui grossit) puis course électrique (même effet que la vrille de Zephyr)
+  for (const f of G.f) {
+    if (f.state === 'grogcharge') { const k = Math.min(1, f.chargeT / 78); glowAt(f.x, f.y - 46, 30 + 30 * k, 'rgba(90,200,255,.9)', .2 + .35 * k); zapChaos(f.x, f.y - 2, 22, 90, 2 + Math.round(6 * k), .45); }
+    if (f.state === 'grogrush' && f.t >= 3) {
+      for (let i = 1; i <= 4; i++) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .3 * (1 - i / 5); drawFighter(Object.assign({}, f, { flash: 0, tint: 'rgba(60,150,255,.9)' }), f.x - f.dir * i * 16, f.y); ctx.restore(); }   // échos bleus
+      glowAt(f.x, f.y - 46, 60, 'rgba(90,200,255,.9)', .5);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .32 + .15 * Math.random(); drawFighter(Object.assign({}, f, { flash: 0, tint: 'rgba(110,210,255,1)' }), f.x, f.y); ctx.restore();
+      zapChaos(f.x, f.y - 2, 24, 96, 10, .45);
+    }
+  }
+}
 function drawZFloor() {
+  drawGrogRush();
   for (const q of G.zfloor || []) {
     const a = q.t > 30 ? (48 - q.t) / 18 : 1, reach = q.t * 11;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = a;
@@ -2652,8 +2668,9 @@ function updFighter(f, o) {
           if (back) { setState(f, 'rampart'); f.rampT = 180; sfx('block'); sfx('parry'); break; }   // bras électrisés pendant 3 s
           if (f.rampT > 0) {   // électricité active + A : explosion du dôme (renvoie les boules de feu)
             f.rampT = 0; setState(f, 'rburst'); G.flashT = Math.max(G.flashT, 8); G.shake = Math.max(G.shake, 6); G.boltX = f.x; G.boltY = f.y - 50; sfx('parry'); sfx('heavy');
-            G.waves.push({ owner: f, x: f.x, dir: f.dir, t: 0, life: 22, small: true, ring: true, dome: true, done: true });
-            if (Math.abs(o.x - f.x) < 100 && hurtbox(o)) applyHit(f, o, RAMPART_HIT, (o.x + f.x) / 2, o.y - 50, f.x, true);   // le dôme repousse l'adversaire proche
+            G.waves.push({ owner: f, x: f.x, dir: f.dir, t: 0, life: 30, small: true, ring: true, dome: true, done: true, big: true });   // dôme géant
+            G.darkT = Math.max(G.darkT, 20); G.flashT = Math.max(G.flashT, 12); G.shake = Math.max(G.shake, 10); G.freeze = Math.max(G.freeze || 0, 5); sfx('fb');
+            if (Math.abs(o.x - f.x) < 150 && hurtbox(o)) applyHit(f, o, RAMPART_HIT, (o.x + f.x) / 2, o.y - 50, f.x, true);   // le dôme repousse l'adversaire proche
             break;
           }
           if (shotOK(f)) { shotUse(f); setState(f, 'quake'); break; }
@@ -2910,9 +2927,34 @@ function updFighter(f, o) {
       break;
     case 'quake':   // frappe le sol : onde de choc au ras du sol
       f.vx = 0;
+      if (f.t === 6 && h.s && live && f.def.kit === 'grog') { setState(f, 'grogcharge'); f.chargeT = 0; break; }   // A maintenu : prépare la charge électrique
       if (f.t === 12) { G.waves.push({ owner: f, x: f.x + f.dir * 22, dir: f.dir, t: 0, life: 75 }); G.shake = Math.max(G.shake, 5); sfx('thud'); sfx('heavy'); }
       if (f.t >= 34) setState(f, 'idle');
       break;
+    case 'grogcharge': {   // A maintenu 1,3 s : écran foncé ; A lâché = course électrique sur tout l'écran
+      f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
+      if (f.chargeT === 8) vaneChargeStart(f);
+      if (f.chargeT === 78) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = f.x; G.boltY = f.y - 50; vaneChargeStop(f); sfx('counter'); }
+      if (!h.s) { vaneChargeStop(f); if (f.chargeT >= 78) { setState(f, 'grogrush'); f.rushD = 0; f.rushPx = null; sfx('upper'); sfx('fb'); sfx('parry'); G.shake = Math.max(G.shake, 6); } else { setState(f, 'quake'); f.t = 7; } }
+      break;
+    }
+    case 'grogrush': {   // course électrique : invincible, détruit tout sur son passage ; seul X puis A l'arrête
+      f.invuln = Math.max(f.invuln || 0, 2);
+      if (f.t < 3) { f.vx = 0; break; }
+      const px = f.x; f.vx = 12 * f.dir; f.rushD += 12;
+      if (f.t % 4 === 0) sfx('whoosh');
+      killShots(f, f.x - 44, f.x + 44, f.y - 120, f.y + 4);   // même la grosse sphère de Lord Vane
+      if (o && !o.ko && Math.abs(o.x - f.x) < 46 && hurtbox(o)) {
+        if (o.state === 'bflip') {   // contre X puis A : Grog se met en garde et glisse en arrière, sans être touché
+          setState(f, 'block'); f.bstun = 22; f.vx = -7 * f.dir; G.flashT = Math.max(G.flashT, 6); G.freeze = Math.max(G.freeze || 0, 6); addSpark((o.x + f.x) / 2, f.y - 50, 'parry'); sfx('parry'); sfx('block'); addPopup(o.x, o.y - 110, 'COUNTER!', '#7af0ff'); break;
+        }
+        if (!f.hasHit) { f.hasHit = true; applyHit(f, o, GRUSH_HIT, (o.x + f.x) / 2, f.y - 50, f.x, true); G.shake = Math.max(G.shake, 10); }
+      }
+      if (f.rushD >= W + 40 || (f.t > 6 && Math.abs(f.x - (f.rushPx != null ? f.rushPx : px - 99)) < .5)) { setState(f, 'grogstop'); f.vx = 4 * f.dir; break; }   // a traversé l'écran (ou bloqué au bord)
+      f.rushPx = f.x;
+      break;
+    }
+    case 'grogstop': f.vx *= .75; if (f.t >= 16) { f.vx = 0; setState(f, 'idle'); } break;
     case 'rampart': f.vx = 0; if (f.t >= 18) setState(f, 'idle'); break;
     case 'rburst': f.vx = 0; if (f.t >= 22) setState(f, 'idle'); break;
     case 'crush':   // grand bond vertical, suit l'adversaire en montant
@@ -4555,7 +4597,7 @@ function drawGrogFx() {   // ondes électriques bleues de Grog
   for (const w of G.waves || []) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (w.dome) {   // dôme électrique qui éclate depuis le sol
-      const k = w.t / w.life, a = 1 - k, rx = 18 + w.t * 5.2, ry = 16 + w.t * 4.6, cx = w.x, cy = GROUND;
+      const k = w.t / w.life, a = 1 - k, gk = w.big ? 1.7 : 1, rx = 18 + w.t * 5.2 * gk, ry = 16 + w.t * 4.6 * gk, cx = w.x, cy = GROUND;
       const g = ctx.createRadialGradient(cx, cy - ry * .3, 2, cx, cy, Math.max(rx, ry));
       g.addColorStop(0, `rgba(220,250,255,${.55 * a})`); g.addColorStop(.6, `rgba(47,180,255,${.3 * a})`); g.addColorStop(1, 'rgba(20,88,196,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.15, ry * 1.15, 0, Math.PI, 0); ctx.fill();
@@ -4564,9 +4606,21 @@ function drawGrogFx() {   // ondes électriques bleues de Grog
         const pts = []; for (let i = 0; i <= 26; i++) { const t = Math.PI + i / 26 * Math.PI; pts.push([cx + Math.cos(t) * rx * sc, cy + Math.sin(t) * ry * sc]); }
         elecArc(pts, col, lw);
       }
-      for (let b = 0; b < 6; b++) {   // nervures électriques du dôme
-        const t = Math.PI + (b + .5) / 6 * Math.PI, L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([cx + Math.cos(t) * rx * s2 / 4, cy + Math.sin(t) * ry * s2 / 4]);
-        elecArc(L, 'rgba(168,244,255,.85)', 1.2);
+      const nb = w.big ? 11 : 6;
+      for (let b = 0; b < nb; b++) {   // nervures électriques du dôme
+        const t = Math.PI + (b + .5) / nb * Math.PI, L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([cx + Math.cos(t) * rx * s2 / 4, cy + Math.sin(t) * ry * s2 / 4]);
+        elecArc(L, 'rgba(168,244,255,.85)', w.big ? 1.8 : 1.2);
+      }
+      if (w.big) {   // dôme géant : 2e coque intérieure, éclairs qui jaillissent vers l'extérieur, étincelles
+        const pts = []; for (let i = 0; i <= 22; i++) { const t = Math.PI + i / 22 * Math.PI; pts.push([cx + Math.cos(t) * rx * .55, cy + Math.sin(t) * ry * .55]); }
+        elecArc(pts, 'rgba(47,180,255,1)', 2.5); elecArc(pts, '#ffffff', 1);
+        for (let b = 0; b < 7; b++) {
+          const t = Math.PI + Math.random() * Math.PI, L = []; let r = 1;
+          for (let s2 = 0; s2 <= 4; s2++) { L.push([cx + Math.cos(t + (Math.random() - .5) * .25) * rx * r, cy + Math.sin(t) * ry * r]); r += .1 + Math.random() * .12; }
+          elecArc(L, 'rgba(47,180,255,.9)', 3); elecArc(L, '#e8fcff', 1.1);
+        }
+        for (let i = 0; i < 10; i++) { const t = Math.PI + Math.random() * Math.PI; ctx.fillStyle = Math.random() < .5 ? '#ffffff' : '#7af0ff'; ctx.fillRect(Math.round(cx + Math.cos(t) * rx * (1 + Math.random() * .3)), Math.round(cy + Math.sin(t) * ry * (1 + Math.random() * .3)), 2, 2); }
+        glowAt(cx, cy - ry * .4, Math.max(rx, ry) * .9, 'rgba(120,220,255,.9)', .35 * a);
       }
       ctx.fillStyle = `rgba(120,220,255,${.5 * a})`; ctx.fillRect(Math.round(cx - rx * 1.2), cy - 1, Math.round(rx * 2.4), 2);
       ctx.restore(); continue;
@@ -5070,7 +5124,7 @@ const TUT_SP = {
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   nyx: [['A', 'MAGMA FLASK', st_('flask')], ['HOLD A, RELEASE', 'VOLT SERPENT', st_('nyxsnake')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
   zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY DASH', st_('zdash')], ['JUMP, THEN DOWN + A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['HOLD A 1 SEC, RELEASE', 'STORM HAT', st_('hatthrow')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
-  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['HOLD A, RELEASE', 'THUNDER RUSH', st_('grogrush')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
 };
 const TUT_COMBO = [['ppkk', 'Y, Y, B, B'], ['kkpp', 'B, B, Y, Y'], ['ppks', 'Y, Y, B, A'], ['kkps', 'B, B, Y, A']];
 const tutSpecials = d => TUT_SP[d.kit] || (d.twinFb ? TUT_SP.hiro : TUT_SP.axel);
