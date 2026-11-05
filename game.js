@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v307';
+const VERSION = 'v308';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5281,7 +5281,7 @@ G.bcur = fsAvail() ? 0 : 1;   // sélecteur d'abord sur FULL SCREEN
 let installEvt = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
 addEventListener('appinstalled', () => { installEvt = null; G.installed = true; G.instHelp = false; });
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 const IOS = IPHONE || /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const ANDROID = /Android/i.test(navigator.userAgent);
 const isStandalone = () => !!(navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: minimal-ui)').matches ||
@@ -5336,12 +5336,30 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
   ap(70, () => { text('PRESS ' + bootKeys()[1] + ' TO CLOSE', CX, 162, 8, '#ffffff', 'center'); });   // B (mobile) / K (PC) pour fermer
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
-const bootStep = () => fsAvail() ? (G.bootStep || 0) : 1;
-const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
+const bootStep = () => isStandalone() ? 1 : fsAvail() ? (G.bootStep || 0) : 1;   // lancé depuis l'icône : START / DOWNLOAD OFFLINE MODE
+const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (isStandalone() && offAvail()) o.push(3); else if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
 const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
 function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
-function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
+// ---- MODE HORS LIGNE (app lancée depuis l'écran d'accueil) ----
+const offAvail = () => 'serviceWorker' in navigator && 'caches' in window && (location.protocol === 'https:' || location.hostname === 'localhost');
+G.offState = 'none'; G.offPct = 0;
+if (offAvail()) caches.open('nsf-offline-v1').then(c => c.match('__offline_ready__')).then(r => { if (r) G.offState = 'ready'; }).catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => {
+  const d = e.data || {}; if (d.type !== 'offline') return;
+  if (d.error) { G.offState = 'err'; return; }
+  G.offPct = d.total ? d.done / d.total : 0;
+  if (d.ready === true) { G.offState = 'ready'; sfx('select'); } else if (d.ready === false) G.offState = 'err';
+});
+function offlineDownload() {
+  if (G.offState === 'dl' || G.offState === 'ready') { sfx('beep'); return; }
+  G.offState = 'dl'; G.offPct = 0; sfx('select');
+  const extra = (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).map(r => r.name).filter(u => u.startsWith(location.origin));   // fichiers déjà chargés (avec leur ?v=)
+  extra.push(location.href.split('#')[0]);
+  navigator.serviceWorker.ready.then(reg => { (reg.active || navigator.serviceWorker.controller).postMessage({ type: 'download', extra }); }).catch(() => { G.offState = 'err'; });
+}
+const offLbl = () => G.offState === 'ready' ? 'OFFLINE MODE READY' : G.offState === 'dl' ? 'DOWNLOADING ' + Math.round(G.offPct * 100) + '%' : G.offState === 'err' ? 'DOWNLOAD FAILED: RETRY' : 'DOWNLOAD OFFLINE MODE';
+function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 3) { offlineDownload(); return; } if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   document.body.classList.remove('booting');
   if (!G.boot) return;
@@ -5371,9 +5389,9 @@ addEventListener('pointerup', e => {
         if (Math.abs(p.y - 88) < 7) { G.bcur = 0; bootToggleFS(); }                          // FULL SCREEN : OFF / ON
         else if (two && Math.abs(p.y - 102) < 7) { G.bcur = 2; bootOk(true); }                // INSTALL / ADD TO HOME SCREEN
         else if (Math.abs(p.y - (two ? 132 : 120)) < 7) bootOk(true);                                      // PRESS A TO CONFIRM
-      } else if (two) {
+      } else if (bootItems().length > 1) {
         if (Math.abs(p.y - 74) < 9) { G.bcur = 1; bootStart(); }                             // START
-        else if (Math.abs(p.y - 94) < 9) { G.bcur = 2; bootOk(true); }                       // ADD TO HOME SCREEN
+        else if (Math.abs(p.y - 94) < 9) { G.bcur = bootItems()[1]; bootOk(true); }                       // ADD TO HOME SCREEN
         else if (Math.abs(p.y - 128) < 7) bootOk(true);
       }
       else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
@@ -6334,9 +6352,10 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     if (two) slide(120, row2);
     if (two && done) bootUpDown(114);
     if (blink) text('PRESS ' + kA + ' TO CONFIRM / ' + kB + ' TO GO BACK', CX, two ? 128 : 116, 8, '#ffffff', 'center');
-  } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
+  } else if (items.length > 1) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN ; app : START ou DOWNLOAD OFFLINE MODE (même taille), puis PRESS A TO CONFIRM
     slide(-80, () => text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // START arrive du haut
-    slide(130, () => text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // ADD TO HOME SCREEN arrive du bas
+    { const sec = items[1], on2 = c === sec, lb = sec === 3 ? offLbl() : INSTALL_LBL(), sz = lb.length > 18 ? 8 : 12;
+      slide(130, () => text((on2 ? '> ' : '') + lb + (on2 ? ' <' : ''), CX, 88 + (12 - sz) / 2, sz, on2 ? '#ffd23a' : sec === 3 && G.offState === 'ready' ? '#5aff8a' : 'rgba(255,255,255,.6)', 'center')); }   // ADD TO HOME SCREEN arrive du bas
     if (blink) iconLine(124, 'TO SELECT  PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
