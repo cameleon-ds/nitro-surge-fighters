@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v329';
+const VERSION = 'v330';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2608,8 +2608,12 @@ function drawVClones() {
       if (q.ph === 'grab') drawFighter(Object.assign({}, q.target, { flash: 0, tint: 'rgba(200,90,255,.9)' }), ox, oy);
       ctx.restore();
     });
-    ctx.save(); ctx.globalAlpha = .75; drawFighter(Object.assign(fig(q.x, q.y), { tint: 'rgba(120,30,200,.9)' }), q.x, q.y);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .18; drawFighter(Object.assign(fig(q.x, q.y), { tint: 'rgba(230,140,255,1)' }), q.x, q.y); ctx.restore();
+    {   // même rendu que le double de Vane quand il frappe : ombre noire, copie détaillée teintée rose, glow
+      const gx = q.x, gy = q.y;
+      ctx.save(); ctx.globalAlpha = .3; drawFighter(Object.assign(fig(gx, gy), { tint: 'rgba(8,0,16,.9)' }), gx - q.dir * 3, gy + 1); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .62; drawFighter(Object.assign(fig(gx, gy), { tintKeep: '#ff40c8' }), gx, gy); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .18; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(gx, gy), { tint: 'rgba(255,60,210,1)' }), gx, gy); ctx.restore();
+    }
     glowAt(q.x, q.y - 50, 40, 'rgba(170,60,255,.9)', .28);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore();
   }
