@@ -84,3 +84,4 @@ body.rot #startBtn{bottom:3vw}
 /* calque haute définition (images nettes de l'écran titre), sous le canvas pixel */
 #hi{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);visibility:hidden}
 #game{z-index:1}
+body.photoclean #touch{display:none!important}   /* mode photo : capture d'écran sans les boutons */

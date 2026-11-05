@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v350';
+const VERSION = 'v352';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2589,6 +2589,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
       continue;
     }
     q.gt++; q.lift = Math.min(70, q.lift + .85);   // monte lentement avec l'adversaire
+    if (q.ox == null) q.ox = o.x; o.x = q.ox + (G.frame % 2 ? 1.2 : -1.2);   // vibration très rapide de gauche à droite jusqu'à l'explosion
     o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = Math.max(o.paraT || 0, 4);   // électricité autour de l'adversaire pendant la montée
     q.x = o.x - q.dir * 30; q.y = GROUND - q.lift;
     if (q.gt % 10 === 0) sfx('parry');
@@ -5267,8 +5268,10 @@ function endRound(winner) {
 /* ---------------- Boucle principale ---------------- */
 // ---------- Options (enregistrées dans le navigateur) ----------
 const DL = () => OPT.diff === 4 ? 3 : Math.min(2, OPT.diff);   // niveau du CPU : 0 facile, 1 normal, 2 difficile, 3 extrême
-const OPT = { zoom: true, energy: 1, diff: 1, blood: true, music: 3, sfx: 4 };   // musique 75 %, bruitages 100 %
+const OPT = { zoom: 'anim', energy: 1, diff: 1, blood: true, music: 3, sfx: 4 };   // musique 75 %, bruitages 100 %
 try { Object.assign(OPT, JSON.parse(localStorage.getItem('sf2opt2') || '{}')); } catch (e) {}
+if (OPT.zoom === true) OPT.zoom = 'anim'; else if (OPT.zoom === false) OPT.zoom = 'normal';   // ZOOM IN GAME : ANIMATED / FAR / NORMAL / NEAR
+const ZOOMS = ['anim', 'far', 'normal', 'near'], ZOOM_LBL = { anim: 'ANIMATED', far: 'FAR', normal: 'NORMAL', near: 'NEAR' }, ZOOM_FIX = { far: .88, normal: 1, near: 1.2 };
 if (OPT.guides == null) OPT.guides = true;   // aides au-dessus de la tête, activées par défaut
 if (OPT.full == null) OPT.full = isTouch;   // plein écran par défaut sur mobile   // nouvelle clé : zoom et sang activés par défaut
 const saveOpt = () => { try { localStorage.setItem('sf2opt2', JSON.stringify(OPT)); } catch (e) {} };
@@ -5532,7 +5535,7 @@ function stepMoves() {
   if (okPress(pctl)) { G.mlOpen = P[G.mlSel].title; G.mscroll = 0; sfx('select'); return; }
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
-const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
+const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'PHOTO MODE', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
 const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
@@ -5586,13 +5589,26 @@ function stepOptions() {
     { const ord = G.mode === 'arcade' && G.arc ? DIFF_ORDER.filter(v => v !== 3) : DIFF_ORDER, k = Math.max(0, ord.indexOf(OPT.diff)), n = ord.length; OPT.diff = ord[(k + (l ? n - 1 : 1)) % n]; }   // ARCADE : pas de TRAINING   // en boucle : EASY, NORMAL, HARD, EXTREME, TRAINING
     saveOpt(); sfx('select');
   }
-  if (L === 0 && ok) { OPT.zoom = !OPT.zoom; saveOpt(); sfx('select'); }
+  if (L === 0 && (l || r || ok)) { const k = Math.max(0, ZOOMS.indexOf(OPT.zoom)); OPT.zoom = ZOOMS[(k + (l ? 3 : 1)) % 4]; saveOpt(); sfx('select'); }
   if (L === 1 && (l || r || ok)) {
     OPT.energy = l ? Math.max(1, OPT.energy - 1) : r ? Math.min(3, OPT.energy + 1) : OPT.energy % 3 + 1;
     saveOpt(); sfx('select');
   }
 }
+function stepPhoto() {   // MODE PHOTO : stick = déplacer, Y = dézoomer, X = zoomer, A = photo, B = retour au menu pause
+  const P = G.photo, h = pctl.held;
+  if (P.msgT > 0) { P.msgT--; if (!P.msgT) P.clean = true; return; }
+  const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || ['l', 'r', 'u', 'd'].some(b => edge(pctl, b));
+  if (P.clean) { if (any || P.tapped) { P.clean = false; P.tapped = false; document.body.classList.remove('photoclean'); } return; }   // n'importe quelle touche : les boutons réapparaissent
+  if (backPress(pctl)) { G.photo = null; document.body.classList.remove('photoclean'); sfx('beep'); return; }
+  if (edge(pctl, 's')) { P.msgT = 60; document.body.classList.add('photoclean'); sfx('select'); return; }
+  const sp = 3 / P.z; if (h.l) P.l -= sp; if (h.r) P.l += sp; if (h.u) P.t -= sp; if (h.d) P.t += sp;
+  const zf = h.x ? 1.02 : h.p ? 1 / 1.02 : 1;
+  if (zf !== 1) { const cx = P.l + W / P.z / 2, cy = P.t + H / P.z / 2; P.z *= zf; P.l = cx - W / P.z / 2; P.t = cy - H / P.z / 2; }
+}
+document.addEventListener('touchstart', () => { if (G.photo && G.photo.clean) G.photo.tapped = true; }, { passive: true });
 function stepPause() {
+  if (G.photo) { stepPhoto(); return; }
   if (G.pconf != null) {   // « ARE YOU SURE TO QUIT THE FIGHT ? » YES / NO
     if (edge(pctl, 'l') || edge(pctl, 'r') || navStep()) { G.pconf = 1 - G.pconf; sfx('beep'); }
     if (backPress(pctl)) { G.pconf = null; sfx('beep'); }
@@ -5610,7 +5626,8 @@ function stepPause() {
     if (G.pcur === 0) G.paused = false;
     else if (G.pcur === 1) { G.showOpts = true; G.ocur = 0; }
     else if (G.pcur === 2) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
-    else if (G.pcur === 3) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
+    else if (G.pcur === 3) { G.photo = { z: G.zoom || 1, l: G.camL || 0, t: H - H / (G.zoom || 1), clean: false, msgT: 0 }; }   // MODE PHOTO
+    else if (G.pcur === 4) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
 }
@@ -6450,21 +6467,26 @@ function drawFight() {
   const [a, b] = G.f;
   // Caméra : zoom de 100 % (distance de départ) à 120 % quand les combattants se rapprochent
   const dist = Math.abs(a.x - b.x), D0 = 160, D1 = 50;
-  const zt = OPT.zoom ? 1 + .2 * Math.max(0, Math.min(1, (D0 - dist) / (D0 - D1))) - .1 * Math.max(0, Math.min(1, (dist - 290) / 54)) : 1;   // presque aux deux bouts de l'écran : léger dézoom
+  const zt = OPT.zoom !== 'anim' && OPT.zoom != null ? (ZOOM_FIX[OPT.zoom] || 1) : 1 + .2 * Math.max(0, Math.min(1, (D0 - dist) / (D0 - D1))) - .1 * Math.max(0, Math.min(1, (dist - 290) / 54));   // presque aux deux bouts de l'écran : léger dézoom
   G.zoom = (G.zoom || 1) + (zt - (G.zoom || 1)) * .16;
   let lift = 0;
   if (G.scene === 'intro' && G.preT > 0) {   // ouverture : décor entier vu de haut, puis la caméra descend et zoome sur les combattants
     const k = 1 - G.preT / PRE_T, e = k * k * (3 - 2 * k), z0 = W / SW;
     G.zoom = z0 + (zt - z0) * e; lift = 34 * (1 - e);
   }
-  const z = G.zoom, vw = W / z, vh = H / z;
+  if (G.photo) {   // MODE PHOTO : caméra libre
+    const P = G.photo, zmin = W / SW; P.z = Math.max(zmin, Math.min(2.6, P.z));
+    const pw = W / P.z, ph = H / P.z; P.l = Math.max(0, Math.min(SW - pw, P.l)); P.t = Math.max(H - ph - 90, Math.min(H - ph, P.t));
+  }
+  const z = G.photo ? G.photo.z : G.zoom, vw = W / z, vh = H / z;
   const tgtL = Math.max(0, Math.min(SW - vw, (a.x + b.x) / 2 - vw / 2)), top = H - vh - lift;
   G.camS = G.camS == null || G.preT > 0 || Math.abs(tgtL - G.camS) < .5 ? tgtL : G.camS + (tgtL - G.camS) * .14;   // caméra en travelling (pas de saut d'image, ex. téléportation)
-  const left = Math.max(0, Math.min(SW - vw, G.camS));
-  G.camL = left; G.camW = vw;
+  const left = G.photo ? G.photo.l : Math.max(0, Math.min(SW - vw, G.camS));
+  const top2 = G.photo ? G.photo.t : top;
+  if (!G.photo) { G.camL = left; G.camW = vw; }
   ctx.save();
-  ctx.scale(z, z); ctx.translate(-left, -top);
-  if (top < 0) ctx.drawImage(introBG(), 0, -INTRO_TOP);   // vue dézoomée : décor prolongé vers le haut
+  ctx.scale(z, z); ctx.translate(-left, -top2);
+  if (top2 < 0) ctx.drawImage(introBG(), 0, -INTRO_TOP);   // vue dézoomée : décor prolongé vers le haut
   else ctx.drawImage(BG, 0, 0);
   if (G.darkT > 0) {   // fond assombri pendant le ralenti
     const k = Math.min(1, G.darkT / 10, (60 - G.darkT) / 6 + .2);
@@ -6537,8 +6559,12 @@ function drawFight() {
     }
     ctx.restore();
   }
-  drawGuides();
+  if (!G.photo) drawGuides();
   ctx.restore();
+  if (G.photo) {   // MODE PHOTO : aucun HUD, seulement le message de capture
+    if (G.photo.msgT > 0) { ctx.save(); ctx.globalAlpha = Math.min(1, G.photo.msgT / 10); R(0, H / 2 - 16, W, 30, 'rgba(0,0,0,.55)'); text('TAKE A SCREEN SHOT', CX, H / 2 - 4, 8, '#ffffff', 'center'); ctx.restore(); }
+    return;
+  }
   if (G.flashT > 9) R(0, 0, W, H, 'rgba(220,245,255,.25)');   // très bref flash d'écran
   if (G.scene === 'intro' && G.preT > 0) {   // ouverture : nom du décor seulement
     const nm = (STAGES.find(q => q[0] === G.stage) || [0, ''])[1], al = Math.min(1, (PRE_T - G.preT) / 15, G.preT / 15);
@@ -6699,7 +6725,7 @@ function drawOptions() {
   };
   if (c < OB) { R(CX - PW / 2 + 10, 40 + c * RH - 4, PW - 20, Math.min(15, RH), 'rgba(255,255,255,.08)'); text('>', x0 - 4, 40 + c * RH, 8, '#ffd23a', 'right'); }   // ligne sélectionnée surlignée
   if (pos(6) >= 0) { text('FULL SCREEN', x0, Y(6), 8, col(6), 'left'); box(Y(6), OPT.full, 6); }
-  text('ZOOM IN GAME', x0, Y(0), 8, col(0), 'left'); box(Y(0), OPT.zoom, 0);
+  { const zs = c === pos(0); text('ZOOM IN GAME', x0, Y(0), 8, col(0), 'left'); text((zs ? '< ' : '') + (ZOOM_LBL[OPT.zoom] || 'ANIMATED') + (zs ? ' >' : ''), zs ? vx - 8 : vx, Y(0), 8, zs ? '#ffd23a' : '#ffffff', 'center'); }
   text('FIGHTERS ENERGY', x0, Y(1), 8, col(1), 'left');
   for (let i = 0; i < 3; i++) drawStar(vx - 12 + i * 12, Y(1) + 4, 5.5, i < OPT.energy);
   text('DIFFICULTY', x0, Y(2), 8, col(2), 'left');
@@ -6743,7 +6769,7 @@ function drawPause() {
   panel(34, 148, 'PAUSE');
   PAUSE_ITEMS.forEach((t, i) => {
     const sel = G.pcur === i;
-    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 70 + i * 18, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
+    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 64 + i * 15, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
   });
   const kb = !isTouch && !padOn();
   text(kb ? keyName(KEYS.s) + ': SELECT   ' + keyName(KEYS.start) + ': RESUME' : 'A: SELECT   START: RESUME   B: BACK', CX, 166, 8, 'rgba(255,255,255,.35)', 'center');
@@ -7281,7 +7307,7 @@ function render() {
     default: drawFight();
   }
   ctx.restore();
-  if (G.paused && grp === 'fight') drawPause();   // menu pause jamais secoué
+  if (G.paused && grp === 'fight' && !G.photo) drawPause();   // menu pause jamais secoué
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
   if (G.demo && (G.frame >> 5) % 2 === 0) text('PRESS ANY KEY', CX, H - 30, 8, '#ffffff', 'center');   // démo
@@ -7322,7 +7348,7 @@ let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
 let infightCls = null;
 function loop(now) {
-  { const f = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
+  { const f0 = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot, f = G.photo ? 'photo' : f0;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; if (f === 'photo') { document.body.classList.add('infight'); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', 'PHOTO'); lb('.bb', 'BACK'); lb('.by', 'ZOOM -'); lb('.bx', 'ZOOM +'); } else { document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
   while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }
