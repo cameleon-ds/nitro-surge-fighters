@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v299';
+const VERSION = 'v300';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5324,17 +5324,17 @@ function step() {
       }
       const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
       if (btnOn && tap && inRect(tap, ADD_BTN)) { G.qrPop = true; sfx('select'); break; }
-      if (tap && !NET.guest && inRect(tap, INV_BTN)) { openInvite(); break; }
+      if (tap && !NET.guest && G.mode !== 'tutorial' && inRect(tap, INV_BTN)) { openInvite(); break; }
       {
         let sl = G.sel || 0;
-        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; else if (edge(sc, 'd') && !NET.guest) sl = 9; }   // ADD CONTROLLERS (sous la grille) ; PC : INVITE A PLAYER juste en dessous
+        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; else if (edge(sc, 'd') && !NET.guest && G.mode !== 'tutorial') sl = 9; }   // ADD CONTROLLERS (sous la grille) ; PC : INVITE A PLAYER juste en dessous
         else if (sl === 9 && btnOn) { if (NET.guest || edge(sc, 'u')) sl = 8; }   // PC : INVITE A PLAYER sous ADD CONTROLLERS
         else if (sl === 9) { if (NET.guest || edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; }   // mobile : INVITE A PLAYER (sous la grille)
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
           if (edge(sc, 'u')) { if (sl > 3) sl -= 4; }
-          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } else if (!NET.guest) { G.selBack = sl; sl = 9; } }   // mobile : INVITE A PLAYER sous la grille
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } else if (!NET.guest && G.mode !== 'tutorial') { G.selBack = sl; sl = 9; } }   // mobile : INVITE A PLAYER sous la grille
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
@@ -6389,7 +6389,8 @@ function drawSelect() {
       artText('P' + q, cx2, cy2 - 2.6, 5, '#ffffff');
     }
   }
-  {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
+  if (G.mode === 'tutorial') { INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0; }   // TUTORIAL : pas d'invitation
+  else {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
     const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : gy + 2 * S + gap + 12, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
     if (NET.guest) {   // Player 2 connecté : plus de bouton, juste CONNECTED
       INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0;
