@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v303';
+const VERSION = 'v304';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4946,8 +4946,10 @@ function stepMoves() {
     if (backPress(pctl) || (tap && !inRect(tap, ML_POP))) { G.mlOpen = null; sfx('beep'); }
     return;
   }
-  if (edge(pctl, 'l') && G.mlSel > 0) { G.mlSel--; sfx('beep'); }
-  if (edge(pctl, 'r') && G.mlSel < P.length - 1) { G.mlSel++; sfx('beep'); }
+  const hd = pctl.held.r ? 1 : pctl.held.l ? -1 : 0;   // direction maintenue : petite pause puis défilement continu
+  if (hd !== (G.mlHoldD || 0)) { G.mlHoldD = hd; G.mlHoldT = 0; } else if (hd) G.mlHoldT = (G.mlHoldT || 0) + 1;
+  const step = hd && (G.mlHoldT === 0 || (G.mlHoldT >= 18 && (G.mlHoldT - 18) % 7 === 0));
+  if (step) { const ns = Math.max(0, Math.min(P.length - 1, G.mlSel + hd)); if (ns !== G.mlSel) { G.mlSel = ns; sfx('beep'); } }
   if (tap) { const i = ML_RECTS.findIndex(r => r && inRect(tap, r)); if (i >= 0) { if (i === G.mlSel) { G.mlOpen = P[i].title; G.mscroll = 0; sfx('select'); } else { G.mlSel = i; sfx('beep'); } return; } }
   if (okPress(pctl)) { G.mlOpen = P[G.mlSel].title; G.mscroll = 0; sfx('select'); return; }
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
@@ -5996,7 +5998,7 @@ function drawMoves() {   // mosaïque de cases carrées qui glissent ; A ouvre l
   R(0, 0, W, H, 'rgba(8,4,16,.92)');
   text('MOVE LIST', CX, 12, 8, '#ff7a3a', 'center');
   const P = mlPages(), sel = Math.max(0, Math.min(P.length - 1, G.mlSel || 0));
-  G.mlPos = G.mlPos == null ? sel : G.mlPos + (sel - G.mlPos) * .2;   // glissement animé
+  G.mlPos = G.mlPos == null ? sel : G.mlPos + (sel - G.mlPos) * (G.mlHoldT > 18 ? .32 : .2);   // glissement animé (plus vif quand on reste appuyé)
   const T = 74, GAP = 16, cy = 98; ML_RECTS.length = 0;
   const wrapT = t => { const out = []; let cur = ''; for (const w of t.split(' ')) { if (cur && cur.length + 1 + w.length > 9) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } out.push(cur); return out.slice(0, 2); };
   P.forEach((pg, i) => {
