@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v313';
+const VERSION = 'v314';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2136,6 +2136,7 @@ function poseOf(f) {
     case 'axgp': { if (!f.fired) return 'gp0'; const k = f.t - f.gpT; return k < 3 ? 'gpI' + (k + 1) : 'gp1'; }
     case 'pthrow': return f.t < 7 ? 'special0' : 'special1';
     case 'holo': return f.t < 7 ? 'special0' : 'special1';
+    case 'vcharge': return 'special0';
     case 'shadow': return 'tuck';
     case 'quake': return f.t < 12 ? 'gq0' : 'gq1';
     case 'rampart': return 'rampart';
@@ -2376,7 +2377,7 @@ function updZFloor() {   // éclairs qui courent sur tout le sol après le plong
   for (const q of G.zfloor || []) {
     q.t++; if (q.t > 75) { q.dead = true; continue; }
     const o = G.f.find(g => g !== q.owner); if (!o || q.hit || o.air || o.ko || q.t > 62 || !hurtbox(o)) continue;
-    if (Math.abs(o.x - q.x) <= q.t * 5.5 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
+    if (Math.abs(o.x - q.x) <= q.t * 5.5 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
   }
   if (G.zfloor) G.zfloor = G.zfloor.filter(q => !q.dead);
 }
@@ -2603,7 +2604,7 @@ function updFighter(f, o) {
           if (h.u) { setState(f, 'zenith'); f.vx = 0; f.invuln = 8; break; }
           if (back) { setState(f, 'shadow'); f.invuln = 14; { const mine = G.mines.filter(m => m.owner === f && !m.dead); if (mine.length >= 3) G.mines = G.mines.filter(m => m !== mine[0]); } G.mines.push({ owner: f, x: f.x, t: 0 }); sfx('tele'); break; }   // jusqu'à 3 mines au sol
           // Clone énergétique : 3 tirs d'affilée, puis 1 seconde d'attente
-          if (shotOK(f)) { shotUse(f); setState(f, 'holo'); f.vx = 0; }
+          if (shotOK(f)) { const third = (f.shotN || 0) === 2; shotUse(f); setState(f, 'holo'); f.vx = 0; f.holoBlue = third; f.holoBig = false; }   // 3e clone : bleu électrique
           break;
         }
         if (f.def.kit === 'vane') {   // Vane : Impact Météore / Téléportation Fantôme / Éclair du Vide
@@ -2871,9 +2872,17 @@ function updFighter(f, o) {
       return;
     case 'holo':
       f.vx = 0;
-      if (f.t === 7) { G.holos.push({ owner: f, x: f.x + f.dir * 16, y: f.y, dir: f.dir, t: 0 }); sfx('fb'); }
+      if (f.t === 6 && h.s && live && f.def.kit === 'vesper' && !f.holoBig) { setState(f, 'vcharge'); f.chargeT = 0; break; }   // A maintenu : clone chargé
+      if (f.t === 7) { G.holos.push({ owner: f, x: f.x + f.dir * 16, y: f.y, dir: f.dir, t: 0, blue: f.holoBlue || f.holoBig, big: f.holoBig, trail: [] }); sfx('fb'); if (f.holoBig) { sfx('parry'); G.shake = Math.max(G.shake, 3); } f.holoBlue = false; f.holoBig = false; }
       if (f.t >= 24) setState(f, 'idle');
       break;
+    case 'vcharge': {   // Vesper charge (A maintenu) : 1 s = écran foncé, puis A lâché = clone bleu électrique rapide
+      f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
+      if (f.chargeT === 8) vaneChargeStart(f);
+      if (f.chargeT === 60) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = f.x + f.dir * 18; G.boltY = f.y - 56; vaneChargeStop(f); sfx('counter'); }
+      if (!h.s) { vaneChargeStop(f); f.holoBig = f.chargeT >= 60; setState(f, 'holo'); f.t = 7 - 1; f.chargeT = 0; }
+      break;
+    }
     case 'shadow':   // recule très vite en laissant une mine
       f.vx = f.t < 12 ? -f.dir * 5.5 : f.vx * .6;
       if (f.t >= 18) { f.vx = 0; setState(f, 'idle'); }
@@ -3716,7 +3725,8 @@ function shock(att, o, data, x, y) {
 function updVesper() {
   for (const q of G.holos || []) {
     const o = G.f.find(f => f !== q.owner);
-    q.t++; q.x += q.dir * 5.5;
+    q.t++; q.x += q.dir * (q.big ? 9 : 5.5);
+    if (q.blue) { (q.trail = q.trail || []).unshift(q.x); if (q.trail.length > 6) q.trail.pop(); }
     if (q.x < (G.camL || 0) - 30 || q.x > (G.camL || 0) + W + 30 || q.t > 90) q.dead = true;
     if (q.dead || !o) continue;
     const hb = hurtbox(o), ab = rawAtkBox(o);
@@ -3726,10 +3736,11 @@ function updVesper() {
       q.dead = true;
       if (!hurtbox(o)) { addSpark(q.x, q.y - 50, 'parry'); continue; }
       const n = (o.holoHitT != null && G.frame - o.holoHitT < 180 ? (o.holoHits || 0) : 0) + 1;   // touches d'affilée (moins de 3 s d'écart)
-      shock(q.owner, o, n >= 3 ? HOLO_PARA : HOLO_HIT, q.x, q.y - 50);
+      const para = n >= 3 || q.big;   // 3e clone d'affilée, ou clone chargé : paralyse
+      shock(q.owner, o, para ? HOLO_PARA : HOLO_HIT, q.x, q.y - 50);
       if (o.state === 'hit' || o.state === 'fall') {
-        o.holoHitT = G.frame; o.holoHits = n >= 3 ? 0 : n;
-        if (n >= 3) { o.paraT = 80; addPopup(o.x, o.y - 104, 'PARALYZED!', '#c88aff'); G.shake = Math.max(G.shake, 4); }
+        o.holoHitT = G.frame; o.holoHits = para ? 0 : n;
+        if (para) { o.paraT = 80; o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); G.shake = Math.max(G.shake, 4); }
       } else o.holoHits = 0;   // décharge parée : la série repart à zéro
     }
   }
@@ -3803,7 +3814,7 @@ function updVane() {
   if (G.voids) G.voids = G.voids.filter(q => !q.dead);
   for (const s2 of G.shadowFx || []) s2.t++;
   if (G.shadowFx) G.shadowFx = G.shadowFx.filter(s2 => s2.t < 24);
-  for (const f of G.f) { if (f.paraT > 0) f.paraT--; if (f.rampT > 0) f.rampT--; }
+  for (const f of G.f) { if (f.paraT > 0) f.paraT--; else f.paraBlue = false; if (f.rampT > 0) f.rampT--; }
 }
 
 // Nitro / Surge : échos, double mauve, brasier de particules
@@ -3961,24 +3972,25 @@ function drawVaneFx() {
         const z = Math.max(1, Math.round(5 * (1 - life))); ctx.fillRect(Math.round(x) - z, Math.round(y) - z, z * 2, z * 2);
       }
     }
-    if (f.paraT > 0) {   // paralysie : éclairs violets autour de la victime
+    if (f.paraT > 0) {   // paralysie : éclairs violets autour de la victime (bleu clair : Vesper / Zephyr)
+      const pc = (r, g, b) => f.paraBlue ? Math.round(r * .4) + ',' + Math.round(Math.max(g, b * .9)) + ',255' : r + ',' + g + ',' + b;
       const k = Math.min(1, f.paraT / 20), cy = f.y - 48, fl = .6 + Math.random() * .4;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       let g = ctx.createRadialGradient(f.x, cy, 4, f.x, cy, 78);   // halo de glow
-      g.addColorStop(0, `rgba(255,110,240,${.5 * k * fl})`); g.addColorStop(.45, `rgba(170,60,255,${.3 * k * fl})`); g.addColorStop(1, 'rgba(60,0,120,0)');
+      g.addColorStop(0, `rgba(${pc(255,110,240)},${.5 * k * fl})`); g.addColorStop(.45, `rgba(${pc(170,60,255)},${.3 * k * fl})`); g.addColorStop(1, `rgba(${pc(60,0,120)},0)`);
       ctx.fillStyle = g; ctx.fillRect(f.x - 80, cy - 80, 160, 160);
-      if (G.frame % 4 < 2) { ctx.globalAlpha = .55 * k; drawFighter(Object.assign({}, f, { flash: 0, tint: G.frame % 8 < 4 ? 'rgba(230,140,255,.9)' : 'rgba(255,255,255,.9)' }), f.x, f.y); ctx.globalAlpha = 1; }   // silhouette électrisée
+      if (G.frame % 4 < 2) { ctx.globalAlpha = .55 * k; drawFighter(Object.assign({}, f, { flash: 0, tint: G.frame % 8 < 4 ? `rgba(${pc(230,140,255)},.9)` : `rgba(${pc(255,255,255)},.9)` }), f.x, f.y); ctx.globalAlpha = 1; }   // silhouette électrisée
       for (let b = 0; b < 5; b++) {   // éclairs qui parcourent le corps
         const L = [], x0 = f.x + (Math.random() - .5) * 40; for (let s2 = 0; s2 <= 6; s2++) L.push([x0 + (Math.random() - .5) * 34, f.y + 2 - s2 * 15]);
-        elecArc(L, 'rgba(160,80,255,.55)', 4); elecArc(L, b % 2 ? 'rgba(255,120,235,.95)' : 'rgba(230,200,255,.95)', 1.3);
+        elecArc(L, `rgba(${pc(160,80,255)},.55)`, 4); elecArc(L, b % 2 ? `rgba(${pc(255,120,235)},.95)` : `rgba(${pc(230,200,255)},.95)`, 1.3);
       }
       for (let b = 0; b < 3; b++) {   // arcs qui jaillissent vers l'extérieur
         const a0 = Math.random() * 6.28, L = [[f.x, cy]]; for (let s2 = 1; s2 <= 4; s2++) L.push([f.x + Math.cos(a0) * s2 * 15 + (Math.random() - .5) * 10, cy + Math.sin(a0) * s2 * 15 + (Math.random() - .5) * 10]);
-        elecArc(L, 'rgba(255,170,250,.8)', 1);
+        elecArc(L, `rgba(${pc(255,170,250)},.8)`, 1);
       }
-      g = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, 44); g.addColorStop(0, `rgba(220,120,255,${.45 * k})`); g.addColorStop(1, 'rgba(120,0,200,0)');   // flaque de lumière au sol
+      g = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, 44); g.addColorStop(0, `rgba(${pc(220,120,255)},${.45 * k})`); g.addColorStop(1, `rgba(${pc(120,0,200)},0)`);   // flaque de lumière au sol
       ctx.fillStyle = g; ctx.save(); ctx.translate(f.x, f.y); ctx.scale(1, .22); ctx.fillRect(-46, -46, 92, 92); ctx.restore();
-      for (let b = 0; b < 4; b++) { ctx.fillStyle = Math.random() < .5 ? '#ffd0ff' : '#c890ff'; ctx.fillRect(Math.round(f.x + (Math.random() - .5) * 60), Math.round(f.y - Math.random() * 100), 2, 2); }
+      for (let b = 0; b < 4; b++) { ctx.fillStyle = Math.random() < .5 ? (f.paraBlue ? '#d0f4ff' : '#ffd0ff') : (f.paraBlue ? '#90d8ff' : '#c890ff'); ctx.fillRect(Math.round(f.x + (Math.random() - .5) * 60), Math.round(f.y - Math.random() * 100), 2, 2); }
       ctx.restore();
     }
   }
@@ -4572,8 +4584,10 @@ function drawGrogFx() {   // ondes électriques bleues de Grog
     ctx.restore();
   }
 }
-function drawDiveTrail() {
-  for (const f of G.f) {   // traînée néon du coup de pied plongeant
+function drawDiveTrail() {   // coup de pied plongeant de Vesper : électricité chaotique tout autour d'elle (remplace l'ancien trait néon)
+  for (const f of G.f) if (f.state === 'dive' && f.t >= 3) { glowAt(f.x, f.y - 40, 46, 'rgba(58,200,255,.9)', .35); zapChaos(f.x, f.y + 4, 26, 88, 8); }
+  if (G.frame >= 0) return;
+  for (const f of G.f) {
     if (f.state !== 'dive' || !f.trail || f.trail.length < 2) continue;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const T = f.trail.slice(-9);   // traînée électrique zigzag (même style que les éclairs de Grog)
@@ -4585,10 +4599,25 @@ function drawDiveTrail() {
   }
 }
 function drawVesperFx() {
-  for (const q of G.holos || []) {   // double holographique translucide
-    ctx.save(); ctx.globalAlpha = .45 + .15 * Math.sin(G.frame * .9); ctx.globalCompositeOperation = 'lighter';
-    drawFighter({ def: q.owner.def, id: 9, dir: q.dir, state: 'fpunch', t: 8, flash: 0, x: q.x, y: q.y, vx: 0, air: false }, q.x, q.y);
+  for (const f of G.f) if (f.state === 'vcharge') {   // énergie bleue qui se charge dans ses mains
+    const k = Math.min(1, f.chargeT / 60), hx = f.x + f.dir * 18, hy = f.y - 56;
+    glowAt(hx, hy, 10 + 20 * k, 'rgba(58,200,255,.95)', .35 + .45 * k);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (let i = 0; i < 2 + Math.round(4 * k); i++) { let px = hx, py = hy, a = Math.random() * 6.28; const L = [[px, py]]; for (let j = 0; j < 3; j++) { a += (Math.random() - .5) * 1.4; px += Math.cos(a) * (4 + 6 * k); py += Math.sin(a) * (4 + 6 * k); L.push([px, py]); } elecArc(L, 'rgba(47,160,255,.9)', 2); elecArc(L, '#e0f8ff', .8); }
     ctx.restore();
+  }
+  for (const q of G.holos || []) {   // double holographique translucide (3e clone / clone chargé : bleu électrique avec échos)
+    const fig = x => ({ def: q.owner.def, id: 9, dir: q.dir, state: 'fpunch', t: 8, flash: 0, x, y: q.y, vx: 0, air: false });
+    if (q.blue) {
+      (q.trail || []).forEach((tx, i) => { if (i === 0) return; ctx.save(); ctx.globalAlpha = .4 * (1 - i / 6); ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(tx), { tint: 'rgba(40,140,255,.9)' }), tx, q.y); ctx.restore(); });   // échos bleus
+      ctx.save(); ctx.globalAlpha = .8; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(70,190,255,.9)' }), q.x, q.y); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(200,245,255,1)' }), q.x, q.y); ctx.restore();
+      glowAt(q.x, q.y - 50, q.big ? 50 : 38, 'rgba(58,200,255,.9)', .45);
+      zapChaos(q.x, q.y, 18, 90, q.big ? 6 : 4);
+    } else {
+      ctx.save(); ctx.globalAlpha = .45 + .15 * Math.sin(G.frame * .9); ctx.globalCompositeOperation = 'lighter';
+      drawFighter(fig(q.x), q.x, q.y);
+      ctx.restore();
+    }
     for (let i = 0; i < 4; i++) R(q.x - q.dir * (8 + i * 7), q.y - 70 + ((G.frame * 3 + i * 17) % 60), 5, 1, '#3af0ff');
   }
   for (const m of G.mines || []) {   // mine magnétique : petit disque avec lumière clignotante
@@ -5012,7 +5041,7 @@ const st_ = n => f => f.state === n;
 const TUT_SP = {
   hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
   axel: [['A', 'GROUND FIREBALL', f => f.state === 'axgp' && f.fired], ['HOLD A', 'MAX GROUND FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
-  vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  vesper: [['A', 'HOLO FLASH', st_('holo')], ['HOLD A 1 SEC, RELEASE', 'VOLT CLONE', f => f.state === 'holo' && G.holos.some(q => q.owner === f && q.big)], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   nyx: [['A', 'MAGMA FLASK', st_('flask')], ['HOLD A, RELEASE', 'VOLT SERPENT', st_('nyxsnake')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
