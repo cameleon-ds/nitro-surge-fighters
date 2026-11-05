@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v281';
+const VERSION = 'v282';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5140,7 +5140,7 @@ const isStandalone = () => !!(navigator.standalone || matchMedia('(display-mode:
 const installAvail = () => !G.installed && !isStandalone();
 const INSTALL_LBL = () => isTouch ? 'ADD TO HOME SCREEN' : 'INSTALL ON DESKTOP';
 function doInstall(gesture) {
-  if (!installEvt && IPHONE && gesture && navigator.share) {   // iPhone : ouvre le menu de partage du navigateur (« Sur l'écran d'accueil »)
+  if (false && !installEvt && IPHONE && gesture && navigator.share) {   // désactivé : ce menu de partage n'a pas « Sur l'écran d'accueil »   // iPhone : ouvre le menu de partage du navigateur (« Sur l'écran d'accueil »)
     navigator.share({ title: 'Nitro Surge Fighters', url: location.origin + location.pathname }).catch(e => { if (!(e && e.name === 'AbortError')) { G.instHelp = true; G.instOpen = G.frame; } });
     return;
   }
@@ -5167,8 +5167,10 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
   panel(36, 144, INSTALL_LBL(), true, PW);
   const x0 = CX - PW / 2 + 22;
   if (IOS) {
-    text('1. TAP THE SHARE BUTTON', x0, 74, 8, WH, 'left'); drawShareIcon(CX + PW / 2 - 30, 77, WH);
-    text('2. ADD TO HOME SCREEN', x0, 98, 8, WH, 'left'); drawDlIcon(CX + PW / 2 - 30, 101, WH);
+    text('1. TAP THE SHARE BUTTON', x0, 68, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 71; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ix - 2, iy - 2.5); ctx.lineTo(ix - 4.5, iy - 2.5); ctx.lineTo(ix - 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy + 6.5); ctx.lineTo(ix + 4.5, iy - 2.5); ctx.lineTo(ix + 2, iy - 2.5); ctx.moveTo(ix, iy + 3); ctx.lineTo(ix, iy - 7); ctx.moveTo(ix - 2.5, iy - 4.5); ctx.lineTo(ix, iy - 7); ctx.lineTo(ix + 2.5, iy - 4.5); ctx.stroke(); ctx.restore(); }   // icône de partage (calque pixel)
+    text('   OF THE BROWSER TOOLBAR', x0, 80, 8, DIM, 'left');
+    text('2. ADD TO HOME SCREEN', x0, 96, 8, WH, 'left'); { const ix = CX + PW / 2 - 30, iy = 99; ctx.save(); ctx.strokeStyle = WH; ctx.lineWidth = 1; ctx.strokeRect(ix - 4.5, iy - 4.5, 9, 9); ctx.beginPath(); ctx.moveTo(ix, iy - 2.5); ctx.lineTo(ix, iy + 2.5); ctx.moveTo(ix - 2.5, iy); ctx.lineTo(ix + 2.5, iy); ctx.stroke(); ctx.restore(); }   // icône « + » de l'écran d'accueil
+    text('   (SCROLL DOWN THE MENU)', x0, 108, 8, DIM, 'left');
     text('THEN OPEN THE GAME FROM', CX, 126, 8, DIM, 'center'); text('ITS ICON: FULL SCREEN', CX, 138, 8, DIM, 'center');
   } else if (ANDROID || isTouch) {
     text('1. OPEN THE BROWSER MENU', x0, 74, 8, WH, 'left');
