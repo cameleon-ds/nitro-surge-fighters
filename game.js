@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v320';
+const VERSION = 'v321';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -848,7 +848,7 @@ function drawFighter(f, x = f.x, y = f.y) {
   const sh = add(n, [ux, uy], 1);
   // épaules écartées : avant (côté adversaire) et arrière (côté caméra)
   // marche : les épaules suivent les bras (l'épaule du bras qui avance avance aussi), le buste pivote
-  const walking = (f.state === 'walk' || (f.state === 'hatcharge' && Math.abs(f.vx) > .1)) && !d.float;   // Vane glisse sans marcher
+  const walking = f.state === 'walk' && !d.float;   // Vane glisse sans marcher
   const rs = walking ? -Math.sin(f.walkPh || 0) : 0, RK = 2.6;
   const sdA = add(sh, fwd, (d.bulk ? 7 : 3.5) + RK * rs), sdB = add(sh, fwd, (d.bulk ? -9 : -4.5) - RK * rs);   // colosse : épaules très larges
   if (walking) {
@@ -1534,6 +1534,8 @@ for (let i = 0; i < WALK_N; i++) {
   };
   const A1 = arm(ph + Math.PI, 2.5), A2 = arm(ph, -1.5);     // bras opposé à la jambe du même côté
   POSES['wk' + i] = [4, -57 + bob, 2, -49 + bob, .5, hipY, ...A1, ...A2, ...L1, ...L2].map(v => Math.round(v * 2) / 2);
+  const hc = POSES.hatc, dy = bob - 2;   // Zephyr qui marche en tenant son chapeau (charge)
+  POSES['wkh' + i] = [4, -57 + bob, 2, -49 + bob, .5, hipY, hc[6], hc[7] + dy, hc[8], hc[9] + dy, hc[10], hc[11] + dy, hc[12], hc[13] + dy, ...L1, ...L2].map(v => Math.round(v * 2) / 2);
 }
 
 // Touches du clavier (personnalisables dans OPTIONS > KEYBOARD) et boutons de manette (OPTIONS > GAMEPAD)
@@ -2170,7 +2172,7 @@ function poseOf(f) {
     case 'plunge': return 'sho0';
     case 'hatcharge': if (Math.abs(f.vx) > .1) {   // charge du chapeau en se déplaçant : animation de marche normale
         const step = WALK_A * 4 * K * UP / WALK_N, i = Math.floor(f.t * Math.abs(f.vx) / step) % WALK_N, wi = f.vx * f.dir < 0 ? (WALK_N - i) % WALK_N : i;
-        f.walkPh = wi / WALK_N * Math.PI * 2; return 'wk' + wi;
+        return 'wkh' + wi;   // jambes qui marchent, main toujours sur le chapeau
       } return 'hatc';
     case 'hatcatch': return 'hatc';
     case 'hatthrow': return f.t < 4 ? 'hatc' : 'punch1';
@@ -2375,6 +2377,7 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t > 90) { f.chg = null; setState(f, 'idle'); }
 }
 const HAT_HIT = { dmg: 9, stun: 22, bstun: 12, push: 2, chip: 1, sfx: 'hit' };
+const HATJUMP_HIT = { dmg: 10, knock: true, stun: 20, bstun: 12, push: 3, chip: 1, sfx: 'heavy' };
 function hatReady(f) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = f.x + f.dir * 4; G.boltY = f.y - 82; vaneChargeStop(f); sfx('counter'); }
 function throwHat(f, o) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 11, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); sfx('whoosh'); G.flashT = Math.max(G.flashT, 6); G.shake = Math.max(G.shake, 4); }
 const ZFLOOR_HIT = { dmg: 7, stun: 40, bstun: 12, push: 1, chip: 0, sfx: 'heavy', unblock: true };
@@ -2495,7 +2498,7 @@ function drawHats() {
   }
   for (const f of G.f) {
     if (f.def.kit !== 'zephyr') continue;
-    if (f.hatHold) {   // énergie qui va et vient sur le contour du chapeau
+    if (f.hatHold && !(f.state === 'jump' && f.chargeT >= 60)) {   // énergie qui va et vient sur le contour du chapeau
       const k = Math.min(1, (f.chargeT || 0) / 60), hx = f.x + f.dir * 4, hy = f.y - 82, pul = .5 + .5 * Math.sin(G.frame * .5);
       const gr = 1 + 1.6 * k;   // le cercle électrique grossit pendant la charge
       glowAt(hx, hy, (18 + 10 * k) * gr, 'rgba(120,220,255,.9)', .25 + .45 * k);
@@ -2503,7 +2506,7 @@ function drawHats() {
       ctx.beginPath(); ctx.ellipse(hx, hy, (18 + 3 * pul) * gr, (6 + 1.5 * pul) * gr, 0, 0, 6.29); ctx.stroke(); ctx.restore();
       zapAround(hx, hy, 20 * gr, 8 * gr, 2 + Math.round(5 * k), .5 + .5 * k);
     }
-    if (['hover', 'tornado', 'plunge', 'zdash'].includes(f.state)) {   // tout le corps en glow bleu + petits éclairs collés au corps
+    if (['hover', 'tornado', 'plunge', 'zdash'].includes(f.state) || (f.state === 'jump' && f.hatHold && f.chargeT >= 60)) {   // tout le corps en glow bleu + petits éclairs collés au corps
       const zd = f.state === 'zdash', cyb = zd ? f.y - 34 : f.y - 42;
       glowAt(f.x, cyb, zd ? 52 : 44, 'rgba(90,200,255,.9)', .45);
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .32 + .15 * Math.random(); drawFighter(Object.assign({}, f, { flash: 0, tint: 'rgba(110,210,255,1)' }), f.x, f.y); ctx.restore();
@@ -2782,6 +2785,9 @@ function updFighter(f, o) {
     case 'jump':
       if (f.hatHold) {   // saut pendant la charge du chapeau : A lâché en l'air = lancer en l'air
         f.chargeT = (f.chargeT || 0) + 1; if (f.chargeT === 60) hatReady(f);
+        if (f.chargeT >= 60 && o && !o.ko && hurtbox(o) && overlap([f.x - 20, f.y - 80, f.x + 20, f.y], hurtbox(o))) {   // roulade électrique qui touche l'adversaire : coup, la charge s'arrête (chapeau gardé)
+          applyHit(f, o, HATJUMP_HIT, (f.x + o.x) / 2, f.y - 50, f.x, true); f.hatHold = false; f.airAtk = true; vaneChargeStop(f); addSpark((f.x + o.x) / 2, f.y - 50, 'parry'); break;
+        }
         if (!h.s) { f.hatHold = false; f.airAtk = true; vaneChargeStop(f); if (f.chargeT >= 60) throwHat(f, o); }
         break;
       }
@@ -2932,8 +2938,9 @@ function updFighter(f, o) {
       if (f.chargeT === 8) vaneChargeStart(f);
       if (f.chargeT === 60) hatReady(f);   // 1 s : écran foncé + éclat sur le chapeau (comme Hiro)
       if (!h.s) { vaneChargeStop(f); f.hatHold = false; if (f.chargeT >= 60) setState(f, 'hatthrow'); else { setState(f, 'gust'); f.t = 6; } break; }   // A lâché : lance le chapeau (ou lame d'air si trop tôt)
-      if (live && h.u) { setState(f, 'jump'); f.hatHold = true; f.vy = -7.4; f.air = true; f.airAtk = false; f.roll = 0; f.vx = (fwd ? 1.8 : back ? -1.8 : 0) * f.dir; sfx('jump'); break; }
-      f.vx = fwd ? 1.1 * f.dir : back ? -.85 * f.dir : 0;
+      if (live && h.u) { const full = f.chargeT >= 60; setState(f, 'jump'); f.hatHold = true; f.vy = -7.4; f.air = true; f.airAtk = false; f.roll = full ? (back ? -1 : 1) : 0; f.rollT = 30; f.vx = (fwd ? 2.2 : back ? -2.2 : 0) * f.dir; sfx('jump'); if (full) sfx('parry'); break; }   // chargé à fond : saut en roulade électrique
+      const full = f.chargeT >= 60, sp = f.def.speed || 1;   // chargé à fond : marche à vitesse normale
+      f.vx = fwd ? (full ? 1.9 * sp : 1.1) * f.dir : back ? (full ? -1.45 * sp : -.85) * f.dir : 0;
       break;
     }
     case 'hatthrow':
