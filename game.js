@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v330';
+const VERSION = 'v331';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -666,6 +666,7 @@ const POSES = {
   rampart: [0,-53, -1,-45, -2,-27, 11,-41, 7,-57, 10,-39, 13,-56, 8,-14, 12,0, -8,-13, -14,0],     // bras croisés devant
   rburst:  [4,-55, 2,-47, -1,-29, 15,-47, 24,-55, -6,-44, -13,-52, 9,-15, 13,0, -9,-14, -14,0],    // bras écartés
   crush0:  [2,-58, 1,-50, 0,-32, 6,-63, 9,-76, 1,-61, 4,-74, 8,-26, 6,-12, -3,-16, -6,-2],      // envol, bras au-dessus de la tête
+  vgrab:   [1,-58, 0,-49, 0,-31, 10,-50, 21,-53, -6,-40, -10,-34, 2,-15, 2,0, 0,-15, -1,0],   // clone de Vane : debout comme au repos, bras tendu sur le cou de l'adversaire
   vidle:   [1,-57, 0,-49, 0,-31, -4,-40, -8,-34, -6,-40, -10,-34, 2,-15, 2,0, 0,-15, -1,0],   // Vane : pieds joints, mains dans le dos
   tatsu:   [1,-58, 0,-50, 0,-34, -7,-46, -13,-44, 6,-46, 12,-44, 14,-36, 30,-37, 3,-24, -3,-17],
   parry:   [2,-55, 0,-47, -1,-29, 10,-44, 16,-53, 8,-42, 15,-47, 8,-15, 12,0, -9,-14, -13,0],
@@ -2119,6 +2120,7 @@ function poseOf(f) {
     case 'vsuper': case 'vxcharge': return 'special0';
     case 'vsrel': return f.t < 10 ? 'special1' : 'vidle';
     case 'vgrabC': return 'punch1';
+    case 'vgrabH': return 'vgrab';
     case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : f.t < 63 ? 'gpI' + (f.t - 59) : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
     case 'nyxglide': return 'jump';
     case 'kbarrage': return f.t >= 30 ? 'punch0' : (f.t % 6) < 3 ? 'punch1' : 'fpunch1';
@@ -2584,7 +2586,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
       continue;
     }
     q.gt++; q.lift = Math.min(70, q.lift + .85);   // monte lentement avec l'adversaire
-    o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = Math.max(o.paraT || 0, 4);
+    o.vx = 0; o.air = false; o.state = 'hit'; o.stun = 30; o.y = GROUND - q.lift; o.paraT = 0;
     q.x = o.x - q.dir * 30; q.y = GROUND - q.lift;
     if (q.gt % 10 === 0) sfx('parry');
     if (q.gt >= 84) {   // explosion mauve et noire, l'adversaire retombe
@@ -2601,7 +2603,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
 function drawVClones() {
   for (const f of G.f) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / 60); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
   for (const q of G.vclones || []) {
-    const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
+    const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: q.ph === 'grab' ? 'vgrabH' : 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
     q.trail.forEach(([tx, ty, ox, oy], i) => {   // échos mauves (clone et adversaire qui monte)
       if (i === 0 || i % 2) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .22 * (1 - i / 7);
       drawFighter(Object.assign(fig(tx, ty), { tint: 'rgba(170,60,255,.9)' }), tx, ty);
@@ -2615,7 +2617,7 @@ function drawVClones() {
       ctx.save(); ctx.globalAlpha = .18; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(gx, gy), { tint: 'rgba(255,60,210,1)' }), gx, gy); ctx.restore();
     }
     glowAt(q.x, q.y - 50, 40, 'rgba(170,60,255,.9)', .28);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore();
+    if (q.ph !== 'grab') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore(); }
   }
   for (const b of G.vblasts || []) {   // explosion mauve et noire
     const k = b.t / 36, R0 = 16 + b.t * 5, a = 1 - k;
