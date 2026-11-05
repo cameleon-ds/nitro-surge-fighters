@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v296';
+const VERSION = 'v297';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4906,16 +4906,17 @@ const KIT_PAGE = { vesper: 'VESPER SPECIALS', vane: 'LORD VANE SPECIALS', kael: 
 const mlTwo = () => G.paused && G.f && G.f[1] && !G.f[1].cpu;   // deux joueurs humains : choix PLAYER 1 / PLAYER 2
 // lignes affichées : la colonne des commandes (bleu) et celle des descriptions (blanc) passent sur 2 lignes si besoin, alignées à gauche
 let MD_KEY = null, MD = [];
+const MV_COL = () => isTouch && !padOn() ? 144 : 112;   // colonne des descriptions (mobile : plus large pour « STICK LEFT (BACK) »)
 function moveDisp() {
-  const rows = moveRows(), x0 = Math.max(16, CX - 168), vc = Math.max(10, Math.floor((W - 14 - (x0 + 112)) / 8));
+  const rows = moveRows(), x0 = Math.max(16, CX - 168), vc = Math.max(10, Math.floor((W - 14 - (x0 + MV_COL())) / 8));
   const lab = k => (isTouch && !padOn() ? k : k.replace('STICK ', '')).replace(/\b([YBAX])\b/g, (m0, b) => btnLabel(b));
-  const key = MR_KEY + '|' + vc + '|' + lab('Y B A X STICK');
+  const key = MR_KEY + '|' + vc + '|' + MV_COL() + '|' + lab('Y B A X STICK');
   if (key === MD_KEY) return MD;
   MD_KEY = key; MD = [];
   const wrap = (t, n) => { if (!t) return ['']; const out = []; let cur = ''; for (const w of t.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } out.push(cur); return out; };
   for (const [k, v] of rows) {
     if (k === '#' || (!k && !v)) { MD.push([k, v]); continue; }
-    const kl = wrap(k ? lab(k) : '', 13), vl = wrap(v, vc), n = Math.max(kl.length, vl.length);
+    const kl = wrap(k ? lab(k) : '', MV_COL() / 8 - 1), vl = wrap(v, vc), n = Math.max(kl.length, vl.length);
     for (let i = 0; i < n; i++) MD.push([kl[i] || '', vl[i] || '', true]);
   }
   return MD;
@@ -5941,8 +5942,9 @@ function drawRoundPerfect() {   // « PERFECT » qui apparaît en dézoom quand 
 // ---------- Liste des coups (3 pages) ----------
 const MOVES = [
   { title: 'BASICS', lines: [
-    ['Y', 'PUNCH'], ['B', 'KICK'], ['STICK UP', 'JUMP (FWD/BACK = ROLL)'], ['STICK DOWN', 'CROUCH'],
-    ['BACK', 'BLOCK  -  DOWN+BACK: LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
+    ['STICK UP', 'JUMP (FWD/BACK = ROLL)'], ['STICK DOWN', 'CROUCH'], ['STICK LEFT (BACK)', 'MOVE BACK / BLOCK'], ['STICK RIGHT (FWD)', 'MOVE FORWARD'],   // d'abord les directions
+    ['Y', 'PUNCH'], ['B', 'KICK'], ['X', 'COUNTER'], ['A', 'SPECIAL'],   // puis les 4 boutons
+    ['DOWN + BACK', 'LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
     ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: REFLECTS SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
     ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.2S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['A', 'AXEL: GROUND PUNCH, BOUNCING FIREBALL'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
@@ -5985,7 +5987,7 @@ function drawMoves() {
     ctx.globalAlpha = fa;
     if (k === '#') { R(x0, y + 10, 2 * CX - 2 * x0, 1, '#5a3a2a'); text(v, CX, y, 8, '#ffd23a', 'center'); return; }
     if (k) text(k, x0, y, 8, '#7af0ff', 'left');   // colonne des commandes (touches du clavier / boutons de la manette)
-    if (v) text(v, x0 + 112, y, 8, '#ffffff', 'left');   // colonne des descriptions
+    if (v) text(v, x0 + MV_COL(), y, 8, '#ffffff', 'left');   // colonne des descriptions
   });
   ctx.globalAlpha = 1; ctx.restore();
   // ascenseur
