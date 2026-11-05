@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v324';
+const VERSION = 'v325';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -836,6 +836,7 @@ function drawFighter(f, x = f.x, y = f.y) {
   const lift = footBefore - Math.max(Q[17], Q[21]);
   for (let i = 1; i < Q.length; i += 2) Q[i] += lift;
   if (d.size) for (let i = 0; i < Q.length; i++) Q[i] *= d.size;   // colosse : plus grand
+  if (d.kit === 'grog' && f.state === 'idle') { const up = poseOf(f) === 'idle1'; Q[1] += up ? 1.4 : 0; Q[0] += up ? .6 : 0; }   // Grog : la tête bouge aussi légèrement pendant la respiration
   if (d.upper) for (const i of [0, 1, 3, 4, 5, 6]) { Q[i * 2] = Q[4] + (Q[i * 2] - Q[4]) * d.upper; Q[i * 2 + 1] = Q[5] + (Q[i * 2 + 1] - Q[5]) * d.upper; }   // buste plus imposant
   const pt = i => [OX + dir * Q[i * 2] * K, OY + Q[i * 2 + 1] * K];
   let [h, n, p, fe, fh, be, bh, fk, ff, bk, bf] = [0,1,2,3,4,5,6,7,8,9,10].map(pt);
@@ -2351,6 +2352,10 @@ function updRush(f, o) {
     if (last) {
       setState(o, 'fall'); o.air = true; o.vy = -6; o.vx = f.dir * 3.2; o.stun = 0;
       const surge = f.surgeT > 0;
+      if (surge && f.def.kit === 'grog') {   // Grog : le dernier coup du Surge est l'explosion de son dôme géant
+        G.waves.push({ owner: f, x: f.x, dir: f.dir, t: 0, life: 30, small: true, ring: true, dome: true, done: true, big: true });
+        o.vy = -7.5; o.vx = f.dir * 5; f.rampT = 0; sfx('parry'); sfx('fb');
+      }
       G.darkT = 50; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 14; G.shake = 9;
       G.bigPop = { txt: surge ? 'NITRO SURGE COMBO!' : 'NITRO COMBO!', col: surge ? '#d070ff' : '#5aff8a', t: 0 };
       addScore(f, surge ? SCORE_PTS.surge : SCORE_PTS.nitro);
