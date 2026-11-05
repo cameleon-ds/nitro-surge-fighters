@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v305';
+const VERSION = 'v306';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -825,6 +825,10 @@ function drawFighter(f, x = f.x, y = f.y) {
   sx.clearRect(0, 0, SPR.width, SPR.height);
   // Jambes plus courtes que le haut du corps (proportions trapues)
   const Q = P.slice(), LF = .82, px0 = Q[4], py0 = Q[5];
+  if (G.clash && G.clash.f && G.clash.f.includes(f.real || f)) {   // bras de fer : les bras tremblent vite, de plus en plus fort
+    const C = G.clash, ten = Math.min(1, Math.max(C.g[0], C.g[1]) / 100), amp = 1 + 2.5 * ten, ph = (f.clashPh != null ? f.clashPh : G.frame) * 1.7 + (f.id || 0) * 1.3, a = Math.sin(ph) * amp;
+    Q[7] += a * .5; Q[9] += a; Q[11] -= a * .5; Q[13] -= a; Q[6] += a * .3; Q[8] += a * .5;
+  }
   if (['idle', 'parry', 'stunned', 'win'].includes(f.state)) { Q[18] += 4; Q[19] += 1; Q[14] += 4; Q[15] += 1; }   // jambes avant et arrière légèrement pliées vers l'avant
   const footBefore = Math.max(Q[17], Q[21]);
   for (const i of [7, 8, 9, 10]) { Q[i * 2] = px0 + (Q[i * 2] - px0) * LF; Q[i * 2 + 1] = py0 + (Q[i * 2 + 1] - py0) * LF; }
@@ -2256,7 +2260,7 @@ function powerUp(f, o, surge) {   // activation : pose de puissance, écran noir
   f.rotAng = null; f.slowT = 0; if (!f.air) { setState(f, 'nitroUp'); f.vx = 0; }
   f.invuln = Math.max(f.invuln || 0, 40); f.powF = G.frame; f.powSurge = !!surge;
   G.freeze = Math.max(G.freeze || 0, 38); G.darkT = Math.max(G.darkT, 56); G.flashT = 12; G.boltX = f.x; G.boltY = f.y - 54; G.shake = Math.max(G.shake, 5);
-  addPopup(f.x, f.y - 118, surge ? 'SURGE!' : 'NITRO!', surge ? '#d070ff' : '#5aff8a');
+  G.powerMsg = { txt: surge ? 'SURGE' : 'NITRO', name: f.def.name, col: surge ? '#d070ff' : '#5aff8a', t: 0 };   // grand texte au centre en dézoom, nom du combattant dessous
   sfx('counter'); sfx('fb'); if (AC) playSample('fight', 1.25, VOX, true);
 }
 function nitroInput(f, o) {   // X X Y : Nitro ; X X A pendant le Nitro : Surge
@@ -2277,7 +2281,7 @@ function nitroGain(att, def, dmg) {   // les jauges se remplissent avec les dég
 // NITRO COMBO : 10 coups très rapides (visage, ventre, pied au visage, tibia), le dernier fait tomber
 const RUSH_POSE = ['punch1', 'fpunch1', 'kick1', 'ckick'], RUSH_Y = [-74, -50, -76, -14];
 const RUSH_N = 8;
-function comboHit(att) { att.cmbN = G.frame - (att.cmbLast || -999) < 90 ? (att.cmbN || 1) + 1 : 1; att.cmbLast = G.frame; }
+function comboHit(att) { att.cmbN = G.frame - (att.cmbLast || -999) < 90 ? (att.cmbN || 1) + 1 : 1; att.cmbLast = G.frame; feedCombo(att); }
 function updRush(f, o) {
   f.vx = 0; f.invuln = 6; face(f, o);
   if (f.rushN < RUSH_N) { o.x = f.x + f.dir * 34; o.vx = 0; if (o.state !== 'fall') { o.state = 'hit'; o.stun = 40; } o.air = false; o.y = GROUND; }
@@ -3522,8 +3526,8 @@ function updVesper() {
   }
 }
 /* ---------- Grog : ondes de choc au sol ---------- */
-const QUAKE_HIT = { dmg: 9, knock: true, stun: 20, bstun: 14, push: 3, chip: 0, sfx: 'heavy', unblock: true };
-const CRUSH_SHOCK = { dmg: 7, knock: true, stun: 20, bstun: 14, push: 4, chip: 0, sfx: 'heavy', unblock: true };
+const QUAKE_HIT = { dmg: 9, knock: true, stun: 20, bstun: 14, push: 3, chip: 0, sfx: 'heavy', low: true };   // onde de Grog : garde basse (bas + arrière)
+const CRUSH_SHOCK = { dmg: 7, knock: true, stun: 20, bstun: 14, push: 4, chip: 0, sfx: 'heavy', low: true };
 const RAMPART_HIT = { dmg: 6, knock: true, stun: 20, bstun: 14, push: 6, chip: 0, sfx: 'heavy', unblock: true };
 /* ---------- Lord Vane : lévitation, sphères du vide, ombres ---------- */
 function floatOff(f) {   // Vane flotte à ~20 cm du sol quand il est debout
@@ -4358,7 +4362,42 @@ function drawVesperFx() {
     }
   }
 }
-function addPopup(x, y, txt, col) { G.popups.push({ x, y, txt, col, t: 0 }); }
+// Textes de combat (COUNTER!, THROW!, COMBO FINISH!...) : même style que le compteur de combo, sur le côté du joueur concerné
+function addPopup(x, y, txt, col) {
+  const a = G.f && G.f[0], b = G.f && G.f[1], side = !a || !b ? 0 : Math.abs(x - a.x) <= Math.abs(x - b.x) ? 0 : 1;
+  feedPush(side, { txt, col });
+}
+function feedPush(side, it) { G.feed = G.feed || [[], []]; it.t = 0; G.feed[side].unshift(it); if (G.feed[side].length > 4) G.feed[side].length = 4; }
+const FEED_LIFE = 90;
+function feedCombo(att) {   // le compteur de combo est une ligne du fil : le chiffre zoome à chaque coup
+  const side = G.f.indexOf(att); if (side < 0 || (att.cmbN || 0) < 2) return;
+  G.feed = G.feed || [[], []];
+  const it = G.feed[side].find(q => q.combo && q.t < FEED_LIFE - 16);
+  if (it) { it.num = att.cmbN; it.pop = G.frame; it.t = Math.min(it.t, 10); }
+  else feedPush(side, { combo: true, num: att.cmbN, pop: G.frame });
+}
+function drawFeed() {
+  if (!G.feed) return;
+  G.feed.forEach((L, side) => {
+    const left = side === 0, x0 = left ? 34 : W - 34, al = left ? 'left' : 'right';
+    let y = 98;
+    L.forEach(it => {
+      const h = it.combo ? 36 : 16; y -= h;
+      it.yy = it.yy == null ? y : it.yy + (y - it.yy) * .3;   // le nouveau texte fait monter les précédents
+      if (!G.paused) it.t++;
+      const a = it.t, k = Math.min(1, a / 8), ek = 1 - Math.pow(1 - k, 3), ex = Math.max(0, (a - (FEED_LIFE - 16)) / 16);
+      const dx = (1 - ek) * 46 * (left ? 1 : -1) - ex * ex * 150 * (left ? 1 : -1);   // entre de droite vers la gauche (P1), sort à gauche
+      ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(ek, 1 - ex)); ctx.translate(Math.round(x0 + dx), Math.round(it.yy));
+      if (it.combo) {
+        const sc = 1 + .7 * Math.max(0, 1 - (G.frame - it.pop) / 6);   // zoom rapide du chiffre
+        ctx.save(); ctx.scale(sc, sc); text(String(it.num), 0, -6 * (sc - 1), 24, '#ffd23a', al, '#3a0a04'); ctx.restore();
+        text('COMBO', 0, 26, 8, '#ffffff', al, '#100418');
+      } else text(it.txt, 0, 2, 8, it.col || '#ffffff', al, '#100418');
+      ctx.restore();
+    });
+    for (let i = L.length - 1; i >= 0; i--) if (L[i].t > FEED_LIFE) L.splice(i, 1);
+  });
+}
 
 const CLASH_HIT = { dmg: 14, knock: true, stun: 24, bstun: 20, push: 5.5, chip: 0, sfx: 'heavy' };
 function startClash(f, o) {
@@ -4426,7 +4465,12 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
     const chip = projectile ? data.chip : (data.knock ? 1 : 0);
     if (chip) { def.hp = Math.max(1, def.hp - dmgK(chip)); def.lagT = 30; }
     G.freeze = 5; addSpark(sx, sy, 'block'); sfx('block');
+    nitroGain(att, def, Math.max(1, (data.dmg || 4) * .3));   // coup bloqué : les jauges montent aussi (moins qu'un coup reçu)
     return;
+  }
+  if (!projectile && att.state === 'ckick' && !G.ghostHit) {   // coups de pied bas enchaînés : le 4e qui touche fait tomber
+    att.ckN = G.frame - (att.ckT || -999) < 60 ? (att.ckN || 0) + 1 : 1; att.ckT = G.frame;
+    if (att.ckN >= 4) { att.ckN = 0; data = Object.assign({}, data, { knock: true }); }
   }
   // enchaînements : on mémorise la suite des coups qui touchent pendant que l'adversaire est sonné
   let finisher = false;
@@ -4675,7 +4719,7 @@ function startRound() {
   });
   G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
   G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
-  G.fbs = []; G.sparks = []; G.popups = []; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
+  G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
 }
 
@@ -5553,6 +5597,7 @@ function stepFight() {
       G.scene = 'timeup'; G.t = 0;
     }
   } else if (G.scene === 'score') {
+    if (G.t - SC_IN < SC_RUN && G.t > 6 && (BTNS.some(b => edge(pctl, b) || edge(p2ctl, b)) || edge(pctl, 'start') || tap)) G.t = SC_IN + SC_RUN;   // une touche : calcul terminé tout de suite (avec le son de fin)
     const S = G.score, T = G.t - SC_IN;
     if (T >= 0 && T < SC_RUN && T % 4 === 0) sfx('tally');   // décompte : petit son rapide
     if (T === SC_RUN) sfx('select');                        // fin du calcul : trois notes
@@ -5694,11 +5739,7 @@ function drawHUD() {
   text(b.def.name, W - bx, 30, 8, '#ffffff', 'right');
   if (a.cpu === false) text('1P', 6, 35, 8, '#5ac8ff', 'left');
   text(b.cpu ? 'CPU' : '2P', W - 6, 35, 8, '#ff7a6a', 'right');
-  for (const [f, L] of [[a, true], [b, false]]) if ((f.cmbN || 0) >= 2 && G.frame - (f.cmbLast || -999) < 80) {   // compteur de combo : chiffre en grand, COMBO en petit
-    const x = L ? 34 : W - 34, k = Math.min(1, (G.frame - f.cmbLast) / 4), sc = 1.4 - .4 * k;
-    ctx.save(); ctx.translate(x, 62); ctx.scale(sc, sc); text(String(f.cmbN), 0, 0, 24, '#ffd23a', L ? 'left' : 'right', '#3a0a04'); ctx.restore();
-    text('COMBO', x, 62 + 26, 8, '#ffffff', L ? 'left' : 'right');
-  }
+  drawFeed();   // compteur de combo + textes de combat animés
   for (let i = 0; i < a.wins; i++) drawMedal(bx + 18 + i * 12, 45);
   for (let i = 0; i < b.wins; i++) drawMedal(W - bx - 26 - i * 12, 45);
 }
@@ -5867,6 +5908,10 @@ function drawFight() {
     }
     const fl = floatOff(f);
     if (f.fadeK > 0) { ctx.save(); ctx.globalAlpha = Math.max(0, 1 - f.fadeK); }
+    if (G.clash && G.clash.f.includes(f)) {   // bras de fer : échos des bras qui tremblent, plus visibles quand la tension monte
+      const ten = Math.min(1, Math.max(G.clash.g[0], G.clash.g[1]) / 100);
+      [[3, .16 + .2 * ten], [6, .1 + .14 * ten]].forEach(([dt, al]) => { ctx.save(); ctx.globalAlpha = al; drawFighter(Object.assign({}, f, { real: f, clashPh: G.frame - dt, ghostDraw: true, flash: 0, tint: 'rgba(255,240,180,.9)' }), f.x, f.y - fl); ctx.restore(); });
+    }
     drawFighter(f, f.dizzy ? f.x + Math.round(Math.sin(G.frame * .15) * 2) : f.x, f.y - fl);
     if (f.fadeK > 0) ctx.restore();
     drawVaneGhost(f);
@@ -5915,7 +5960,6 @@ function drawFight() {
     }
     ctx.restore();
   }
-  G.popups.forEach(pp => { if ((pp.t >> 2) % 4 !== 3 || pp.t < 30) text(pp.txt, pp.x, pp.y - pp.t * .4, 8, pp.col, 'center'); });
   drawGuides();
   ctx.restore();
   if (G.flashT > 9) R(0, 0, W, H, 'rgba(220,245,255,.25)');   // très bref flash d'écran
@@ -5930,12 +5974,19 @@ function drawFight() {
     if (P.t > (P.end || 110)) G.bigPop = null;
     else { ctx.save(); ctx.globalAlpha = Math.min(1, ((P.end || 110) - P.t) / 15); ctx.translate(CX, 70); ctx.scale(sc, sc); ctx.save(); ctx.globalAlpha *= .4; ctx.shadowColor = P.col; ctx.shadowBlur = 3; text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); text(P.txt, 0, -8, 16, (G.frame >> 2) % 2 ? P.col : '#ffffff', 'center', '#100418'); ctx.restore(); }
   }
+  if (G.powerMsg) {   // NITRO / SURGE + nom du combattant
+    const M = G.powerMsg; if (!G.paused) M.t++;
+    if (M.t > 75) G.powerMsg = null;
+    else { const k = Math.min(1, M.t / 10), e = 1 - Math.pow(1 - k, 3), sc = 1 + 2.4 * (1 - e), a = Math.min(1, k * 1.5, (75 - M.t) / 14);
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(CX, 74); ctx.scale(sc, sc); text(M.txt, 0, -12, 24, M.col, 'center', '#100418'); text(M.name, 0, 16, 8, '#ffffff', 'center', '#100418'); ctx.restore(); }
+  }
   drawTut();
   if (G.scene === 'score') drawScore();
 
   if (G.scene === 'intro') {
-    if (G.t < 84) bigMsg('ROUND ' + G.round, 16, '#ffd23a');
-    else bigMsg('FIGHT!', 24, '#ff4a2a');
+    const zm = (s2, size, col, t) => { const k = Math.min(1, t / 10), e = 1 - Math.pow(1 - k, 3), sc = 1 + 2.2 * (1 - e); ctx.save(); ctx.globalAlpha = Math.min(1, k * 1.4); ctx.translate(W / 2, 84 + size / 2); ctx.scale(sc, sc); text(s2, 0, -size / 2, size, col, 'center', '#3a0a04'); ctx.restore(); };   // apparition en dézoom
+    if (G.t < 84) zm('ROUND ' + G.round, 16, '#ffd23a', G.t);
+    else zm('FIGHT!', 24, '#ff4a2a', G.t - 84);
   } else if (G.scene === 'ko') {
     const kt = G.t - (G.koDelay || 0);
     if (kt < 0) {}
@@ -6685,7 +6736,7 @@ let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
 let infightCls = null;
 function loop(now) {
-  { const f = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) && !G.demo && !G.boot; if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
+  { const f = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
   while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }
