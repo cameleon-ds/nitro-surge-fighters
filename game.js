@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v271';
+const VERSION = 'v272';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5179,9 +5179,13 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
   }
   text(isTouch ? 'TAP TO CLOSE' : 'ENTER / ESC: CLOSE', CX, 162, 8, 'rgba(255,255,255,.35)', 'center');
 }
-const bootItems = () => { const o = []; if (fsAvail()) o.push(0); o.push(1); if (installAvail()) o.push(2); return o; };   // FULL SCREEN, START, puis (plus bas) INSTALL
+// écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
+const bootStep = () => fsAvail() ? (G.bootStep || 0) : 1;
+const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else o.push(1); return o; };
+const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
+function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
-function bootOk() { if (G.bcur === 0 && fsAvail()) bootToggleFS(); else if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); } else bootStart(); }
+function bootOk() { if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   if (!G.boot) return;
   G.boot = false; G.t = 0; G.volT = 0;   // puis message « monte le son », puis logo
@@ -5189,13 +5193,12 @@ function bootStart() {
   unlockAudio(); sfx('select');
 }
 function bootToggleFS() { OPT.full = !OPT.full; saveOpt(); sfx('beep'); if (OPT.full) enterFS(); else exitFS(); }
-const bootRowY = i => { const it = bootItems()[i]; return it === 2 ? 140 : 90 + i * 22; };   // INSTALL bien plus bas
+const bootRowY = i => { const it = bootItems()[i]; return it === 2 ? 140 : it === 1 ? 86 : 84; };   // INSTALL bien plus bas
 addEventListener('keydown', e => {
   if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 10 && ['Enter', 'Escape', 'Space', 'Backspace'].includes(e.code)) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); e.preventDefault(); e.stopPropagation(); } return; }
   if (!G.boot || !loadDone()) return;
   const k = e.code;
-  if ((k === 'ArrowLeft' || k === 'ArrowRight') && G.bcur === 0) bootToggleFS();
-  else if (k === 'Enter' || k === 'Space' || k === KEYS.s || k === KEYS.p) { bootOk(); G.bootKey = G.frame; }
+  if (k === 'Enter' || k === KEYS.s) { if (G.bootKey !== G.frame) bootOk(); G.bootKey = G.frame; }
 }, true);
 // Sur mobile, le navigateur n'autorise le plein écran qu'au RELÂCHEMENT du doigt (pointerup / touchend), pas à l'appui
 addEventListener('pointerup', e => {
@@ -5203,8 +5206,14 @@ addEventListener('pointerup', e => {
   if (G.boot && loadDone()) {
     const r = cv.getBoundingClientRect();
     const p = ROT ? { x: (e.clientY - r.top) / r.height * W, y: (r.right - e.clientX) / r.width * H } : { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
-    const items = bootItems(), i = items.findIndex((it, k) => Math.abs(p.y - (bootRowY(k) + 4)) < 11);
-    if (i >= 0 && Math.abs(p.x - CX) < 110) { G.bcur = items[i]; bootOk(); }
+    if (Math.abs(p.x - CX) < 110) {
+      if (bootStep() === 0) {
+        if (Math.abs(p.y - 88) < 10) { G.bcur = 0; bootToggleFS(); }                         // FULL SCREEN : OFF / ON
+        else if (Math.abs(p.y - 106) < 9) { G.bcur = 0; bootOk(); }                           // PRESS A
+        else if (installAvail() && Math.abs(p.y - 144) < 10) { G.bcur = 2; bootOk(); }
+      } else if (Math.abs(p.y - 94) < 14) bootStart();                                         // START
+      else if (Math.abs(p.y - 120) < 8) bootBack();
+    }
     return;
   }
   syncFS();
@@ -5241,7 +5250,7 @@ function step() {
     case 'title': {
       // l'intro (logo Super Rocket Games) ne démarre qu'une fois le message "Rotate your phone" fermé
       if (G.tstate !== 1 && G.t < SPLASH && rotateShown()) { G.t = 0; break; }
-      if (G.tstate !== 1 && G.t < 2 && (G.boot || !loadDone())) { G.t = 0; if (G.boot && loadDone()) { const m = navStep(); if (m) bootMove(m); if ((edge(pctl, 's') || edge(pctl, 'start')) && G.bootKey !== G.frame && G.frame - (G.bootKey || -9) > 2) bootOk(); } break; }   // chargement puis écran de démarrage
+      if (G.tstate !== 1 && G.t < 2 && (G.boot || !loadDone())) { G.t = 0; if (G.boot && loadDone()) { const m = navStep(); if (m) bootMove(m); if (bootStep() === 0 && G.bcur === 0 && (edge(pctl, 'l') || edge(pctl, 'r'))) bootToggleFS(); if ((edge(pctl, 's') || edge(pctl, 'start')) && G.bootKey !== G.frame && G.frame - (G.bootKey || -9) > 2) { G.bootKey = G.frame; bootOk(); } else if (backPress(pctl)) bootBack(); } break; }   // chargement puis écran de démarrage
       if (G.volT != null && G.volT < VOL_N) {   // message « monte le son » avant le logo (passable)
         G.volT++; G.t = 0;
         if (G.volT > 15 && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) G.volT = VOL_N;
@@ -6096,11 +6105,16 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   text('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
   text('POWERED BY SUPER ROCKET GAMES', CX, 186, 8, '#5a5a5a', 'center');
   text('ALL RIGHTS RESERVED 2026', CX, 197, 8, '#4a4a4a', 'center');
-  const lbl = it => it === 0 ? 'FULL SCREEN: ' + (OPT.full ? 'ON' : 'OFF') : it === 2 ? INSTALL_LBL() : 'START';
-  items.forEach((it, i) => {
-    const sel = c === it, y = bootRowY(i);
-    text((sel ? '> ' : '') + lbl(it) + (sel ? ' <' : ''), CX, y, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-  });
+  const [kA, kB] = bootKeys(), blink = (G.frame >> 5) % 2 === 0;
+  if (bootStep() === 0) {
+    const sel = c === 0;
+    text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
+    if (sel && blink) text('PRESS ' + kA, CX, 102, 8, '#ffffff', 'center');
+    if (items.includes(2)) { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 140, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); }
+  } else {
+    text('START', CX, 86, 16, '#ffd23a', 'center');
+    if (blink) text('PRESS ' + kA + ' TO CONFIRM' + (fsAvail() ? ' / ' + kB + ' TO GO BACK' : ''), CX, 116, 8, '#ffffff', 'center');
+  }
 }
 const VOL_N = 130;   // message « monte le son » après START : fondu entrant, pause, fondu sortant
 function drawVolumeMsg() {
@@ -6230,7 +6244,7 @@ function drawTitle() {
 
 // Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
 const SEL_KEYS = ['hiro', 'axel', 'vesper', 'grog', 'zephyr', 'nyx', 'kael', 'vane'];   // indices DEFS
-const SEL_FACE_DIR = [-1, 1, 1, -1, 1, 1, -1, 1];   // sens du regard de chaque image en pied (indices DEFS : Hiro, Axel, Vesper, Grog, Zephyr, Nyx, Kael, Vane)
+const SEL_FACE_DIR = [-1, 1, -1, -1, 1, 1, -1, 1];   // sens du regard de chaque image en pied (indices DEFS : Hiro, Axel, Vesper, Grog, Zephyr, Nyx, Kael, Vane)
 const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=5'); return im; });
 const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=9'); return im; });
 const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
