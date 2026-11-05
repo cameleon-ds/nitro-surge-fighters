@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v306';
+const VERSION = 'v307';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -642,6 +642,7 @@ const POSES = {
   fkick1:  [-10,-52, -9,-44, -3,-30, -2,-42, 2,-48, -14,-40, -10,-46, 5,-15, 8,0, 22,-40, 48,-44],
   gp0:     [2,-47, 0,-40, -2,-23, 8,-49, 16,-58, 6,-34, 10,-38, 10,-12, 14,0, -9,-9, -15,0],      // Axel : à moitié baissé, poing levé (vu de dos 3/4)
   gp1:     [13,-37, 10,-31, 0,-19, 16,-19, 19,-4, 2,-28, -3,-22, 15,-11, 19,0, -8,-6, -16,0],    // Axel : poing frappé au sol devant lui
+  hatc:    [3,-55, 1,-47, -1,-29, 13,-55, 9,-64, 4,-38, 9,-45, 7,-15, 11,0, -8,-14, -12,0],     // Zephyr : main sur le chapeau
   special0:[-1,-52, -2,-44, -2,-26, -7,-34, -11,-30, -9,-35, -13,-31, 10,-13, 15,0, -9,-12, -16,0],
   special1:[6,-50, 4,-42, 1,-25, 15,-40, 26,-40, 13,-38, 24,-37, 11,-13, 18,0, -8,-11, -17,0],
   upper0:  [4,-46, 2,-38, 0,-22, 8,-30, 10,-24, 4,-30, 8,-36, 10,-12, 12,0, -6,-10, -10,0],
@@ -1293,7 +1294,7 @@ function drawFighter(f, x = f.x, y = f.y) {
     sR(tx - dir, ty - 1, 1, 1, WH[1]); sR(tx - dir * 2, ty - 1, 1, 1, WH[1]); sR(tx - dir * 3, ty, 1, 1, WH[1]); sR(tx - dir * 4, ty + 1, 1, 1, WH[0]);   // pointe pliée
     const bx0 = cx - dir; sR(bx0 - 6, by - 3, 13, 2, '#2a1030'); sR(bx0 + dir * 2 - 1, by - 3, 2, 2, '#8a8a96');   // bandeau et boucle
   }
-  if (d.kasa) {   // chapeau de paille conique de samouraï, incliné vers l'avant
+  if (d.kasa && !f.noHat) {   // chapeau de paille conique de samouraï, incliné vers l'avant
     const K2 = ['#3a2a12', '#8a6a30', '#b8944a', '#e4c67e'], cx = hx + (dir > 0 ? 0 : -1), by = hy + 5;   // enfoncé : le bord avant cache les yeux
     const tilt = x => Math.round(dir * (x - cx) * .25);   // l'avant du bord descend, l'arrière remonte
     const px = (x, y, col) => sR(x, y + tilt(x), 1, 1, col);
@@ -2018,6 +2019,7 @@ const ATK = {
   sonic:    { dur: 26, act: [6, 10], box: [10, -70, 44, -40], dmg: 8, stun: 16, bstun: 10, push: 2.5, sfx: 'heavy' },
   plunge:   { act: [0, 99], box: [-10, -34, 16, 6], high: true, dmg: 12, knock: true, stun: 20, bstun: 14, push: 2.5, sfx: 'heavy' },
   tornado:  { act: [3, 26], box: [-24, -104, 30, -8], dmg: 13, knock: true, lift: 7.5, bstun: 16, push: 1.5, sfx: 'heavy' },
+  zslash:   { act: [2, 23], box: [0, -64, 40, -4], dmg: 5, stun: 18, bstun: 10, push: .5, sfx: 'hit' },   // Zephyr : 3 coups de sabre en glissant
   gust:     { dur: 26, act: [7, 12], box: [10, -70, 46, -30], dmg: 6, stun: 14, bstun: 10, push: 1.6, sfx: 'hit' },
   gpound:   { act: [7, 99], box: [-18, -40, 18, 4], high: true, dmg: 15, knock: true, stun: 22, bstun: 16, push: 3, sfx: 'heavy' },
   vtripP:   { act: [1, 40], box: [14, -76, 46, -56], dmg: 4, stun: 16, bstun: 8, push: .5, sfx: 'hit' },   // Vane : 3 coups de poing très rapides (Y maintenu puis lâché)
@@ -2146,6 +2148,9 @@ function poseOf(f) {
     case 'geyser': return f.t < 8 ? 'upper1' : 'gq1';
     case 'wallslash': return f.t < 8 ? 'upper1' : f.t < 11 ? 'fpunch1' : f.t < 28 ? 'cpunch' : 'crouch';
     case 'plunge': return 'sho0';
+    case 'hatcharge': case 'hatcatch': return 'hatc';
+    case 'hatthrow': return f.t < 4 ? 'hatc' : 'punch1';
+    case 'zslash': return f.t < 2 ? 'crouch' : ((f.t - 2) % 8 < 4 ? 'sho0' : 'rup1');
     case 'zenith': return f.t < 3 ? 'crouch' : 'tuck';
     case 'uppercut': {
       // accroupi, le poing monte, envol de dos ; au sommet il se retourne et redescend de face
@@ -2335,9 +2340,65 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t === 58 && superKit(f) !== 'axel') {
     const kit = superKit(f);
     (G.supers = G.supers || []).push({ owner: f, target: o, kit, x: f.x + f.dir * 30, y: f.y - 54, vx: f.dir * 5.5, dir: f.dir, t: 0, pal: SUPER_PAL[kit] || f.def.fb });
+    if (kit === 'zephyr') f.noHat = true;   // Zephyr : le super est son chapeau géant électrique
     G.flashT = 10; G.shake = Math.max(G.shake, 6); sfx('fb'); sfx('heavy');
   }
   if (f.t > 90) { f.chg = null; setState(f, 'idle'); }
+}
+const HAT_HIT = { dmg: 9, stun: 22, bstun: 12, push: 2, chip: 1, sfx: 'hit' };
+function updHats() {   // chapeau de Zephyr : téléguidé vers l'adversaire, puis revient sur sa tête
+  for (const q of G.hats || []) {
+    const f = q.owner, o = q.target; q.t++; q.rot += .45;
+    q.trail.unshift([q.x, q.y]); if (q.trail.length > 6) q.trail.pop();
+    const back = q.back || q.t > 80;
+    const tx = back ? f.x + f.dir * 3 : o.x, ty = back ? f.y - 80 : o.y - 52, dx = tx - q.x, dy = ty - q.y, d = Math.hypot(dx, dy) || 1, sp = back ? 6 : 4.6;
+    q.vx += (dx / d * sp - q.vx) * (back ? .2 : .1); q.vy += (dy / d * sp - q.vy) * (back ? .2 : .1);
+    q.x += q.vx; q.y += q.vy;
+    if (!back && !q.hit && !q.big && o && !o.ko) {
+      const hb = hurtbox(o);
+      if (hb && overlap([q.x - 14, q.y - 8, q.x + 14, q.y + 8], hb)) { q.hit = true; q.back = true; applyHit(f, o, HAT_HIT, q.x, q.y, q.x - Math.sign(q.vx || 1) * 10, true); }
+    }
+    if (back && d < 10) { q.dead = true; f.noHat = false; if (!f.air && ['idle', 'walk', 'crouch'].includes(f.state)) setState(f, 'hatcatch'); sfx('select'); }   // attrapé et remis sur la tête
+  }
+  if (G.hats) G.hats = G.hats.filter(q => !q.dead);
+}
+function hatShape(x, y, sc, rot) {   // chapeau de paille conique (vu de profil), qui tourne
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc * (.75 + .25 * Math.cos(rot)), sc);
+  ctx.beginPath(); ctx.moveTo(-17, 2); ctx.quadraticCurveTo(-8, -5, 0, -10); ctx.quadraticCurveTo(8, -5, 17, 2); ctx.closePath();
+  ctx.fillStyle = '#b8944a'; ctx.fill(); ctx.strokeStyle = '#3a2a12'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = '#8a6a30'; ctx.lineWidth = 1; for (const k of [-.5, 0, .5]) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(k * 30, 1); ctx.stroke(); }
+  ctx.restore();
+}
+function zapAround(x, y, rx, ry, n, al) {   // éclairs électriques autour d'un point
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al;
+  for (let i = 0; i < n; i++) {
+    const a0 = Math.random() * 6.28; let px = x + Math.cos(a0) * rx, py = y + Math.sin(a0) * ry;
+    ctx.strokeStyle = i % 2 ? '#bff8ff' : '#5ad8ff'; ctx.lineWidth = i % 3 ? 1 : 1.6; ctx.beginPath(); ctx.moveTo(px, py);
+    for (let j = 0; j < 3; j++) { const a = a0 + (j + 1) * .35; px = x + Math.cos(a) * rx * (.85 + Math.random() * .3); py = y + Math.sin(a) * ry * (.85 + Math.random() * .3); ctx.lineTo(px, py); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function glowAt(x, y, r, col, al) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al; const g = ctx.createRadialGradient(x, y, 1, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.29); ctx.fill(); ctx.restore(); }
+function drawHats() {
+  for (const q of G.hats || []) {
+    const sc = q.big ? 2.2 : 1;
+    q.trail.forEach(([tx, ty], i) => { ctx.save(); ctx.globalAlpha = .28 * (1 - i / 6); hatShape(tx, ty, sc, q.rot - i * .45); ctx.restore(); });   // échos
+    glowAt(q.x, q.y, 26 * sc, 'rgba(120,220,255,.9)', .55);
+    hatShape(q.x, q.y, sc, q.rot);
+    zapAround(q.x, q.y - 3 * sc, 19 * sc, 10 * sc, 4, .9);
+  }
+  for (const f of G.f) {
+    if (f.def.kit !== 'zephyr') continue;
+    if (f.state === 'hatcharge') {   // énergie qui va et vient sur le contour du chapeau
+      const k = Math.min(1, (f.chargeT || 0) / 60), hx = f.x + f.dir * 4, hy = f.y - 82, pul = .5 + .5 * Math.sin(G.frame * .5);
+      glowAt(hx, hy, 18 + 10 * k, 'rgba(120,220,255,.9)', .25 + .45 * k);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#7af0ff'; ctx.lineWidth = 1 + k; ctx.globalAlpha = .4 + .5 * pul;
+      ctx.beginPath(); ctx.ellipse(hx, hy, 18 + 3 * pul, 6 + 1.5 * pul, 0, 0, 6.29); ctx.stroke(); ctx.restore();
+      zapAround(hx, hy, 20, 8, 2 + Math.round(4 * k), .5 + .5 * k);
+    }
+    if (f.state === 'hover' || f.state === 'tornado') zapAround(f.x, f.y - 50, 26, 46, f.state === 'hover' ? 6 : 5, .9);   // électricité : arrêt en l'air (invincible) et tornade
+  }
 }
 function updSupers() {
   for (const q of G.supers || []) {
@@ -2351,6 +2412,7 @@ function updSupers() {
       for (let i = 0; i < 3; i++) addSpark(q.x + (Math.random() - .5) * 30, q.y + (Math.random() - .5) * 30, 'fb', q.pal);
       G.darkT = 50; G.flashT = 12; G.boltX = q.x; G.boltY = q.y; G.freeze = 18; G.shake = 12;
       G.bigPop = { txt: 'NITRO SURGE COMBO!', col: '#d070ff', t: 0 };
+      if (q.kit === 'zephyr') (G.hats = G.hats || []).push({ owner: f, target: o, x: q.x, y: q.y, vx: -q.dir * 2, vy: -3, t: 0, rot: 0, trail: [], big: true, back: true, hit: true });   // le chapeau revient sur sa tête
       addScore(f, SCORE_PTS.surge);
       sfx('fb'); sfx('heavy'); sfx('thud');
     }
@@ -2372,8 +2434,10 @@ function drawSupers() {
   for (const q of G.supers || []) {
     const pal = q.pal, x = Math.round(q.x), y = Math.round(q.y), pulse = 1 + Math.sin(q.t * .6) * .1;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    if (q.kit === 'zephyr') {   // grand croissant de vent lancé au sabre
-      for (let i = 0; i < 4; i++) { ctx.strokeStyle = [pal[0], pal[1], pal[2], pal[3]][i]; ctx.lineWidth = 9 - i * 2; ctx.beginPath(); ctx.arc(x - q.dir * (10 + i * 3), y, 34, -1.1 * q.dir + (q.dir < 0 ? Math.PI : 0), 1.1 * q.dir + (q.dir < 0 ? Math.PI : 0), q.dir < 0); ctx.stroke(); }
+    if (q.kit === 'zephyr') {   // chapeau géant électrique téléguidé
+      ctx.restore(); ctx.save(); q.trail = q.trail || []; q.trail.unshift([q.x, q.y]); if (q.trail.length > 6) q.trail.pop(); q.rot = (q.rot || 0) + .45;
+      q.trail.forEach(([tx, ty], i) => { ctx.save(); ctx.globalAlpha = .28 * (1 - i / 6); hatShape(tx, ty, 2.4, q.rot - i * .45); ctx.restore(); });
+      glowAt(q.x, q.y, 60, 'rgba(120,220,255,.9)', .6); hatShape(q.x, q.y, 2.4, q.rot); zapAround(q.x, q.y - 6, 44, 22, 7, 1);
     } else if (q.kit === 'vesper') {   // grand clone d'énergie
       ctx.restore(); ctx.save(); ctx.globalAlpha = .75;
       drawFighter(Object.assign({}, q.owner, { state: 'fkick', t: 12, x: q.x, y: GROUND, dir: q.dir, rotAng: null, air: false, flash: 0, ghostDraw: true, tint: 'rgba(58,220,255,.9)' }), q.x, GROUND);
@@ -2463,7 +2527,7 @@ function updFighter(f, o) {
           break;
         }
         if (f.def.kit === 'zephyr') {   // Zephyr : Tornade Ascendante / Cyclone Rétrograde / Lame de Fond
-          if (h.u) { setState(f, 'tornado'); f.vx = 0; f.invuln = 10; break; }
+          if (h.u) { setState(f, 'zslash'); f.vx = 0; sfx('whoosh'); break; }   // glisse en avant, 3 coups de sabre, le 3e monte en tornade électrique
           if (back) { setState(f, 'sink'); f.vx = 0; f.invuln = 50; sfx('tele'); break; }   // passe sous terre et ressort derrière l'adversaire
           if (shotOK(f)) { shotUse(f); setState(f, 'gust'); f.vx = 0; break; }
           break;
@@ -2731,8 +2795,27 @@ function updFighter(f, o) {
       f.vx = 0; if (f.t < 7) f.vy = Math.min(f.vy, 0) - GRAV * .85; else f.vy = 10 - GRAV;
       break;
     case 'crushLand': f.vx = 0; if (f.t >= 20) setState(f, 'idle'); break;
+    case 'zslash':   // glissade + 3 coups de sabre de bas en haut, puis tornade
+      f.vx = f.t < 22 ? 3.4 * f.dir * (1 - f.t / 26) : 0;
+      if (f.t === 2 || f.t === 10 || f.t === 18) { f.hasHit = false; sfx('whoosh'); }
+      if (f.t >= 24) { setState(f, 'tornado'); f.invuln = 10; sfx('parry'); }
+      break;
+    case 'hatcharge': {   // A maintenu : la main tient le chapeau, l'énergie se charge sur son contour
+      f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
+      if (f.chargeT === 8) vaneChargeStart(f);
+      if (!h.s && f.chargeT < 60) { vaneChargeStop(f); setState(f, 'gust'); f.t = 6; break; }   // relâché trop tôt : lame d'air normale
+      if (f.chargeT >= 60) { vaneChargeStop(f); setState(f, 'hatthrow'); }
+      break;
+    }
+    case 'hatthrow':
+      f.vx = 0;
+      if (f.t === 4) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 4.5, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); G.flashT = Math.max(G.flashT, 4); }
+      if (f.t >= 18) setState(f, 'idle');
+      break;
+    case 'hatcatch': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
     case 'gust':   // coup de sabre qui libère une lame d'air en croissant
       f.vx = 0;
+      if (f.t === 6 && h.s && live && f.def.kit === 'zephyr') { setState(f, 'hatcharge'); f.chargeT = 0; break; }   // A maintenu : charge du chapeau
       if (f.t === 7) { G.blades.push({ owner: f, x: f.x + f.dir * 30, y: f.y - 50, dir: f.dir, t: 0 }); sfx('whoosh'); sfx('fb'); }
       if (f.t >= 26) setState(f, 'idle');
       break;
@@ -2947,8 +3030,8 @@ function updFighter(f, o) {
       if (f.t === 13) { f.wallT = 26; f.wallX = f.x + f.dir * 34; G.shake = Math.max(G.shake, 2); }
       if (f.t >= 34) setState(f, 'idle');
       break;
-    case 'hover':   // suspendu en l'air une demi-seconde
-      f.vx = 0; f.vy = -GRAV;
+    case 'hover':   // suspendu en l'air une demi-seconde : entouré d'électricité et invincible
+      f.vx = 0; f.vy = -GRAV; f.invuln = Math.max(f.invuln || 0, 2);
       if (f.t >= 30) { setState(f, 'plunge'); sfx('upper'); }
       break;
     case 'plunge':   // s'abat à la verticale, sabre vers le sol
@@ -4713,11 +4796,11 @@ function startRound() {
   const [a, b] = G.f;
   [[a, SW / 2 - 80, 1], [b, SW / 2 + 80, -1]].forEach(([f, x, d]) => {
     G.clash = null;
-    Object.assign(f, { nitroT: 0, surgeT: 0, necho: [], hist: [], rushN: 0, dizzy: false, dizzyEnd: -9999, x, y: GROUND, vx: 0, vy: 0, dir: d, hp: 100, lag: 100, air: false, ko: false, fb: null, invuln: 0, flash: 0, counterT: 0, jumpQ: 0, slowT: 0, burn: 0, combo: '', run: 0, restT: 0, confT: 0, nyxBurnT: 0, sinkK: 0, kcharge: 0, ghosts: [], fadeK: 0, paraT: 0, echo: [], rampT: 0, ai: { cd: 30, hold: {}, holdT: 0, press: null, pressU: false, pressFrames: 0, reacted: false } });   // le CPU repart de zéro à chaque round
+    Object.assign(f, { noHat: false, nitroT: 0, surgeT: 0, necho: [], hist: [], rushN: 0, dizzy: false, dizzyEnd: -9999, x, y: GROUND, vx: 0, vy: 0, dir: d, hp: 100, lag: 100, air: false, ko: false, fb: null, invuln: 0, flash: 0, counterT: 0, jumpQ: 0, slowT: 0, burn: 0, combo: '', run: 0, restT: 0, confT: 0, nyxBurnT: 0, sinkK: 0, kcharge: 0, ghosts: [], fadeK: 0, paraT: 0, echo: [], rampT: 0, ai: { cd: 30, hold: {}, holdT: 0, press: null, pressU: false, pressFrames: 0, reacted: false } });   // le CPU repart de zéro à chaque round
     setState(f, 'idle');
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
-  G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
+  G.hats = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
   G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
   G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
@@ -5384,22 +5467,22 @@ function step() {
       }
       const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
       if (btnOn && tap && inRect(tap, ADD_BTN)) { G.qrPop = true; sfx('select'); break; }
-      if (tap && !NET.guest && G.mode !== 'tutorial' && inRect(tap, INV_BTN)) { openInvite(); break; }
+      if (tap && !NET.guest && invOK() && inRect(tap, INV_BTN)) { openInvite(); break; }
       {
         let sl = G.sel || 0;
-        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; else if (edge(sc, 'd') && !NET.guest && G.mode !== 'tutorial') sl = 9; }   // ADD CONTROLLERS (sous la grille) ; PC : INVITE A PLAYER juste en dessous
+        if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; else if (edge(sc, 'd') && !NET.guest && invOK()) sl = 9; }   // ADD CONTROLLERS (sous la grille) ; PC : INVITE A PLAYER juste en dessous
         else if (sl === 9 && btnOn) { if (NET.guest || edge(sc, 'u')) sl = 8; }   // PC : INVITE A PLAYER sous ADD CONTROLLERS
         else if (sl === 9) { if (NET.guest || edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; }   // mobile : INVITE A PLAYER (sous la grille)
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
           if (edge(sc, 'u')) { if (sl > 3) sl -= 4; }
-          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } else if (!NET.guest && G.mode !== 'tutorial') { G.selBack = sl; sl = 9; } }   // mobile : INVITE A PLAYER sous la grille
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } else if (!NET.guest && invOK()) { G.selBack = sl; sl = 9; } }   // mobile : INVITE A PLAYER sous la grille
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
       if (G.sel === 8 && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { G.qrPop = true; sfx('select'); break; }
-      if (G.sel === 9 && !NET.guest && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { openInvite(); break; }
+      if (G.sel === 9 && !NET.guest && invOK() && G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) { openInvite(); break; }
       if (G.t > 10 && (okPress(sc) || (sc !== pctl && okPress(pctl)))) {
         const c = ROSTER[G.sel || 0];
         if (c == null) sfx('block');
@@ -5574,7 +5657,7 @@ function stepFight() {
     }
   }
 
-  surgeStep(); updSupers();
+  surgeStep(); updSupers(); updHats();
   updProps(); updBlood(); updVesper(); updGrog(); updZephyr(); updNyx(); updKael(); updVane(); clashProjectiles(); updToxics();
   // Étincelles
   G.sparks.forEach(s => s.t++);
@@ -5922,7 +6005,7 @@ function drawFight() {
   if (G.clash) drawClash();
   G.fbs.forEach(drawFireball);
   drawSupers();
-  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx();
+  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx(); drawHats();
   // énergie qui grossit entre les mains pendant la charge
   G.f.forEach(f => {
     if ((f.state !== 'special' && f.state !== 'axgp') || f.fired || !f.chargeT) return;
@@ -6484,7 +6567,7 @@ function drawSelect() {
       artText('P' + q, cx2, cy2 - 2.6, 5, '#ffffff');
     }
   }
-  if (G.mode === 'tutorial') { INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0; }   // TUTORIAL : pas d'invitation
+  if (!invOK()) { INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0; }   // TUTORIAL / ARCADE : pas d'invitation
   else {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
     const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : gy + 2 * S + gap + 12, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
     if (NET.guest) {   // Player 2 connecté : plus de bouton, juste CONNECTED
@@ -6507,6 +6590,7 @@ function drawSelect() {
 
 // ---- INVITE A PLAYER : QR code (local) ou lien à partager (à distance) ----
 const INV_BTN = [0, 0, 0, 0], INV_POP = [0, 0, 0, 0], INV_L = [0, 0, 0, 0], INV_R = [0, 0, 0, 0], INV_SHARE = [0, 0, 0, 0], INV_COPY = [0, 0, 0, 0];
+const invOK = () => G.mode !== 'tutorial' && G.mode !== 'arcade';   // bouton INVITE A PLAYER : VS seulement
 function openInvite() { netStart(); G.invPop = true; G.invSel = isTouch ? G.invSel || 0 : 1; G.invMsg = ''; sfx('select'); }   // PC : uniquement ONLINE (SHARE / COPY LINK)
 function doCopy() {   // PC : copie du lien d'invitation
   const url = inviteURL(); G.shareF = G.frame; sfx('select');
