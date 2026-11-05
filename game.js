@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v342';
+const VERSION = 'v343';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6330,7 +6330,7 @@ function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur huma
   if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffffff'];   // objet lancé sur moi : X pour le renvoyer
   if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];
   if (shotIncoming(f)) return ['XA', '#ffffff'];   // boule de feu, clone, projectile qui arrive : X puis A pour le renvoyer   // objet à portée : X pour le lancer
-  if (f.def.kit === 'nyx' && f.state !== 'nyxtele' && f.state !== 'smokeback' && (G.smokes || []).some(c => c.owner === f && !c.dead)) return ['BACK+A', '#ff80ff'];   // fumée posée : arrière + A pour s'y téléporter
+  if (f.def.kit === 'nyx' && f.state !== 'nyxtele' && f.state !== 'smokeback' && (G.smokes || []).some(c => c.owner === f && !c.dead)) return ['@+A', '#ff80ff'];   // fumée posée (@ = flèche vers l'arrière) : arrière + A pour s'y téléporter
   if (f.nitroT > 0) return [(G.frame / 60 | 0) % 2 ? 'YYBA' : 'YYBB', f.surgeT > 0 ? '#ff80ff' : '#5aff8a'];   // Nitro / Surge : super coup
   return null;
 }
@@ -6346,7 +6346,12 @@ function drawGuides() {
     const below = f.state === 'nyxglide', x = Math.round(f.x + f.dir * 6), y = below ? Math.round(f.y - 14) : Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;   // Nyx en vol plané : bulle juste sous elle
     ctx.save(); ctx.translate(x, y + 4); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, k * 1.5);
     ctx.fillStyle = 'rgba(10,4,20,.75)'; ctx.beginPath(); ctx.arc(-w / 2 + 6, 0, 6, Math.PI / 2, Math.PI * 1.5); ctx.arc(w / 2 - 6, 0, 6, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();   // bulle en pilule, sans contour
-    text(g[0], 0, -3, 8, g[1], 'center');
+    if (g[0][0] === '@') {   // flèche vers l'arrière (à l'opposé de l'adversaire), puis « +A »
+      text(g[0].slice(1), 5, -3, 8, g[1], 'center');
+      const d = -f.dir, ax = -w / 2 + 9; ctx.fillStyle = g[1];
+      ctx.fillRect(ax - 3, -1, 7, 2);   // tige
+      for (let i = 0; i < 4; i++) ctx.fillRect(ax + d * (4 - i) - (d < 0 ? 0 : 0), -1 - i, 1, 2 + i * 2);   // pointe
+    } else text(g[0], 0, -3, 8, g[1], 'center');
     ctx.restore();
   });
 }
