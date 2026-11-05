@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v317';
+const VERSION = 'v318';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -3721,7 +3721,8 @@ function drawStains() { for (const s of G.stains || []) { R(s.x - s.w / 2, s.y, 
 function drawBlood() { for (const d of G.blood || []) R(d.x, d.y, d.s + 1, d.s, d.s > 1 ? '#a01010' : '#c81818'); }
 /* ---------- Vesper : hologramme et mines ---------- */
 const HOLO_HIT = { dmg: 6, stun: 16, bstun: 12, push: 1.2, chip: 1, sfx: 'hit' };       // décharge simple (pas de paralysie)
-const HOLO_PARA = { dmg: 7, stun: 80, bstun: 12, push: .6, chip: 1, sfx: 'hit' };      // 3e décharge d'affilée : paralysie
+const HOLO_PARA = { dmg: 6, stun: 80, bstun: 12, push: .6, chip: 1, sfx: 'hit' };      // 3e décharge d'affilée : paralysie (mêmes dégâts)
+const HOLO_BIG = { dmg: 14, stun: 80, bstun: 16, push: 2, chip: 2, sfx: 'heavy' };   // clone chargé : plus de dégâts + paralysie
 const MINE_HIT = { dmg: 8, knock: true, stun: 20, bstun: 14, push: 5, chip: 0, sfx: 'heavy', unblock: true };
 function shock(att, o, data, x, y) {
   addSpark(x, y, 'parry'); G.flashT = Math.max(G.flashT, 6); G.boltX = x; G.boltY = y;
@@ -3743,7 +3744,7 @@ function updVesper() {
       if (!hurtbox(o)) { addSpark(q.x, q.y - 50, 'parry'); continue; }
       const n = (o.holoHitT != null && G.frame - o.holoHitT < 180 ? (o.holoHits || 0) : 0) + 1;   // touches d'affilée (moins de 3 s d'écart)
       const para = n >= 3 || q.big;   // 3e clone d'affilée, ou clone chargé : paralyse
-      shock(q.owner, o, para ? HOLO_PARA : HOLO_HIT, q.x, q.y - 50);
+      shock(q.owner, o, q.big ? HOLO_BIG : para ? HOLO_PARA : HOLO_HIT, q.x, q.y - 50);
       if (o.state === 'hit' || o.state === 'fall') {
         o.holoHitT = G.frame; o.holoHits = para ? 0 : n;
         if (para) { o.paraT = 80; o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); G.shake = Math.max(G.shake, 4); }
@@ -4618,11 +4619,13 @@ function drawVesperFx() {
   }
   for (const q of G.holos || []) {   // double holographique translucide (3e clone / clone chargé : bleu électrique avec échos)
     const fig = x => ({ def: q.owner.def, id: 9, dir: q.dir, state: 'fpunch', t: 8, flash: 0, x, y: q.y, vx: 0, air: false });
-    if (q.blue) {
-      (q.trail || []).forEach((tx, i) => { if (i === 0) return; ctx.save(); ctx.globalAlpha = .4 * (1 - i / 6); ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(tx), { tint: 'rgba(40,140,255,.9)' }), tx, q.y); ctx.restore(); });   // échos bleus
-      ctx.save(); ctx.globalAlpha = .8; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(70,190,255,.9)' }), q.x, q.y); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .45; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(200,245,255,1)' }), q.x, q.y); ctx.restore();
-      glowAt(q.x, q.y - 50, q.big ? 50 : 38, 'rgba(58,200,255,.9)', .45);
-      zapChaos(q.x, q.y, 18, 90, q.big ? 6 : 4);
+    if (q.blue) {   // 3e clone : transparent comme les autres mais bleu électrique ; clone chargé : moins transparent
+      const al = q.big ? .85 : .28 + .1 * Math.sin(G.frame * .9);
+      (q.trail || []).forEach((tx, i) => { if (i === 0) return; ctx.save(); ctx.globalAlpha = al * .55 * (1 - i / 6); ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign(fig(tx), { tint: 'rgba(40,140,255,.9)' }), tx, q.y); ctx.restore(); });   // échos bleus
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(70,190,255,.9)' }), q.x, q.y); ctx.restore();
+      if (q.big) { ctx.save(); ctx.globalAlpha = .5; drawFighter(Object.assign(fig(q.x), { tint: 'rgba(120,215,255,.9)' }), q.x, q.y); ctx.restore(); }
+      glowAt(q.x, q.y - 50, q.big ? 50 : 34, 'rgba(58,200,255,.9)', q.big ? .45 : .3);
+      zapChaos(q.x, q.y - 2, 16, 76, q.big ? 7 : 4, .45);
     } else {
       ctx.save(); ctx.globalAlpha = .45 + .15 * Math.sin(G.frame * .9); ctx.globalCompositeOperation = 'lighter';
       drawFighter(fig(q.x), q.x, q.y);
