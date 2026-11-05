@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v300';
+const VERSION = 'v301';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4902,6 +4902,8 @@ function nav(b) {
 }
 function navStep() { const u = nav('u'), d = nav('d'); return d ? 1 : u ? -1 : 0; }
 let MR_KEY = null, MR = [];
+const PAGE_FACE = { 'HIRO SPECIALS': 0, 'AXEL SPECIALS': 1, 'VESPER SPECIALS': 2, 'GROG SPECIALS': 3, 'ZEPHYR SPECIALS': 4, 'NYX SPECIALS': 5, 'KAEL SPECIALS': 6, 'LORD VANE SPECIALS': 7 };   // index DEFS pour le visage de la case
+const pageOfDef = d => KIT_PAGE[d.kit] || (d.twinFb ? 'HIRO SPECIALS' : 'AXEL SPECIALS');
 const KIT_PAGE = { vesper: 'VESPER SPECIALS', vane: 'LORD VANE SPECIALS', kael: 'KAEL SPECIALS', nyx: 'NYX SPECIALS', zephyr: 'ZEPHYR SPECIALS', grog: 'GROG SPECIALS' };
 const mlTwo = () => G.paused && G.f && G.f[1] && !G.f[1].cpu;   // deux joueurs humains : choix PLAYER 1 / PLAYER 2
 // lignes affichées : la colonne des commandes (bleu) et celle des descriptions (blanc) passent sur 2 lignes si besoin, alignées à gauche
@@ -4921,22 +4923,31 @@ function moveDisp() {
   }
   return MD;
 }
-function moveRows() {   // en pause : coups du combattant actuel seulement ; écran titre : tous les coups
-  const pz = G.paused && G.f && G.f.length === 2, pi = mlTwo() ? (G.mlP || 0) : 0;
-  const key = pz ? 'p' + pi + G.f[pi].def.name : 'all';
-  if (key !== MR_KEY) {
-    MR_KEY = key; MR = [];
-    let pages = MOVES;
-    if (pz) { const d = G.f[pi].def, t = KIT_PAGE[d.kit] || 'SPECIALS & COUNTER'; pages = MOVES.filter(pg => pg.title === 'BASICS' || pg.title === t || pg.title === 'COMBOS').map(pg => pg.title === t ? { title: d.name + ' SPECIALS', lines: pg.lines } : pg); }
-    pages.forEach((pg, i) => { if (i) MR.push(['', '']); MR.push(['#', pg.title]); pg.lines.forEach(l => MR.push(l)); });
-  }
+function mlPages() {   // cases de la mosaïque : écran titre = toutes ; combat = BASICS, SPECIALS & COUNTER, les 2 combattants, COMBOS
+  const pz = G.paused && G.f && G.f.length === 2;
+  let t = MOVES.map(pg => pg.title);
+  if (pz) { const a = pageOfDef(G.f[0].def), b = pageOfDef(G.f[1].def); t = ['BASICS', 'SPECIALS & COUNTER', a]; if (b !== a) t.push(b); t.push('COMBOS'); }
+  return t.map(x => MOVES.find(pg => pg.title === x)).filter(Boolean);
+}
+function moveRows() {   // lignes de la case ouverte (popup)
+  const pg = MOVES.find(q => q.title === G.mlOpen) || MOVES[0], key = 'pg:' + pg.title;
+  if (key !== MR_KEY) { MR_KEY = key; MR = pg.lines.slice(); }
   return MR;
 }
+const ML_RECTS = [], ML_POP = [0, 0, 0, 0];
 function stepMoves() {
-  if (mlTwo() && (edge(pctl, 'l') || edge(pctl, 'r'))) { G.mlP = 1 - (G.mlP || 0); G.mscroll = 0; sfx('beep'); }
-  const maxS = Math.max(0, moveDisp().length * 14 - 128);
-  if (pctl.held.d) G.mscroll = Math.min(maxS, (G.mscroll || 0) + 1.5);
-  if (pctl.held.u) G.mscroll = Math.max(0, (G.mscroll || 0) - 1.5);
+  const P = mlPages(); G.mlSel = Math.max(0, Math.min(P.length - 1, G.mlSel || 0));
+  if (G.mlOpen) {   // popup : liste qui défile
+    const maxS = Math.max(0, moveDisp().length * 14 - 118);
+    if (pctl.held.d) G.mscroll = Math.min(maxS, (G.mscroll || 0) + 1.5);
+    if (pctl.held.u) G.mscroll = Math.max(0, (G.mscroll || 0) - 1.5);
+    if (backPress(pctl) || (tap && !inRect(tap, ML_POP))) { G.mlOpen = null; sfx('beep'); }
+    return;
+  }
+  if (edge(pctl, 'l') && G.mlSel > 0) { G.mlSel--; sfx('beep'); }
+  if (edge(pctl, 'r') && G.mlSel < P.length - 1) { G.mlSel++; sfx('beep'); }
+  if (tap) { const i = ML_RECTS.findIndex(r => r && inRect(tap, r)); if (i >= 0) { if (i === G.mlSel) { G.mlOpen = P[i].title; G.mscroll = 0; sfx('select'); } else { G.mlSel = i; sfx('beep'); } return; } }
+  if (okPress(pctl)) { G.mlOpen = P[G.mlSel].title; G.mscroll = 0; sfx('select'); return; }
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
 const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
@@ -5016,7 +5027,7 @@ function stepPause() {
     sfx('select');
     if (G.pcur === 0) G.paused = false;
     else if (G.pcur === 1) { G.showOpts = true; G.ocur = 0; }
-    else if (G.pcur === 2) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; }
+    else if (G.pcur === 2) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
     else if (G.pcur === 3) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
@@ -5299,7 +5310,7 @@ function step() {
         else if (okPress(pctl) || tap) {
           sfx('select');
           if ((G.tcur || 0) <= 2) { G.mode = ['arcade', 'vs', 'tutorial'][G.tcur || 0]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }   // ARCADE MODE / V.S. BATTLE / TUTORIAL
-          else if (G.tcur === 3) { G.showMoves = true; G.mscroll = 0; }
+          else if (G.tcur === 3) { G.showMoves = true; G.mscroll = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
           else { G.showOpts = true; G.ocur = 0; }
         }
       }
@@ -5947,57 +5958,84 @@ const MOVES = [
     ['DOWN + BACK', 'LOW BLOCK'], ['FWD + Y', 'LONG PUNCH'], ['FWD + B', 'LONG KICK'],
     ['DOWN + Y', 'RISING UPPERCUT'], ['DOWN + B', 'LOW KICK'], ['DOWN + A', 'SLIDE KICK (KNOCKS DOWN)'], ['X, THEN A', 'BACK SPIN KICK: REFLECTS SHOTS'], ['', 'BEATS NORMAL HITS, ALSO AFTER A COUNTER'] ] },
   { title: 'SPECIALS & COUNTER', lines: [
-    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL: HIRO 1.2S, AXEL 1.2S'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'HIRO: LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'HIRO: SHORYUKEN'], ['A', 'AXEL: GROUND PUNCH, BOUNCING FIREBALL'], ['UP + A ', 'AXEL: FIRE LEAP'], ['UP + A, UP + A', 'AXEL: FIRE SHORYUKEN (THE LEAP MUST HIT)'],
-    ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'HIRO: DIAGONAL FIREBALL (x2)'], ['AIR + A ', 'AXEL: 3 AIR FLIP KICKS'], ['X', 'COUNTER (JUST BEFORE A HIT)'],
-    ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
-    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'], ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 8 HITS'], ['SURGE + YYBA', '8 HITS + CHARGED SUPER SHOT'], ['X X A', 'SURGE (PURPLE GAUGE FULL): DOUBLE 5 S'], ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
-  { title: 'VESPER SPECIALS', lines: [
-    ['A', 'HOLO FLASH'], ['', 'UP TO 3 CLONES, 3 HITS = PARALYZED'], ['BACK + A', 'SHADOW STEP'], ['', 'DODGES BACK, LEAVES A MINE'],
-    ['UP + A', 'ZENITH BLADE'], ['', 'FLIP SLASH, LANDS BEHIND THE FOE'], ['JUMP + A', 'NEON DIVE'], ['', 'FAST DIAGONAL DIVE KICK'] ] },
-  { title: 'LORD VANE SPECIALS', lines: [
-    ['A', 'VOID FLARE'], ['', 'HUGE SLOW SPHERE, 3RD HIT PARALYZES'], ['BACK + A', 'PHANTOM TELEPORT'], ['', 'APPEARS BEHIND, GUARD BREAK'],
-    ['UP + A', 'METEOR IMPACT'], ['', 'FLAMING FLIP, DIAGONAL DIVE'], ['AIR + A', 'VOID BOMB'], ['', 'BIG SPHERE, DIAGONAL DOWN'], ['AIR + DOWN + A', 'DIVE KICK, BREAKS SMALL SHOTS'], ['HOLD Y, RELEASE', '5 FAST PUNCHES, 5TH KNOCKS DOWN'], ['HOLD B, RELEASE', '5 FAST KICKS, 5TH KNOCKS DOWN'] ] },
-  { title: 'KAEL SPECIALS', lines: [
-    ['A / FWD + A', 'SONIC WAVE'], ['', 'LONG ELECTRIC WAVE, PUSHES BACK'], ['BACK + A', 'FLASH STEP'], ['', 'DODGES BACK, CHARGES THE FISTS'], ['CHARGED > Y', 'THUNDER RUSH'], ['', '5 FAST PUNCHES, 5TH KNOCKS DOWN'],
-    ['UP + A', 'PLASMA WALL'], ['', 'ELECTRIC WALL, GROUND TO SKY'], ['JUMP + A', 'VOLT SPIN'], ['', '360 SPIN KICK, REFLECTS SHOTS'] ] },
-  { title: 'NYX SPECIALS', lines: [
-    ['A', 'MAGMA FLASK'], ['', 'FLASK + PINK FIRE (3 S BURN)'], ['BACK + A', 'TOXIC MIST'], ['', 'SLOWS, THEN CONFUSES, STOPS SHOTS'], ['MIST OUT > BACK + A', 'SMOKE TELEPORT'],
-    ['UP + A', 'ALCHEMIC GEYSER'], ['', 'DIAGONAL PURPLE FLAMES'], ['DOWN + A', 'SHADOW SLIDE'], ['', 'SLIDES UNDER SHOTS, TRIPS THE FOE'], ['JUMP + A', 'WITCH GLIDE'], ['', 'GLIDES 1 S, DROPS A FLASK'], ['GLIDE > A', 'SPIN DIVE: 3 FAST HITS, KNOCKS DOWN'], ['', 'ONLY SHOTS CAN STOP IT'], ['GLIDE > Y / B', 'PUNCH / KICK, THEN FALLS'] ] },
+    ['X', 'COUNTER (JUST BEFORE A HIT)'], ['COUNTER > Y', 'OVERHEAD SLAM'], ['COUNTER > B', 'ROLLING THROW'],
+    ['COUNTERED > X', 'CLASH: MASH TO WIN'], ['COUNTERED > A', 'ESCAPE WITH A BACK SPIN KICK'],
+    ['YYBB BBYY YYBA', '4TH HIT: FIRE DASH (EVEN FROM FAR)'], ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 8 HITS'], ['X X A', 'SURGE (PURPLE GAUGE FULL): DOUBLE 5 S'], ['SURGE + YYBA', '8 HITS + CHARGED SUPER SHOT'],
+    ['X NEAR AN OBJECT', 'THROW IT AT THE FOE'], ['X AS IT ARRIVES', 'REFLECT A THROWN OBJECT'], ['DIZZY', 'MASH ANY BUTTON'] ] },
+  { title: 'HIRO SPECIALS', lines: [
+    ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL (1.2 S)'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'SHORYUKEN'],
+    ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'DIAGONAL FIREBALL (x2)'] ] },
+  { title: 'AXEL SPECIALS', lines: [
+    ['A', 'GROUND PUNCH, BOUNCING FIREBALL'], ['HOLD A', 'MAX FIREBALL (1.2 S)'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'FIRE LEAP'], ['UP + A, UP + A', 'FIRE SHORYUKEN (THE LEAP MUST HIT)'],
+    ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', '3 AIR FLIP KICKS'] ] },
   { title: 'ZEPHYR SPECIALS', lines: [
     ['FWD + Y', 'HEAVEN CUT'], ['', 'HEAVY SLASH, HEAD TO GROUND'], ['A', 'GALE BLADE'], ['', 'SWORD SLASH, AIR CRESCENT'], ['BACK + A', 'STORM PASSAGE'], ['', 'SINKS, REAPPEARS BEHIND THE FOE'],
     ['UP + A', 'RISING TORNADO'], ['', 'SPINNING SWORD UPPERCUT'], ['JUMP + A', 'SKY PLUNGE'], ['', 'HOVERS, STABS DOWN, SHOCKWAVE'] ] },
+  { title: 'NYX SPECIALS', lines: [
+    ['A', 'MAGMA FLASK'], ['', 'FLASK + PINK FIRE (3 S BURN)'], ['BACK + A', 'TOXIC MIST'], ['', 'SLOWS, THEN CONFUSES, STOPS SHOTS'], ['MIST OUT > BACK + A', 'SMOKE TELEPORT'],
+    ['UP + A', 'ALCHEMIC GEYSER'], ['', 'DIAGONAL PURPLE FLAMES'], ['DOWN + A', 'SHADOW SLIDE'], ['', 'SLIDES UNDER SHOTS, TRIPS THE FOE'], ['JUMP + A', 'WITCH GLIDE'], ['', 'GLIDES 1 S, DROPS A FLASK'], ['GLIDE > A', 'SPIN DIVE: 3 FAST HITS, KNOCKS DOWN'], ['', 'ONLY SHOTS CAN STOP IT'], ['GLIDE > Y / B', 'PUNCH / KICK, THEN FALLS'] ] },
+  { title: 'KAEL SPECIALS', lines: [
+    ['A / FWD + A', 'SONIC WAVE'], ['', 'LONG ELECTRIC WAVE, PUSHES BACK'], ['BACK + A', 'FLASH STEP'], ['', 'DODGES BACK, CHARGES THE FISTS'], ['CHARGED > Y', 'THUNDER RUSH'], ['', '5 FAST PUNCHES, 5TH KNOCKS DOWN'],
+    ['UP + A', 'PLASMA WALL'], ['', 'ELECTRIC WALL, GROUND TO SKY'], ['JUMP + A', 'VOLT SPIN'], ['', '360 SPIN KICK, REFLECTS SHOTS'] ] },
+  { title: 'VESPER SPECIALS', lines: [
+    ['A', 'HOLO FLASH'], ['', 'UP TO 3 CLONES, 3 HITS = PARALYZED'], ['BACK + A', 'SHADOW STEP'], ['', 'DODGES BACK, LEAVES A MINE'],
+    ['UP + A', 'ZENITH BLADE'], ['', 'FLIP SLASH, LANDS BEHIND THE FOE'], ['JUMP + A', 'NEON DIVE'], ['', 'FAST DIAGONAL DIVE KICK'] ] },
   { title: 'GROG SPECIALS', lines: [
     ['A', 'SEISMIC IMPACT'], ['', 'GROUND WAVE, JUMP TO DODGE'], ['BACK + A', 'IRON RAMPART'], ['', 'ELECTRIC ARMS, ABSORB ONE HIT'], ['RAMPART > A', 'DOME BLAST, REFLECTS SHOTS'],
     ['UP + A', 'CELESTIAL CRUSH'], ['', 'HUGE LEAP, FISTS-FIRST DIVE'], ['DOWN + A', 'ROLLING ATTACK'], ['', '3 FAST ROLLS, 3RD KNOCKS DOWN'] ] },
+  { title: 'LORD VANE SPECIALS', lines: [
+    ['A', 'VOID FLARE'], ['', 'HUGE SLOW SPHERE, 3RD HIT PARALYZES'], ['BACK + A', 'PHANTOM TELEPORT'], ['', 'APPEARS BEHIND, GUARD BREAK'],
+    ['UP + A', 'METEOR IMPACT'], ['', 'FLAMING FLIP, DIAGONAL DIVE'], ['AIR + A', 'VOID BOMB'], ['', 'BIG SPHERE, DIAGONAL DOWN'], ['AIR + DOWN + A', 'DIVE KICK, BREAKS SMALL SHOTS'], ['HOLD Y, RELEASE', '5 FAST PUNCHES, 5TH KNOCKS DOWN'], ['HOLD B, RELEASE', '5 FAST KICKS, 5TH KNOCKS DOWN'] ] },
   { title: 'COMBOS', lines: [
     ['', 'CHAIN HITS WHILE THE FOE IS STUNNED.'], ['', 'THE 4TH HIT SETS HIM ON FIRE!'], ['', ''],
     ['Y Y B B', 'FIRE FINISH'], ['B B Y Y', 'FIRE FINISH'], ['Y Y B A', 'FLAME STRIKE FINISH'], ['B B Y A', 'FLAME STRIKE FINISH'] ] },
 ];
-function drawMoves() {
+function drawMoves() {   // mosaïque de cases carrées qui glissent ; A ouvre la liste dans une popup
   R(0, 0, W, H, 'rgba(8,4,16,.92)');
-  text('MOVE LIST', CX, 10, 8, '#ff7a3a', 'center');
-  const x0 = Math.max(16, CX - 168), top = 30, bot = 162, sc = G.mscroll || 0;
-  ctx.save(); ctx.beginPath(); ctx.rect(0, top, W, bot - top); ctx.clip();
-  if (mlTwo()) [0, 1].forEach(i => text((i ? 'PLAYER 2' : 'PLAYER 1'), CX + (i ? 50 : -50), 20, 8, (G.mlP || 0) === i ? '#ffd23a' : '#7a6a5a', 'center'));
-  const MOVE_ROWS = moveDisp();
-  MOVE_ROWS.forEach(([k, v, done], i) => {
-    const y = top + 4 + i * 14 - sc;
-    const fa = Math.max(0, Math.min(1, (y - top + 2) / 8, (bot - 8 - y) / 8));   // fondu en haut et en bas
-    if (fa <= 0) return;
+  text('MOVE LIST', CX, 12, 8, '#ff7a3a', 'center');
+  const P = mlPages(), sel = Math.max(0, Math.min(P.length - 1, G.mlSel || 0));
+  G.mlPos = G.mlPos == null ? sel : G.mlPos + (sel - G.mlPos) * .2;   // glissement animé
+  const T = 74, GAP = 16, cy = 98; ML_RECTS.length = 0;
+  const wrapT = t => { const out = []; let cur = ''; for (const w of t.split(' ')) { if (cur && cur.length + 1 + w.length > 9) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } out.push(cur); return out.slice(0, 2); };
+  P.forEach((pg, i) => {
+    const d = i - G.mlPos, x = CX + d * (T + GAP); if (x < -T || x > W + T) return;
+    const k = Math.max(0, 1 - Math.abs(d)), sc = .8 + .32 * k, on = i === sel;   // zoom sur la case choisie, les autres plus petites
+    ML_RECTS[i] = [x - T * sc / 2, cy - T * sc / 2, T * sc, T * sc];
+    ctx.save(); ctx.translate(Math.round(x), cy); ctx.scale(sc, sc); ctx.globalAlpha = .45 + .55 * k;
+    R(-T / 2, -T / 2, T, T, '#1a1024');
+    const fi = PAGE_FACE[pg.title], im = fi != null ? SEL_FACE[fi] : null;
+    if (im && imgOk(im)) { ctx.imageSmoothingEnabled = true; ctx.drawImage(im, -T / 2, -T / 2, T, T); ctx.imageSmoothingEnabled = false; const g = ctx.createLinearGradient(0, 0, 0, T / 2); g.addColorStop(0, 'rgba(10,4,20,0)'); g.addColorStop(1, 'rgba(10,4,20,.92)'); ctx.fillStyle = g; ctx.fillRect(-T / 2, 0, T, T / 2); }
+    const L = wrapT(pg.title), ty = im ? T / 2 - 8 - L.length * 10 : -L.length * 5;
+    L.forEach((l, j) => text(l, 0, ty + j * 10, 8, on ? '#ffd23a' : '#ffffff', 'center'));
+    ring(-T / 2, -T / 2, T, T, on ? 2 : 1, on ? '#ffd23a' : '#5a4a60');
+    ctx.restore();
+  });
+  // flèches et points
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  if (sel > 0) { ctx.beginPath(); ctx.moveTo(10, cy); ctx.lineTo(18, cy - 7); ctx.lineTo(18, cy + 7); ctx.fill(); }
+  if (sel < P.length - 1) { ctx.beginPath(); ctx.moveTo(W - 10, cy); ctx.lineTo(W - 18, cy - 7); ctx.lineTo(W - 18, cy + 7); ctx.fill(); }
+  P.forEach((pg, i) => R(CX - P.length * 5 + i * 10 + 2, 150, i === sel ? 6 : 4, i === sel ? 6 : 4, i === sel ? '#ffd23a' : 'rgba(255,255,255,.35)'));
+  const pc = !isTouch && !padOn();
+  text(pc ? '< > : CHOOSE   ' + keyName(KEYS.s) + ': OPEN   ESC: BACK' : '< > : CHOOSE   A: OPEN   B: BACK', CX, 196, 8, '#d8c8a8', 'center');
+  if (!G.mlOpen) return;
+  // popup : la liste de la case, avec défilement
+  R(0, 0, W, H, 'rgba(0,0,0,.6)');
+  const px = Math.max(8, CX - 184), pw = W - 2 * px, py = 18, ph = 176; ML_POP.splice(0, 4, px, py, pw, ph);
+  R(px, py, pw, ph, '#120a1c'); ring(px, py, pw, ph, 1, '#ffd23a');
+  text(G.mlOpen, CX, py + 6, 8, '#ffd23a', 'center'); R(px + 10, py + 18, pw - 20, 1, '#5a3a2a');
+  const x0 = Math.max(16, CX - 168), top = py + 24, bot = py + ph - 18, sc = G.mscroll || 0;
+  ctx.save(); ctx.beginPath(); ctx.rect(px, top, pw, bot - top); ctx.clip();
+  const rows = moveDisp();
+  rows.forEach(([k, v], i) => {
+    const y = top + 4 + i * 14 - sc, fa = Math.max(0, Math.min(1, (y - top + 2) / 8, (bot - 8 - y) / 8)); if (fa <= 0) return;
     ctx.globalAlpha = fa;
-    if (k === '#') { R(x0, y + 10, 2 * CX - 2 * x0, 1, '#5a3a2a'); text(v, CX, y, 8, '#ffd23a', 'center'); return; }
-    if (k) text(k, x0, y, 8, '#7af0ff', 'left');   // colonne des commandes (touches du clavier / boutons de la manette)
-    if (v) text(v, x0 + MV_COL(), y, 8, '#ffffff', 'left');   // colonne des descriptions
+    if (k) text(k, x0, y, 8, '#7af0ff', 'left');
+    if (v) text(v, x0 + MV_COL(), y, 8, '#ffffff', 'left');
   });
   ctx.globalAlpha = 1; ctx.restore();
-  // ascenseur
-  const total = MOVE_ROWS.length * 14, view = bot - top;
-  if (total > view) {
-    const bh = Math.max(12, view * view / total), by = top + (view - bh) * (sc / Math.max(1, total - 128));
-    R(W - 8, top, 3, view, '#2a1e30'); R(W - 8, Math.min(bot - bh, by), 3, bh, '#ffd23a');
-  }
-  if (!isTouch || padOn()) text((padOn() ? 'GAMEPAD' : 'KEYBOARD') + ' - CHANGE IN OPTIONS', CX, 176, 8, '#9a8a70', 'center');
-  text(isTouch ? 'UP/DOWN: SCROLL    B: BACK' : 'UP/DOWN: SCROLL    ESC: BACK', CX, 196, 8, '#d8c8a8', 'center');
+  const total = rows.length * 14, view = bot - top;
+  if (total > view) { const bh = Math.max(12, view * view / total), by = top + (view - bh) * (sc / Math.max(1, total - 118)); R(px + pw - 7, top, 3, view, '#2a1e30'); R(px + pw - 7, Math.min(bot - bh, by), 3, bh, '#ffd23a'); }
+  text(pc ? 'UP/DOWN: SCROLL   ESC: CLOSE' : 'UP/DOWN: SCROLL   B: CLOSE', CX, py + ph - 12, 8, '#d8c8a8', 'center');
 }
 function drawStar(x, y, r, on) {
   ctx.beginPath();
