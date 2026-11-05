@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v337';
+const VERSION = 'v338';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2590,7 +2590,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
     q.x = o.x - q.dir * 30; q.y = GROUND - q.lift;
     if (q.gt % 10 === 0) sfx('parry');
     if (q.gt >= 84) {   // explosion mauve et noire, l'adversaire retombe
-      q.dead = true; (G.vblasts = G.vblasts || []).push({ x: (q.x + o.x) / 2, y: q.y - 50, t: 0 });
+      q.dead = true; (G.vblasts = G.vblasts || []).push({ x: (q.x + o.x) / 2, y: q.y - 50, t: 0, alt: isAltV(f) });
       G.darkT = Math.max(G.darkT, 40); G.flashT = 14; G.boltX = o.x; G.boltY = o.y - 50; G.freeze = 16; G.shake = 14; sfx('fb'); sfx('heavy'); sfx('thud');
       if (q.fin) vaneFinish(f, o, 22);
       else { const before = o.hp; o.hp = Math.max(0, o.hp - dmgK(16)); nitroGain(f, o, before - o.hp); comboHit(f); o.paraT = 0; setState(o, 'fall'); o.air = true; o.vy = -2; o.vx = q.dir * 2.5; o.flash = 4; }
@@ -2601,13 +2601,13 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
   if (G.vblasts) G.vblasts = G.vblasts.filter(b => b.t < 36);
 }
 function drawVClones() {
-  for (const f of G.f) if (f.vxReady > 0) {   // pixel mauve illuminé devant Vane tant que la charge est prête
+  for (const f of G.f) if ((VALT = isAltV(f)) || true) if (f.vxReady > 0) {   // pixel mauve illuminé devant Vane tant que la charge est prête
     const x = Math.round(f.x + f.dir * 20), y = Math.round(f.y - 50 - floatOff(f)), fade = Math.min(1, f.vxReady / 30), pul = .7 + .3 * Math.sin(G.frame * .3);
     glowAt(x, y, 12 + 4 * pul, 'rgba(200,80,255,.95)', .6 * fade);
     ctx.save(); ctx.globalAlpha = fade; ctx.fillStyle = '#e8a0ff'; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, 1, 1); ctx.restore();
   }
-  for (const f of G.f) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / (f.state === 'vxcharge' ? 72 : 60)); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
-  for (const q of G.vclones || []) {
+  for (const f of G.f) if ((VALT = isAltV(f)) || true) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / (f.state === 'vxcharge' ? 72 : 60)); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
+  for (const q of G.vclones || []) { VALT = isAltV(q.owner);
     const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: q.ph === 'grab' ? 'vgrabH' : 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
     q.trail.forEach(([tx, ty, ox, oy], i) => {   // échos mauves (clone et adversaire qui monte)
       if (i === 0 || i % 2) return; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .22 * (1 - i / 7);
@@ -2624,7 +2624,7 @@ function drawVClones() {
     glowAt(q.x, q.y - 50, 40, 'rgba(170,60,255,.9)', .28);
     { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let b = 0; b < 3; b++) { const L = []; for (let s2 = 0; s2 <= 4; s2++) L.push([q.x + (Math.random() - .5) * 30, q.y - 8 - s2 * 18]); elecArc(L, 'rgba(255,120,235,.8)', 1.2); } ctx.restore(); }
   }
-  for (const b of G.vblasts || []) {   // explosion mauve et noire
+  for (const b of G.vblasts || []) { VALT = !!b.alt;   // explosion mauve et noire
     const k = b.t / 36, R0 = 16 + b.t * 5, a = 1 - k;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, R0); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(.3, `rgba(220,120,255,${.9 * a})`); g.addColorStop(.7, `rgba(138,42,208,${.6 * a})`); g.addColorStop(1, 'rgba(20,4,32,0)');
@@ -2634,7 +2634,9 @@ function drawVClones() {
     ctx.strokeStyle = `rgba(20,0,40,${.8 * a})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(b.x, b.y, R0 * .85, 0, 6.29); ctx.stroke();
     ctx.restore();
   }
+  VALT = false;
 }
+
 function updSupers() {
   updVClones();
   for (const q of G.supers || []) {
@@ -2657,17 +2659,17 @@ function updSupers() {
   if (G.supers) G.supers = G.supers.filter(q => !q.dead);
 }
 function drawSupers() {
-  for (const f of G.f) for (const p of f.chg || []) {   // charge
+  for (const f of G.f) for (const p of f.chg || []) { VALT = isAltV(f);   // charge
     p.t++; p.x += (p.tx - p.x) * .15; p.y += (p.ty - p.y) * .15;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const pal = SUPER_PAL[superKit(f)] || f.def.fb; ctx.fillStyle = pal[2]; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); ctx.restore();
   }
-  for (const f of G.f) if (f.state === 'nsuper' && f.t > 14 && f.t < 58) {   // boule qui grossit dans les mains
+  for (const f of G.f) if ((VALT = isAltV(f)) || true) if (f.state === 'nsuper' && f.t > 14 && f.t < 58) {   // boule qui grossit dans les mains
     const ax = superKit(f) === 'axel', pal = SUPER_PAL[superKit(f)] || f.def.fb, r = 4 + (f.t - 14) * .45, x = f.x + f.dir * (ax ? 22 : 24), y = f.y - (ax ? 75 : 56);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 1, x, y, r * 2.2);
     g.addColorStop(0, pal[0]); g.addColorStop(.35, pal[1]); g.addColorStop(.7, pal[2] + '99'); g.addColorStop(1, pal[3] + '00');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 6.29); ctx.fill(); ctx.restore();
   }
-  for (const q of G.supers || []) {
+  for (const q of G.supers || []) { VALT = isAltV(q.owner);
     const pal = q.pal, x = Math.round(q.x), y = Math.round(q.y), pulse = 1 + Math.sin(q.t * .6) * .1;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     if (q.kit === 'zephyr') {   // chapeau géant électrique téléguidé
@@ -2690,7 +2692,9 @@ function drawSupers() {
     }
     ctx.restore();
   }
+  VALT = false;
 }
+
 // double mauve du Surge : il répète chaque coup qui touche, et chaque projectile, un peu après
 function surgeStep() {
   for (const g of G.ghostQ || []) if (G.frame >= g.f && !g.done) {
@@ -3144,7 +3148,7 @@ function updFighter(f, o) {
           if (held && q.ch < 300) { q.ch++; f.t = 8; }   /* tenue jusqu'à 5 s */
           else {
             const c = Math.min(1, q.ch / 90); q.charging = false; q.c = c; q.vx = f.dir * (3.2 - 2 * c);   // plus elle est grosse, plus elle est lente
-            q.hit = Object.assign({}, VOID_HIT, { dmg: Math.round(8 + 24 * c), push: .6 + c * 3, chip: 1 + Math.round(c * 5), knock: c > .75 });
+            q.hit = Object.assign({}, VOID_HIT, { dmg: Math.round(8 + 24 * c), stun: c > .5 ? 54 : 18, push: .6 + c * 3, chip: 1 + Math.round(c * 5), knock: c > .75 });
             G.shake = Math.max(G.shake, 2 + c * 6); vaneChargeStop(f); if (!(AC && playSample('vlaunch', .55 + c * .3, 1.1 - c * .2, true))) sfx('fb');   // son de lancer, plus grave et plus fort quand la sphère est grosse
           }
         }
@@ -3955,12 +3959,12 @@ function floatOff(f) {   // Vane flotte à ~20 cm du sol quand il est debout
   if (f.state === 'getup') return f.t < 9 ? 0 : Math.min(9, (f.t - 9) * 1.5);   // d'abord les pieds au sol, puis il se remet à flotter
   return 9 + Math.round(Math.sin(G.frame * .07 + f.id) * 1.5);
 }
-const VOID_HIT = { dmg: 8, stun: 54, bstun: 12, push: .6, chip: 1, sfx: 'heavy' };   // paralyse une fraction de seconde
+const VOID_HIT = { dmg: 8, stun: 18, bstun: 12, push: .6, chip: 1, sfx: 'heavy' };   // paralyse une fraction de seconde
 const VOID_BIG = { dmg: 12, stun: 54, bstun: 14, push: 1, chip: 2, sfx: 'heavy' };
 function vaneDust(f, inward) {   // particules rose électrique et noires (désintégration / réintégration)
   for (let k = 0; k < 6; k++) {
     const bx = f.x + (Math.random() - .5) * 26, by = f.y - 8 - Math.random() * 80, a = Math.random() * 6.28, sp = 1 + Math.random() * 2.2;
-    const p = { x: bx, y: by, vx: Math.cos(a) * sp - f.dir * 1.2, vy: Math.sin(a) * sp - .4, t: 0, pink: Math.random() < .55 };
+    const p = { x: bx, y: by, vx: Math.cos(a) * sp - f.dir * 1.2, vy: Math.sin(a) * sp - .4, t: 0, pink: Math.random() < .55, alt: isAltV(f) };
     if (inward) { p.x = bx - p.vx * 12; p.y = by - p.vy * 12; }   // convergent vers le corps
     G.vdust.push(p);
   }
@@ -3986,7 +3990,7 @@ function updVane() {
         for (const s2 of G.snakes || []) if (!s2.dead && s2.owner !== w && Math.abs(s2.x - q.x) < q.r + 10 && Math.abs(s2.y - q.y) < q.r + 10) { s2.dead = true; n++; (G.clashFx = G.clashFx || []).push({ x: s2.x, y: s2.y, t: 0 }); }
         if (n) { G.flashT = Math.max(G.flashT, 3); G.shake = Math.max(G.shake, 4); sfx('parry'); sfx('heavy'); }
       }
-      if (q.t % 2 === 0) for (let k = 0; k < 2; k++) { const a = Math.random() * 6.28, d = q.r * 2.4; G.vdust.push({ x: q.x + Math.cos(a) * d, y: q.y + Math.sin(a) * d, vx: -Math.cos(a) * d / 11, vy: -Math.sin(a) * d / 11, t: 0, pink: Math.random() < .7 }); }
+      if (q.t % 2 === 0) for (let k = 0; k < 2; k++) { const a = Math.random() * 6.28, d = q.r * 2.4; G.vdust.push({ x: q.x + Math.cos(a) * d, y: q.y + Math.sin(a) * d, vx: -Math.cos(a) * d / 11, vy: -Math.sin(a) * d / 11, t: 0, pink: Math.random() < .7, alt: isAltV(q.owner) }); }
       continue;
     }
     if (q.t % 2 === 0) { (q.trail = q.trail || []).push([q.x, q.y]); if (q.trail.length > 7) q.trail.shift(); }   // échos roses derrière la sphère
@@ -4079,26 +4083,43 @@ function glowText(str, x, y, col, align) {   // texte pixel qui brille
 function drawVaneBehind() {   // échos derrière Vane
   for (const f of G.f) {
     if (!f.echo || !f.echo.length) continue;
+    VALT = isAltV(f);
     f.echo.forEach((e, i) => {
       const a = (i + 1) / (f.echo.length + 1);
       ctx.save(); ctx.globalAlpha = .55 * a; if (i % 2 === 0) ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, e, { flash: 0, tint: i % 2 ? 'rgba(10,0,20,.85)' : e.state === 'bflip' ? ((f.def.fb && f.def.fb[2]) || '#ffffff') : (f.def.kit === 'vesper' ? 'rgba(58,220,255,.85)' : (f.def.twinFb || f.def.kit === 'zephyr') ? 'rgba(60,140,255,.85)' : 'rgba(255,60,200,.85)') }), e.x, e.y); ctx.restore();
     });
   }
+  VALT = false;
 }
+
 let TINTC = null;
+// Vane joueur 2 (2e couleur) : tous ses effets mauves / roses deviennent orange
+let VALT = false;
+const isAltV = o => !!(o && o.def && o.def.float && o.def.alt);
+function orangeify(c) {
+  let r, g, b, a = null, m;
+  if ((m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i.exec(c))) { r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16); if (m[4]) a = m[4]; if (!(b > g + 20)) return c; const h = v => Math.round(v).toString(16).padStart(2, '0'); return '#' + h(Math.max(r, b)) + h(Math.max(g, b * .5)) + h(Math.min(g, b) * .3) + (a || ''); }
+  if ((m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(,\s*[\d.]+\s*)?\)$/i.exec(c))) { r = +m[1]; g = +m[2]; b = +m[3]; if (!(b > g + 20)) return c; return `rgba(${Math.round(Math.max(r, b))},${Math.round(Math.max(g, b * .5))},${Math.round(Math.min(g, b) * .3)}${m[4] || ',1'})`; }
+  return c;
+}
+for (const k of ['fillStyle', 'strokeStyle']) {
+  const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, k);
+  if (d && d.set) Object.defineProperty(CanvasRenderingContext2D.prototype, k, { get() { return d.get.call(this); }, set(v) { d.set.call(this, VALT && typeof v === 'string' ? orangeify(v) : v); }, configurable: true, enumerable: d.enumerable });
+}
+{ const acs = CanvasGradient.prototype.addColorStop; CanvasGradient.prototype.addColorStop = function (o, c) { return acs.call(this, o, VALT && typeof c === 'string' ? orangeify(c) : c); }; }
 function drawVaneGhost(f) {   // double rose électrique et noir qui frappe 20 cm devant Vane
   if (!f.def.float || !VANE_NORMALS.includes(f.state)) return;
-  const gx = f.x + f.dir * 26, gy = f.y - floatOff(f);
+  const gx = f.x + f.dir * 26, gy = f.y - floatOff(f); VALT = isAltV(f);
   ctx.save(); ctx.globalAlpha = .3; drawFighter(Object.assign({}, f, { ghostDraw: true, flash: 0, tint: 'rgba(8,0,16,.9)' }), gx - f.dir * 3, gy + 1); ctx.restore();   // ombre noire décalée
   ctx.save(); ctx.globalAlpha = .62; drawFighter(Object.assign({}, f, { ghostDraw: true, flash: 0, tintKeep: '#ff40c8' }), gx, gy); ctx.restore();   // copie détaillée teintée rose
   ctx.save(); ctx.globalAlpha = .18; ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, { ghostDraw: true, flash: 0, tint: 'rgba(255,60,210,1)' }), gx, gy); ctx.restore();   // glow
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let b = 0; b < 2; b++) { const L = []; for (let s2 = 0; s2 <= 5; s2++) L.push([gx + (Math.random() - .5) * 30, gy - 10 - s2 * 14]); elecArc(L, 'rgba(255,120,230,.8)', 1); }
-  ctx.restore();
+  ctx.restore(); VALT = false;
 }
 function drawVaneFx() {
-  for (const p of G.vdust || []) { const a = 1 - p.t / 12; ctx.fillStyle = p.pink ? `rgba(255,70,210,${a})` : `rgba(10,0,20,${a})`; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
-  for (const f of G.f) {
+  for (const p of G.vdust || []) { VALT = !!p.alt; const a = 1 - p.t / 12; ctx.fillStyle = p.pink ? `rgba(255,70,210,${a})` : `rgba(10,0,20,${a})`; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
+  for (const f of G.f) { VALT = isAltV(f);
     if (f.state === 'pteleport' && f.def.float) {   // glow rose autour de Vane pendant la désintégration / réintégration
       const k = f.t < 14 ? 1 - f.t / 18 : .4 + (f.t - 14) / 23, cx = f.x, cy = f.y - 46 - floatOff(f), g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 66);
       g.addColorStop(0, `rgba(255,100,230,${.9 * k})`); g.addColorStop(.5, `rgba(220,40,200,${.45 * k})`); g.addColorStop(1, 'rgba(40,0,40,0)');
@@ -4118,7 +4139,7 @@ function drawVaneFx() {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y - 40, 46, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
   }
-  for (const q of G.voids || []) (q.trail || []).forEach(([tx, ty], i, A) => {   // échos rose et noir derrière la sphère
+  for (const q of G.voids || []) (q.trail || []).forEach(([tx, ty], i, A) => { VALT = isAltV(q.owner);   // échos rose et noir derrière la sphère
     const a = (i + 1) / (A.length + 1); let R = q.r * (.55 + .45 * a);
     ctx.save();
     if (i % 2) { ctx.globalAlpha = .4 * a; ctx.fillStyle = '#0a0014'; }
@@ -4126,7 +4147,7 @@ function drawVaneFx() {
     ctx.beginPath(); ctx.arc(tx, ty, i % 2 ? R * .8 : R, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   });
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const q of G.voids || []) {   // sphère d'énergie noire crépitante
+  for (const q of G.voids || []) { VALT = isAltV(q.owner);   // sphère d'énergie noire crépitante
     const R = q.r, x = q.x, y = q.y, pc = q.charging ? Math.min(1, q.ch / 90) : (q.c || 0);
     if (pc > 0) { const gp = ctx.createRadialGradient(x, y, R * .4, x, y, R * (2.6 + pc)); gp.addColorStop(0, `rgba(255,80,220,${.25 + .25 * pc})`); gp.addColorStop(.5, `rgba(220,40,200,${.12 + .15 * pc})`); gp.addColorStop(1, 'rgba(60,0,60,0)'); ctx.fillStyle = gp; ctx.beginPath(); ctx.arc(x, y, R * (2.6 + pc), 0, Math.PI * 2); ctx.fill(); }   // glow rose qui grandit avec la charge
     const g = ctx.createRadialGradient(x, y, 1, x, y, R * 2.4); g.addColorStop(0, 'rgba(200,120,255,.7)'); g.addColorStop(.4, 'rgba(138,42,208,.5)'); g.addColorStop(1, 'rgba(40,10,74,0)');
@@ -4136,7 +4157,7 @@ function drawVaneFx() {
     for (let k = 0; k < 3; k++) { ctx.strokeStyle = `rgba(200,140,255,${.8 - k * .2})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, R * (.5 + k * .25), q.t * .3 + k * 2, q.t * .3 + k * 2 + 3.6); ctx.stroke(); }
   }
   ctx.restore();
-  for (const q of G.voids || []) {   // cœur noir et éclairs noirs
+  for (const q of G.voids || []) { VALT = isAltV(q.owner);   // cœur noir et éclairs noirs
     ctx.fillStyle = '#0a0412'; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * .62, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#6a2ab0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q.x, q.y, q.r * .62, 0, Math.PI * 2); ctx.stroke();
     if (q.slow) for (let b = 0; b < 4; b++) {   // éclairs noirs qui jaillissent du cœur
@@ -4152,7 +4173,7 @@ function drawVaneFx() {
       ctx.fillStyle = k % 2 ? `rgba(10,4,18,${.8 * a})` : `rgba(90,30,140,${.6 * a})`; ctx.beginPath(); ctx.arc(x, y, Math.max(1, 5 - s2.t * .15), 0, Math.PI * 2); ctx.fill();
     }
   }
-  for (const f of G.f) {
+  for (const f of G.f) { VALT = isAltV(f);
     if (f.state === 'meteor' || f.state === 'meteorD') {   // flammes noires et violettes autour du corps
       const fy = f.y - 40;
       for (let k = 0; k < 18; k++) {
@@ -4184,7 +4205,9 @@ function drawVaneFx() {
       ctx.restore();
     }
   }
+  VALT = false;
 }
+
 /* ---------- Kael : onde sonique, gants chargés, aura plasma ---------- */
 const SONIC_HIT = { dmg: 8, stun: 18, bstun: 12, push: 6.5, chip: 1, sfx: 'heavy' };
 const PWALL_HIT = { dmg: 14, knock: true, lift: 5, stun: 22, bstun: 16, push: 3, chip: 3, sfx: 'heavy', unblock: true };   // électrifié, tombe en arrière
