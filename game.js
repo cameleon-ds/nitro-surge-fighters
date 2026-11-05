@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v292';
+const VERSION = 'v293';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6634,7 +6634,7 @@ let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
 let infightCls = null;
 function loop(now) {
-  { const f = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) && !G.demo && !G.boot; if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); } }   // bouton START de la manette : seulement en combat
+  { const f = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) && !G.demo && !G.boot; if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
   while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }
