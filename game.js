@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v325';
+const VERSION = 'v326';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2114,7 +2114,7 @@ function poseOf(f) {
     case 'airfb': return f.t < 8 ? 'special1' : 'jump';
     case 'nrush': return f.rushN >= 10 && f.t > 63 ? 'punch0' : (f.t - 3) % 5 < 4 ? (f.rushPose || 'punch1') : 'punch0';
     case 'nitroUp': return 'win';
-    case 'vsuper': return 'special0';
+    case 'vsuper': case 'vxcharge': return 'special0';
     case 'vsrel': return f.t < 10 ? 'special1' : 'vidle';
     case 'vgrabC': return 'punch1';
     case 'nsuper': if (superKit(f) === 'axel') return f.t < 12 ? 'crouch' : f.t < 60 ? 'gp0' : f.t < 63 ? 'gpI' + (f.t - 59) : 'gp1'; return f.t < 12 ? 'crouch' : f.t < 58 ? 'special0' : 'special1';
@@ -2331,7 +2331,7 @@ function updRush(f, o) {
   if (f.t >= 3 && (f.t - 3) % 5 === 0 && f.rushN < RUSH_N) {
     f.rushN++; f.rushPose = RUSH_POSE[(f.rushN - 1) % 4];
     const sx = f.x + f.dir * 28, sy = f.y + RUSH_Y[(f.rushN - 1) % 4], dmg = dmgK(4), last = f.rushN >= RUSH_N;
-    const vfin = last && f.def.kit === 'vane' && f.surgeT > 0 && (f.rushSuper || f.ctl.held.x);   // Vane : X maintenu (ou Y Y B A) à la fin du Surge → clone qui attrape
+    const vfin = last && f.vaneFin && !f.rushSuper;   // Vane : Surge + Y Y B B / B B Y Y → le dernier coup est le clone mauve qui attrape
     const before = o.hp, keep = !last || f.rushSuper || vfin;   // l'adversaire reste à 1 tant que l'enchaînement n'est pas fini
     if (keep) { const nh = o.hp - dmg; f.rushDebt = (f.rushDebt || 0) + Math.max(0, 1 - nh); o.hp = Math.max(1, nh); }
     else { o.hp = Math.max(0, o.hp - dmg - (f.rushDebt || 0)); f.rushDebt = 0; }
@@ -2341,7 +2341,7 @@ function updRush(f, o) {
     if (vfin) {   // Lord Vane : l'adversaire est paralysé, Vane charge un clone mauve (X maintenu 1 s, puis A)
       o.paraT = 240; o.stun = 240; G.darkT = Math.max(G.darkT, 30); G.flashT = 10; G.boltX = sx; G.boltY = sy; G.freeze = 10; G.shake = 6;
       addPopup(o.x, o.y - 104, 'PARALYZED!', '#c88aff'); sfx('parry');
-      const auto = !!f.rushSuper && !f.ctl.held.x; o.x = f.x + f.dir * 96; setState(f, 'vsuper');   // l'adversaire est repoussé : le clone aura de la place pour foncer
+      o.x = f.x + f.dir * 96; f.vaneFin = false; const auto = true; setState(f, 'vsuper');   // l'adversaire est repoussé : le clone aura de la place pour foncer
       f.vx = 0; f.chargeT = 0; f.vsAuto = auto; return;
     }
     if (last && f.rushSuper) {   // SURGE + Y Y B A : l'adversaire est paralysé, écran noir, coup spécial chargé
@@ -2545,6 +2545,7 @@ function drawHats() {
     }   // électricité : arrêt en l'air (invincible) et tornade
   }
 }
+const VCLONE_BLOCK = { dmg: 5, stun: 14, bstun: 14, push: 3, chip: 2, sfx: 'hit' };
 function vaneFinish(f, o, k) {   // fin du Surge de Vane : l'adversaire prend les dégâts restants et tombe
   const debt = f.rushDebt || 0; f.rushDebt = 0; const before = o.hp; o.hp = Math.max(0, o.hp - dmgK(k) - debt); nitroGain(f, o, before - o.hp); comboHit(f);
   o.paraT = 0; setState(o, 'fall'); o.air = true; o.vy = -2; o.vx = f.dir * 2.5; o.flash = 4;
@@ -2564,7 +2565,7 @@ function updVaneSuper(f, o) {   // X maintenu : énergie mauve dans les mains ; 
     return;
   }
   if (take(c, 's') || (f.vsAuto && f.t - f.chgT > 20) || f.t - f.chgT > 150) {   // A : le clone mauve part
-    f.chg = null; (G.vclones = G.vclones || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y, dir: f.dir, t: 0, ph: 'fly', lift: 0, trail: [] });
+    f.chg = null; (G.vclones = G.vclones || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y, dir: f.dir, t: 0, ph: 'fly', lift: 0, trail: [], fin: true });
     G.flashT = Math.max(G.flashT, 8); G.shake = Math.max(G.shake, 5); sfx('fb'); sfx('tele'); setState(f, 'vsrel');
   }
 }
@@ -2574,6 +2575,8 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
     q.trail.unshift([q.x, q.y, o.x, o.y]); if (q.trail.length > 7) q.trail.pop();
     if (q.ph === 'fly') {
       q.x += q.dir * 7;
+      if (!q.fin && Math.abs(o.x - q.x) < 34 && (o.air || o.ko || !hurtbox(o))) { if (q.t > 120) q.dead = true; continue; }   // saute par-dessus : le clone passe
+      if (!q.fin && Math.abs(o.x - q.x) < 34 && ['block', 'cblock'].includes(o.state)) { q.dead = true; applyHit(f, o, VCLONE_BLOCK, o.x - q.dir * 10, o.y - 60, q.x, true); addSpark(o.x - q.dir * 12, o.y - 60, 'parry'); continue; }   // paré : le clone se dissipe
       if (Math.abs(o.x - q.x) < 34) { q.ph = 'grab'; q.gt = 0; sfx('heavy'); sfx('parry'); G.shake = Math.max(G.shake, 5); addSpark(o.x - q.dir * 8, o.y - 66, 'parry'); }
       if (q.t > 120) q.dead = true;
       continue;
@@ -2585,7 +2588,8 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
     if (q.gt >= 84) {   // explosion mauve et noire, l'adversaire retombe
       q.dead = true; (G.vblasts = G.vblasts || []).push({ x: (q.x + o.x) / 2, y: q.y - 50, t: 0 });
       G.darkT = Math.max(G.darkT, 40); G.flashT = 14; G.boltX = o.x; G.boltY = o.y - 50; G.freeze = 16; G.shake = 14; sfx('fb'); sfx('heavy'); sfx('thud');
-      vaneFinish(f, o, 22);
+      if (q.fin) vaneFinish(f, o, 22);
+      else { const before = o.hp; o.hp = Math.max(0, o.hp - dmgK(16)); nitroGain(f, o, before - o.hp); comboHit(f); o.paraT = 0; setState(o, 'fall'); o.air = true; o.vy = -2; o.vx = q.dir * 2.5; o.flash = 4; }
     }
   }
   if (G.vclones) G.vclones = G.vclones.filter(q => !q.dead);
@@ -2593,7 +2597,7 @@ function updVClones() {   // clone mauve de Vane : fonce, attrape l'adversaire a
   if (G.vblasts) G.vblasts = G.vblasts.filter(b => b.t < 36);
 }
 function drawVClones() {
-  for (const f of G.f) if (f.state === 'vsuper') { const k = Math.min(1, f.chargeT / 60); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
+  for (const f of G.f) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / 60); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
   for (const q of G.vclones || []) {
     const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
     q.trail.forEach(([tx, ty, ox, oy], i) => {   // échos mauves (clone et adversaire qui monte)
@@ -2975,9 +2979,24 @@ function updFighter(f, o) {
     case 'nrush': updRush(f, o); break;
     case 'nsuper': updSuper(f, o); break;
     case 'vsuper': updVaneSuper(f, o); break;
+    case 'vxcharge': {   // X maintenu 1 s : écran foncé ; puis A = clone mauve qui attrape l'adversaire par le cou
+      f.vx = 0; face(f, o); const hx = f.x + f.dir * 22, hy = f.y - 56;
+      if (f.chargeT < 60) {
+        if (!h.x) { vaneChargeStop(f); setState(f, 'idle'); break; }
+        f.chargeT++; if (f.chargeT === 16) vaneChargeStart(f);
+        if (f.t % 3 === 0) { const a = Math.random() * 6.28, d = 30 + Math.random() * 20; (f.chg = f.chg || []).push({ x: hx + Math.cos(a) * d, y: hy + Math.sin(a) * d, tx: hx, ty: hy, t: 0 }); }
+        if (f.chargeT === 60) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); f.chgT = f.t; }
+        break;
+      }
+      if (take(c, 's')) { f.chg = null; (G.vclones = G.vclones || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y, dir: f.dir, t: 0, ph: 'fly', lift: 0, trail: [] }); G.flashT = Math.max(G.flashT, 6); sfx('fb'); sfx('tele'); setState(f, 'vsrel'); break; }
+      if (f.t - f.chgT > 150) { f.chg = null; setState(f, 'idle'); }   // pas de A : la charge se perd
+      break;
+    }
     case 'vsrel': f.vx = 0; if (f.t >= 24) setState(f, 'idle'); break;
     case 'nitroUp': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
-    case 'parry': f.vx = 0; if (f.t <= 14 && take(c, 's')) { startBflip(f); break; } if (f.t >= 22) setState(f, 'idle'); break;   // X puis A : petit saut + coup de pied tournoyant vers l'arrière
+    case 'parry': f.vx = 0; if (f.t <= 14 && take(c, 's')) { startBflip(f); break; }
+      if (f.def.kit === 'vane' && h.x && f.t >= 12 && live) { setState(f, 'vxcharge'); f.chargeT = 12; break; }   /* Vane : X maintenu = charge du clone mauve */
+      if (f.t >= 22) setState(f, 'idle'); break;   // X puis A : petit saut + coup de pied tournoyant vers l'arrière
     case 'stunned':
       f.vx *= .8;
       if (f.dizzy) {
@@ -4989,7 +5008,7 @@ function applyHit(att, def, data, sx, sy, fromX, projectile) {
     G.darkT = 60; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 10; G.shake = 7;
     addPopup(def.x, def.y - 100, rushGo ? 'NITRO RUSH!' : 'COMBO FINISH!', rushGo ? '#5aff8a' : '#ffd23a');
     sfx('fb');
-    if (rushGo) { def.slowT = 0; def.burn = 0; G.darkT = 20; setState(att, 'nrush'); att.rushN = 0; att.rushDebt = 0; att.fireDash = 0; att.vx = 0; att.rushSuper = att.surgeT > 0 && att.finSeq === 'ppks'; }
+    if (rushGo) { def.slowT = 0; def.burn = 0; G.darkT = 20; setState(att, 'nrush'); att.rushN = 0; att.rushDebt = 0; att.fireDash = 0; att.vx = 0; att.rushSuper = att.surgeT > 0 && att.finSeq === 'ppks'; att.vaneFin = att.surgeT > 0 && att.def.kit === 'vane' && (att.finSeq === 'ppkk' || att.finSeq === 'kkpp'); }   // Vane : Surge + Y Y B B / B B Y Y = clone qui attrape
   }
 }
 
@@ -5211,7 +5230,7 @@ const TUT_SP = {
   hiro: [['A', 'FIREBALL', f => f.state === 'special' && f.fired], ['HOLD A', 'MAX FIREBALL', f => f.charged], ['UP + A', 'LOW SLIDE + MINI UPPER', st_('hslide')], ['UP + A, THEN UP + A', 'SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A (x2)', 'AIR FIREBALL', st_('airfb')]],
   axel: [['A', 'GROUND FIREBALL', f => f.state === 'axgp' && f.fired], ['HOLD A', 'MAX GROUND FIREBALL', f => f.charged], ['UP + A', 'FIRE LEAP', st_('fjump')], ['UP + A, THEN UP + A', 'FIRE SHORYUKEN', st_('uppercut')], ['BACK + A', 'FLIP KICK', st_('flipk')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'AIR FLIP KICKS', st_('aflip')]],
   vesper: [['A', 'HOLO FLASH', st_('holo')], ['HOLD A 1 SEC, RELEASE', 'VOLT CLONE', f => f.state === 'holo' && G.holos.some(q => q.owner === f && q.big)], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
-  vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  vane: [['A', 'VOID FLARE', st_('voidcast')], ['HOLD X 1 SEC, THEN A', 'PHANTOM GRASP', st_('vsrel')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   nyx: [['A', 'MAGMA FLASK', st_('flask')], ['HOLD A, RELEASE', 'VOLT SERPENT', st_('nyxsnake')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
   zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY DASH', st_('zdash')], ['JUMP, THEN DOWN + A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['HOLD A 1 SEC, RELEASE', 'STORM HAT', st_('hatthrow')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
