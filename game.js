@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v349';
+const VERSION = 'v350';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -3963,7 +3963,7 @@ function floatOff(f) {   // Vane flotte à ~20 cm du sol quand il est debout
   return 9 + Math.round(Math.sin(G.frame * .07 + f.id) * 1.5);
 }
 const VOID_HIT = { dmg: 8, stun: 18, bstun: 12, push: .6, chip: 1, sfx: 'heavy' };   // paralyse une fraction de seconde
-const VOID_BIG = { dmg: 12, stun: 54, bstun: 14, push: 1, chip: 2, sfx: 'heavy' };
+const VOID_BIG = { dmg: 12, stun: 20, bstun: 14, push: 1, chip: 2, sfx: 'heavy' };
 function vaneDust(f, inward) {   // particules rose électrique et noires (désintégration / réintégration)
   for (let k = 0; k < 6; k++) {
     const bx = f.x + (Math.random() - .5) * 26, by = f.y - 8 - Math.random() * 80, a = Math.random() * 6.28, sp = 1 + Math.random() * 2.2;
