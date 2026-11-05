@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v348';
+const VERSION = 'v349';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6450,7 +6450,7 @@ function drawFight() {
   const [a, b] = G.f;
   // Caméra : zoom de 100 % (distance de départ) à 120 % quand les combattants se rapprochent
   const dist = Math.abs(a.x - b.x), D0 = 160, D1 = 50;
-  const zt = OPT.zoom ? 1 + .2 * Math.max(0, Math.min(1, (D0 - dist) / (D0 - D1))) : 1;
+  const zt = OPT.zoom ? 1 + .2 * Math.max(0, Math.min(1, (D0 - dist) / (D0 - D1))) - .1 * Math.max(0, Math.min(1, (dist - 290) / 54)) : 1;   // presque aux deux bouts de l'écran : léger dézoom
   G.zoom = (G.zoom || 1) + (zt - (G.zoom || 1)) * .16;
   let lift = 0;
   if (G.scene === 'intro' && G.preT > 0) {   // ouverture : décor entier vu de haut, puis la caméra descend et zoome sur les combattants
