@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v295';
+const VERSION = 'v296';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1531,11 +1531,11 @@ for (let i = 0; i < WALK_N; i++) {
 }
 
 // Touches du clavier (personnalisables dans OPTIONS > KEYBOARD) et boutons de manette (OPTIONS > GAMEPAD)
-const KEY_DEF = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', p: 'KeyJ', k: 'KeyK', s: 'KeyL', x: 'Space', start: 'Enter', back: 'Escape' };
+const KEY_DEF = { l: 'ArrowLeft', r: 'ArrowRight', u: 'ArrowUp', d: 'ArrowDown', p: 'KeyJ', k: 'KeyK', s: 'KeyL', x: 'KeyI', start: 'Enter', back: 'Escape' };   // J = Y, K = B, L = A, I = X
 const PAD_DEF = { p: 3, k: 1, s: 0, x: 2, start: 9, back: 8 };   // manette Xbox : Y = coup de poing, B = pied, A = spécial, X = contre
 let KEYS = Object.assign({}, KEY_DEF), PADB = Object.assign({}, PAD_DEF);
 let padCustom = false;   // boutons de manette modifiés à la main
-try { const sv = JSON.parse(localStorage.getItem('sf2keys') || 'null'); if (sv) { Object.assign(KEYS, sv.k || {}); if (sv.p) { Object.assign(PADB, sv.p); padCustom = !!sv.pc; } } } catch (e) {}
+try { const sv = JSON.parse(localStorage.getItem('sf2keys') || 'null'); if (sv) { Object.assign(KEYS, sv.k || {}); if (KEYS.x === 'Space') KEYS.x = 'KeyI';   /* ancien réglage : X passe sur I (Espace reste actif) */ if (sv.p) { Object.assign(PADB, sv.p); padCustom = !!sv.pc; } } } catch (e) {}
 const saveKeys = () => { try { localStorage.setItem('sf2keys', JSON.stringify({ k: KEYS, p: PADB, pc: padCustom })); } catch (e) {} };
 // Type de manette : AUTO (détecté), XBOX, PLAYSTATION, SWITCH PRO, JOY-CON -> noms des boutons et boutons par défaut adaptés
 const PAD_TYPES = ['AUTO', 'XBOX', 'PLAYSTATION', 'SWITCH PRO', 'JOY-CON'];
@@ -1553,6 +1553,8 @@ const padDefault = () => (padKind() === 'switch' || padKind() === 'joycon') ? { 
 function padApplyDefault() { PADB = padDefault(); padCustom = false; saveKeys(); }
 function keyAction(code) {
   for (const a in KEYS) if (KEYS[a] === code) return a;
+  const ALT = { KeyW: 'u', KeyA: 'l', KeyS: 'd', KeyD: 'r', Space: 'x' };   // ZQSD (AZERTY) / WASD (QWERTY) : mêmes touches physiques ; flèches toujours actives
+  if (ALT[code]) return ALT[code];
   if (code === 'Enter') return 'start'; if (code === 'Escape' || code === 'Backspace') return 'back';   // toujours utilisables dans les menus
   return null;
 }
