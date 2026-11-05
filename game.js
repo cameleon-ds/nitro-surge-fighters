@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v339';
+const VERSION = 'v340';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6235,7 +6235,19 @@ function makePortrait(i, hurt) {
   }
   return c;
 }
-function portraitOf(i, hurt) {
+const FACE_HURT = [];
+function portraitOf(i, hurt) {   // mêmes visages que l'écran de sélection des personnages
+  const fc = typeof SEL_FACE !== 'undefined' ? SEL_FACE[i] : null;
+  if (fc && fc.complete && fc.naturalWidth) {
+    if (!hurt) return fc;
+    if (!FACE_HURT[i]) {   // version blessée : voile rouge et traces de sang
+      const c = document.createElement('canvas'); c.width = c.height = 160; const g = c.getContext('2d');
+      g.drawImage(fc, 0, 0, 160, 160); g.fillStyle = 'rgba(120,0,0,.28)'; g.fillRect(0, 0, 160, 160);
+      g.fillStyle = '#b01010'; for (const [x, y, h] of [[85, 35, 15], [100, 50, 10], [65, 75, 12], [110, 85, 17]]) g.fillRect(x, y, 3, h);
+      FACE_HURT[i] = c;
+    }
+    return FACE_HURT[i];
+  }
   const arr = hurt ? PORTRAITS_HURT : PORTRAITS;
   if (!arr[i]) { try { arr[i] = makePortrait(i, hurt); } catch (e) { return null; } }
   return arr[i];
