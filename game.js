@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v297';
+const VERSION = 'v298';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5329,12 +5329,12 @@ function step() {
         let sl = G.sel || 0;
         if (sl === 8) { if (edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; else if (edge(sc, 'd') && !NET.guest) sl = 9; }   // ADD CONTROLLERS (sous la grille) ; PC : INVITE A PLAYER juste en dessous
         else if (sl === 9 && btnOn) { if (NET.guest || edge(sc, 'u')) sl = 8; }   // PC : INVITE A PLAYER sous ADD CONTROLLERS
-        else if (sl === 9) { if (NET.guest || edge(sc, 'd')) sl = G.selBack != null && G.selBack < 4 ? G.selBack : 0; }   // INVITE A PLAYER (en haut)
+        else if (sl === 9) { if (NET.guest || edge(sc, 'u')) sl = G.selBack != null && G.selBack > 3 ? G.selBack : 4; }   // mobile : INVITE A PLAYER (sous la grille)
         else {
           if (edge(sc, 'l') && sl % 4 > 0) sl--;
           if (edge(sc, 'r') && sl % 4 < 3) sl++;
-          if (edge(sc, 'u')) { if (sl > 3) sl -= 4; else if (!NET.guest && !btnOn) { G.selBack = sl; sl = 9; } }
-          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } }
+          if (edge(sc, 'u')) { if (sl > 3) sl -= 4; }
+          if (edge(sc, 'd')) { if (sl < 4) sl += 4; else if (btnOn) { G.selBack = sl; sl = 8; } else if (!NET.guest) { G.selBack = sl; sl = 9; } }   // mobile : INVITE A PLAYER sous la grille
         }
         if (sl !== (G.sel || 0)) { G.sel = sl; if (sl < 8) G.selAnimF = G.frame; sfx('beep'); }
       }
@@ -6362,10 +6362,10 @@ function drawSelect() {
   if (G.mode !== 'tutorial') {
     artText(L2, W - 8, 22, 9, '#ff3ae8', 'right');
     artText(p2 == null ? '???' : DEFS[p2].name + (p2 === G.p1 ? ' 2P' : ''), W - 8, 34, 15, '#ffffff', 'right');
-    if (ev > 0) artText('VS', CX, 52, 38, '#ff9a1a', 'center', ['#ffd23a', '#ff5a0a']);
+    if (ev > 0) artText('VS', CX, isTouch ? 36 : 52, 38, '#ff9a1a', 'center', ['#ffd23a', '#ff5a0a']);
   }
   // grille 4 x 2 : nouveaux visages
-  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = isTouch ? 100 : 93;   // PC : grille un peu plus haute, espace avant les boutons
+  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = isTouch ? 80 : 93;   // mobile : VS et grille remontés, INVITE A PLAYER juste dessous   // PC : grille un peu plus haute, espace avant les boutons
   artFill('rgba(0,0,0,.55)', gx - 3, gy - 3, 4 * S + 3 * gap + 6, 2 * S + gap + 6);
   for (let i = 0; i < 8; i++) {
     const x = gx + (i % 4) * (S + gap), y = gy + (i >> 2) * (S + gap), c = ROSTER[i];
@@ -6390,7 +6390,7 @@ function drawSelect() {
     }
   }
   {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
-    const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : 23, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
+    const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : gy + 2 * S + gap + 6, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
     if (NET.guest) {   // Player 2 connecté : plus de bouton, juste CONNECTED
       INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0;
       artCircle(CX - 30, by + bh / 2, 6.5, '#a83ae8'); artText('P2', CX - 30, by + bh / 2 - 2.6, 5, '#ffffff');
