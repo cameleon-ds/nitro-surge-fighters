@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v290';
+const VERSION = 'v291';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4938,7 +4938,7 @@ function stepMoves() {
 }
 const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
+const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 0, 3, 10, 4, 5] : [6, 2, 1, 0, 3, 10, 4, 5, 7, 8];   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -6632,7 +6632,9 @@ if (!BG) { for (const k in STAGE_IMG) BGS[k] = buildStageBG(k); BG = BGS.dojo; }
 
 let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
+let infightCls = null;
 function loop(now) {
+  { const f = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) && !G.demo && !G.boot; if (f !== infightCls) { infightCls = f; document.body.classList.toggle('infight', f); } }   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
   while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }

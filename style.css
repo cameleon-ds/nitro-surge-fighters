@@ -66,7 +66,7 @@ body.touch #touch{display:block}
   body.touch:not(.rotok) #rotate{display:flex}
 }
 body.touch.needrot:not(.rotok) #rotate{display:flex}   /* démarré en portrait : reste affiché jusqu'au bouton CONTINUE */
-body.booting #startBtn{display:none}   /* premier écran : pas de bouton START */
+body:not(.infight) #startBtn{display:none}   /* bouton START : uniquement pendant les combats */
 
 /* ---------- Bouton START (pause) ---------- */
 #startBtn{
