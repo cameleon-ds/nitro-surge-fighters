@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v284';
+const VERSION = 'v285';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5183,7 +5183,7 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
     text('   (SAFARI: FILE > ADD TO DOCK)', x0, 106, 8, DIM, 'left');
     text('WORKS WITH CHROME, EDGE', CX, 126, 8, DIM, 'center'); text('AND SAFARI', CX, 138, 8, DIM, 'center');
   }
-  text(isTouch ? 'TAP TO CLOSE' : 'ENTER / ESC: CLOSE', CX, 162, 8, 'rgba(255,255,255,.35)', 'center');
+  text('PRESS ' + bootKeys()[1] + ' TO CLOSE', CX, 162, 8, '#ffffff', 'center');   // B (mobile) / K (PC) pour fermer
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
 const bootStep = () => fsAvail() ? (G.bootStep || 0) : 1;
