@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v302';
+const VERSION = 'v303';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4919,6 +4919,7 @@ function moveDisp() {
   const wrap = (t, n) => { if (!t) return ['']; const out = []; let cur = ''; for (const w of t.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } out.push(cur); return out; };
   for (const [k, v] of rows) {
     if (k === '#' || (!k && !v)) { MD.push([k, v]); continue; }
+    if (k === '*') { for (const l of wrap(v, Math.max(8, Math.floor((W - px - 14 - x0) / cw)))) MD.push(['*', l]); continue; }   // phrase sur les deux colonnes
     const kl = wrap(k ? lab(k) : '', MV_COL() / 8 - 1), vl = wrap(v, vc), n = Math.max(kl.length, vl.length);
     for (let i = 0; i < n; i++) MD.push([kl[i] || '', vl[i] || '', true]);
   }
@@ -5988,7 +5989,7 @@ const MOVES = [
     ['A', 'VOID FLARE'], ['', 'HUGE SLOW SPHERE, 3RD HIT PARALYZES'], ['BACK + A', 'PHANTOM TELEPORT'], ['', 'APPEARS BEHIND, GUARD BREAK'],
     ['UP + A', 'METEOR IMPACT'], ['', 'FLAMING FLIP, DIAGONAL DIVE'], ['AIR + A', 'VOID BOMB'], ['', 'BIG SPHERE, DIAGONAL DOWN'], ['AIR + DOWN + A', 'DIVE KICK, BREAKS SMALL SHOTS'], ['HOLD Y, RELEASE', '5 FAST PUNCHES, 5TH KNOCKS DOWN'], ['HOLD B, RELEASE', '5 FAST KICKS, 5TH KNOCKS DOWN'] ] },
   { title: 'COMBOS', lines: [
-    ['', 'CHAIN HITS WHILE THE FOE IS STUNNED.'], ['', 'THE 4TH HIT SETS HIM ON FIRE!'], ['', ''],
+    ['*', 'CHAIN HITS WHILE THE FOE IS STUNNED. THE 4TH HIT SETS HIM ON FIRE!'],   // * : texte sur toute la largeur ['', ''],
     ['Y Y B B', 'FIRE FINISH'], ['B B Y Y', 'FIRE FINISH'], ['Y Y B A', 'FLAME STRIKE FINISH'], ['B B Y A', 'FLAME STRIKE FINISH'] ] },
 ];
 function drawMoves() {   // mosaïque de cases carrées qui glissent ; A ouvre la liste dans une popup
@@ -6030,6 +6031,7 @@ function drawMoves() {   // mosaïque de cases carrées qui glissent ; A ouvre l
   rows.forEach(([k, v], i) => {
     const y = top + 4 + i * 14 - sc, fa = Math.max(0, Math.min(1, (y - top + 2) / 8, (bot - 8 - y) / 8)); if (fa <= 0) return;
     ctx.globalAlpha = fa;
+    if (k === '*') { text(v, x0, y, 8, '#ffffff', 'left'); return; }
     if (k) text(k, x0, y, 8, '#7af0ff', 'left');
     if (v) text(v, x0 + MV_COL(), y, 8, '#ffffff', 'left');
   });
