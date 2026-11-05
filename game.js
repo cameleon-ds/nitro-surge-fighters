@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v301';
+const VERSION = 'v302';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4910,9 +4910,10 @@ const mlTwo = () => G.paused && G.f && G.f[1] && !G.f[1].cpu;   // deux joueurs 
 let MD_KEY = null, MD = [];
 const MV_COL = () => isTouch && !padOn() ? 144 : 112;   // colonne des descriptions (mobile : plus large pour « STICK LEFT (BACK) »)
 function moveDisp() {
-  const rows = moveRows(), x0 = Math.max(16, CX - 168), vc = Math.max(10, Math.floor((W - 14 - (x0 + MV_COL())) / 8));
+  ctx.font = '8px "Press Start 2P", monospace'; const cw = Math.max(6, ctx.measureText('MMMMMMMMMM').width / 10);   // largeur réelle d'un caractère
+  const rows = moveRows(), x0 = Math.max(16, CX - 168), px = Math.max(8, CX - 184), vc = Math.max(8, Math.floor((W - px - 14 - (x0 + MV_COL())) / cw));   // la description passe à la ligne avant le bord droit de la popup
   const lab = k => (isTouch && !padOn() ? k : k.replace('STICK ', '')).replace(/\b([YBAX])\b/g, (m0, b) => btnLabel(b));
-  const key = MR_KEY + '|' + vc + '|' + MV_COL() + '|' + lab('Y B A X STICK');
+  const key = MR_KEY + '|' + vc + '|' + W + '|' + MV_COL() + '|' + lab('Y B A X STICK');
   if (key === MD_KEY) return MD;
   MD_KEY = key; MD = [];
   const wrap = (t, n) => { if (!t) return ['']; const out = []; let cur = ''; for (const w of t.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } out.push(cur); return out; };
