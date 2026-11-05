@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v309';
+const VERSION = 'v310';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1818,6 +1818,20 @@ const ICE = { iceServers: [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ] };
+function netRetry() {   // le réseau revient (Wi-Fi / 4G activé pendant le jeu) : on recharge PeerJS si besoin et on relance la connexion, sans redémarrer
+  if (G.guest || !navigator.onLine || (NET.peer && NET.id && !NET.peer.disconnected && !NET.peer.destroyed)) return;
+  if (typeof Peer === 'undefined') {
+    if (netRetry.loading) return; netRetry.loading = true;
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js';
+    sc.onload = () => { netRetry.loading = false; netStart(); }; sc.onerror = () => { netRetry.loading = false; sc.remove(); };
+    document.head.appendChild(sc); return;
+  }
+  if (NET.peer && NET.id && NET.peer.disconnected && !NET.peer.destroyed) { try { NET.peer.reconnect(); } catch (e) {} return; }
+  if (NET.peer && !NET.id) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+  if (loadDone()) netStart();
+}
+window.addEventListener('online', () => setTimeout(netRetry, 500));
+setInterval(netRetry, 6000);   // filet de sécurité si l'événement « online » n'arrive pas
 function netStart() {
   if (G.guest || NET.peer || typeof Peer === 'undefined') return;
   // identifiant gardé d'une session à l'autre : les téléphones déjà connectés se reconnectent seuls si la page est rechargée
@@ -2370,7 +2384,7 @@ function updHats() {   // chapeau de Zephyr : part très vite, téléguidé vers
     q.x += q.vx; q.y += q.vy;
     if (!q.hit && !q.big && o && !o.ko) {
       const hb = hurtbox(o);
-      if (hb && overlap([q.x - 24, q.y - 24, q.x + 24, q.y + 24], hb)) { q.hit = true; applyHit(f, o, HAT_HIT, q.x, q.y, q.x - Math.sign(q.vx || 1) * 10, true); hatReturn(q); }
+      if (hb && overlap([q.x - 20, q.y - 20, q.x + 20, q.y + 20], hb)) { q.hit = true; applyHit(f, o, HAT_HIT, q.x, q.y, q.x - Math.sign(q.vx || 1) * 10, true); hatReturn(q); }
     }
   }
   if (G.hats) G.hats = G.hats.filter(q => !q.dead);
@@ -2424,7 +2438,7 @@ function zapAround(x, y, rx, ry, n, al) {   // éclairs électriques autour d'un
 function glowAt(x, y, r, col, al) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al; const g = ctx.createRadialGradient(x, y, 1, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.29); ctx.fill(); ctx.restore(); }
 function drawHats() {
   for (const q of G.hats || []) {
-        const r = 30 * (q.big ? 1.3 : 1);
+        const r = 25 * (q.big ? 1.3 : 1);
     for (let i = q.trail.length - 1; i >= 1; i--) { const [tx, ty] = q.trail[i]; ctx.save(); ctx.globalAlpha = .5 * (1 - i / q.trail.length); hatDisc(tx, ty, r, 0, true); ctx.restore(); }   // échos bleus
     glowAt(q.x, q.y, r * 1.8, 'rgba(120,220,255,.9)', .5);
     hatDisc(q.x, q.y, r, q.rot);
@@ -5378,7 +5392,7 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
 const bootStep = () => isStandalone() ? 1 : fsAvail() ? (G.bootStep || 0) : 1;   // lancé depuis l'icône : START / DOWNLOAD OFFLINE MODE
-const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (isStandalone() && offAvail()) o.push(3); else if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
+const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (isStandalone() && offAvail() && G.offState !== 'ready') o.push(3); else if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
 const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
 function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
@@ -5390,7 +5404,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   const d = e.data || {}; if (d.type !== 'offline') return;
   if (d.error) { G.offState = 'err'; return; }
   G.offPct = d.total ? d.done / d.total : 0;
-  if (d.ready === true) { G.offState = 'ready'; sfx('select'); } else if (d.ready === false) G.offState = 'err';
+  if (d.ready === true) { G.offState = 'ready'; G.bcur = 1; sfx('select'); } else if (d.ready === false) G.offState = 'err';
 });
 function offlineDownload() {
   if (G.offState === 'dl' || G.offState === 'ready') { sfx('beep'); return; }
@@ -5399,7 +5413,7 @@ function offlineDownload() {
   extra.push(location.href.split('#')[0]);
   navigator.serviceWorker.ready.then(reg => { (reg.active || navigator.serviceWorker.controller).postMessage({ type: 'download', extra }); }).catch(() => { G.offState = 'err'; });
 }
-const offLbl = () => G.offState === 'ready' ? 'OFFLINE MODE READY' : G.offState === 'dl' ? 'DOWNLOADING ' + Math.round(G.offPct * 100) + '%' : G.offState === 'err' ? 'DOWNLOAD FAILED: RETRY' : 'DOWNLOAD OFFLINE MODE';
+const offLbl = () => G.offState === 'err' ? 'DOWNLOAD FAILED: RETRY' : 'DOWNLOAD OFFLINE MODE';
 function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 3) { offlineDownload(); return; } if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   document.body.classList.remove('booting');
@@ -6396,12 +6410,19 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   } else if (items.length > 1) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN ; app : START ou DOWNLOAD OFFLINE MODE (même taille), puis PRESS A TO CONFIRM
     slide(-80, () => text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // START arrive du haut
     { const sec = items[1], on2 = c === sec, lb = sec === 3 ? offLbl() : INSTALL_LBL(), sz = lb.length > 18 ? 8 : 12;
-      slide(130, () => text((on2 ? '> ' : '') + lb + (on2 ? ' <' : ''), CX, 88 + (12 - sz) / 2, sz, on2 ? '#ffd23a' : sec === 3 && G.offState === 'ready' ? '#5aff8a' : 'rgba(255,255,255,.6)', 'center')); }   // ADD TO HOME SCREEN arrive du bas
+      if (sec === 3 && G.offState === 'dl') {   // téléchargement : barre de chargement (comme au démarrage) + pourcentage en petit
+        const bw = 140, bx = CX - bw / 2, by = 88;
+        R(bx - 2, by - 2, bw + 4, 10, '#3a2e44'); R(bx, by, bw, 6, '#140a1e');
+        const g = ctx.createLinearGradient(bx, 0, bx + bw, 0); g.addColorStop(0, '#ff6a1a'); g.addColorStop(1, '#ffd23a');
+        ctx.fillStyle = g; ctx.fillRect(bx, by, Math.round(bw * G.offPct), 6);
+        text(Math.round(G.offPct * 100) + '%', CX, by + 12, 8, '#9a8aa0', 'center');
+      } else slide(130, () => text((on2 ? '> ' : '') + lb + (on2 ? ' <' : ''), CX, 88 + (12 - sz) / 2, sz, on2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center')); }   // ADD TO HOME SCREEN arrive du bas
     if (blink) iconLine(124, 'TO SELECT  PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
     if (blink && s1) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
+    if (isStandalone() && G.offState === 'ready') text('OFFLINE MODE READY', CX, 146, 8, '#5aff8a', 'center');   // mode hors ligne prêt : en petit, en bas
   }
 }
 const VOL_N = 130;   // message « monte le son » après START : fondu entrant, pause, fondu sortant
