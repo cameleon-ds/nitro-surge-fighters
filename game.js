@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v344';
+const VERSION = 'v345';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4430,7 +4430,7 @@ function updNyx() {
   for (const c of G.smokes || []) {   // nuage toxique : aveugle l'adversaire et arrête ses projectiles
     if (c.dead) continue;
     c.t++; if (c.t < 90) c.x += c.dir * 1.3; const o = G.f.find(f => f !== c.owner), R = 38 + Math.min(18, c.t * .7);   // la fumée avance plus loin
-    if (o && Math.abs(o.x - c.x) < R && o.y > GROUND - 90) {   // pas de dégât : coupe le coup spécial, 1 s au ralenti sans spécial, puis confusion
+    if (o && !o.air && Math.abs(o.x - c.x) < R) {   // seulement au sol : en sautant on passe au-dessus sans être touché ; pas de dégât : coupe le coup spécial, 1 s au ralenti sans spécial, puis confusion
       if (!(o.confT > 0)) {
         addPopup(o.x, o.y - 100, 'CONFUSED!', '#c8a0ff'); sfx('parry');
         o.slowT = 60; o.noSpecT = 60; o.confT = 240;
