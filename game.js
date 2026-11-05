@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v314';
+const VERSION = 'v315';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -817,7 +817,7 @@ function footP(q, dir, skin) {
 function drawFighter(f, x = f.x, y = f.y) {
   const d = f.def, P = POSES[poseOf(f)];
   let swE = null, swH = null;
-  const spinning = (f.state === 'tatsu' && f.t >= 4) || (f.state === 'gtatsu' && f.t >= 6 && f.t < 54) || (f.state === 'tornado' && f.t >= 3 && f.vy < 0);
+  const spinning = (f.state === 'zdash' && f.t >= 3) || (f.state === 'tatsu' && f.t >= 4) || (f.state === 'gtatsu' && f.t >= 6 && f.t < 54) || (f.state === 'tornado' && f.t >= 3 && f.vy < 0);
   const dir = spinning && ((f.t >> 2) & 1) ? -f.dir : f.dir;
   // Regard vers la droite : vue de face 3/4 · regard vers la gauche : vue de dos 3/4
   const upRise = f.state === 'uppercut' && (f.apexT == null || f.t - f.apexT < 4);
@@ -2149,7 +2149,8 @@ function poseOf(f) {
     case 'cyclone': return f.t < 4 ? 'crouch' : f.air ? 'tuck' : 'special1';
     case 'sink': return f.t < 22 ? 'block' : 'upper0';
     case 'tornado': return f.t < 3 ? 'sho0' : 'upper2';
-    case 'hover': case 'zdash': return 'tuck';
+    case 'hover': return 'tuck';
+    case 'zdash': return f.t < 3 ? 'sho0' : 'upper2';   // corps à l'horizontale, bras + sabre devant (comme la vrille, couchée)
     case 'flask': return f.t < 8 ? 'special0' : 'punch1';
     case 'nyxcharge': return 'special0';
     case 'nyxsnake': return f.t < 3 ? 'special0' : 'punch1';
@@ -2401,11 +2402,11 @@ function drawZFloor() {
     ctx.restore();
   }
 }
-function zapChaos(x, y0, w, hgt, n) {   // éclairs chaotiques éparpillés autour du personnage (effet foudre)
+function zapChaos(x, y0, w, hgt, n, sc = 1) {   // éclairs chaotiques éparpillés autour du personnage (effet foudre)
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (let i = 0; i < n; i++) {
     let px = x + (Math.random() - .5) * 2 * w, py = y0 - Math.random() * hgt, ang = Math.random() * 6.28; const L = [[px, py]];
-    for (let k = 0; k < 4; k++) { ang += (Math.random() - .5) * 1.6; const len = 4 + Math.random() * 5; px += Math.cos(ang) * len; py += Math.sin(ang) * len; L.push([px, py]); }
+    for (let k = 0; k < 4; k++) { ang += (Math.random() - .5) * 1.6; const len = (4 + Math.random() * 5) * sc; px += Math.cos(ang) * len; py += Math.sin(ang) * len; L.push([px, py]); }
     elecArc(L, 'rgba(20,88,196,.9)', 3); elecArc(L, 'rgba(90,200,255,1)', 1.6); elecArc(L, '#ffffff', .8);
   }
   ctx.restore();
@@ -2498,7 +2499,12 @@ function drawHats() {
       ctx.beginPath(); ctx.ellipse(hx, hy, (18 + 3 * pul) * gr, (6 + 1.5 * pul) * gr, 0, 0, 6.29); ctx.stroke(); ctx.restore();
       zapAround(hx, hy, 20 * gr, 8 * gr, 2 + Math.round(5 * k), .5 + .5 * k);
     }
-    if (['hover', 'tornado', 'plunge', 'zdash'].includes(f.state)) zapChaos(f.x, f.y - 2, 28, 100, f.state === 'zdash' ? 9 : 7);   // électricité chaotique autour de lui   // électricité : arrêt en l'air (invincible) et tornade
+    if (['hover', 'tornado', 'plunge', 'zdash'].includes(f.state)) {   // tout le corps en glow bleu + petits éclairs collés au corps
+      const zd = f.state === 'zdash', cyb = zd ? f.y - 34 : f.y - 42;
+      glowAt(f.x, cyb, zd ? 52 : 44, 'rgba(90,200,255,.9)', .45);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .32 + .15 * Math.random(); drawFighter(Object.assign({}, f, { flash: 0, tint: 'rgba(110,210,255,1)' }), f.x, f.y); ctx.restore();
+      if (zd) zapChaos(f.x, f.y - 22, 34, 26, 9, .45); else zapChaos(f.x, f.y - 4, 15, 80, 9, .45);
+    }   // électricité : arrêt en l'air (invincible) et tornade
   }
 }
 function updSupers() {
@@ -3170,7 +3176,7 @@ function updFighter(f, o) {
     case 'zdash':   // vrille horizontale en l'air (comme le shoryuken, mais couché), traverse un tiers de l'écran puis retombe
       f.vy = -GRAV;
       if (f.t < 3) { f.vx = 0; break; }
-      f.vx = 7.2 * f.dir; f.rotAng = f.dir * (f.t - 3) * .75;
+      f.vx = 7.2 * f.dir; f.rotAng = f.dir * Math.PI / 2;   // projeté à l'horizontale, tourne sur lui-même (dessin retourné toutes les 4 images)
       if (f.t % 6 === 0) sfx('whoosh');
       if (killShots(f, f.x - 26, f.x + 26, f.y - 84, f.y - 8)) {   // touche une boule de feu : les deux s'annulent, roulade arrière automatique
         setState(f, 'jump'); f.air = true; f.roll = -1; f.t = 3; f.rollT = 22; f.vx = -4.4 * f.dir; f.vy = -5.6; f.airAtk = false; f.airNoS = true; sfx('parry'); sfx('jump'); break;
