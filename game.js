@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v312';
+const VERSION = 'v313';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2150,6 +2150,8 @@ function poseOf(f) {
     case 'tornado': return f.t < 3 ? 'sho0' : 'upper2';
     case 'hover': case 'zdash': return 'tuck';
     case 'flask': return f.t < 8 ? 'special0' : 'punch1';
+    case 'nyxcharge': return 'special0';
+    case 'nyxsnake': return f.t < 3 ? 'special0' : 'punch1';
     case 'sonic': return f.t < 5 ? 'fpunch0' : f.t < 16 ? 'fpunch1' : 'fpunch0';
     case 'voidcast': return f.t < 7 ? 'fpunch0' : f.t < 26 ? 'fpunch1' : 'fpunch0';   // un seul bras tendu
     case 'airvoid': return f.t < 6 ? 'jump' : 'jpunch';
@@ -3090,8 +3092,26 @@ function updFighter(f, o) {
       break;
     case 'flask':   // lance une fiole en cloche
       f.vx = 0;
+      if (f.t === 6 && h.s && live) { setState(f, 'nyxcharge'); f.chargeT = 0; break; }   // A maintenu : charge du serpent électrique
       if (f.t === 8) { G.flasks.push({ owner: f, x: f.x + f.dir * 18, y: f.y - 62, vx: f.dir * 3.4, vy: -3.6, t: 0 }); sfx('whoosh'); }
       if (f.t >= 24) setState(f, 'idle');
+      break;
+    case 'nyxcharge': {   // A maintenu : 0,5 s petit éclat (demi-serpent), 1,3 s écran foncé (serpent qui traverse tout l'écran)
+      f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
+      const hx = f.x + f.dir * 20, hy = f.y - 58;
+      if (f.chargeT === 8) vaneChargeStart(f);
+      if (f.chargeT === 30) { addSpark(hx, hy, 'parry'); G.flashT = Math.max(G.flashT, 3); sfx('parry'); }
+      if (f.chargeT === 78) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); }
+      if (!h.s) {
+        vaneChargeStop(f); const n = f.chargeT;
+        if (n >= 30) { setState(f, 'nyxsnake'); f.snakeFull = n >= 78; } else { setState(f, 'flask'); f.t = 7; }   // relâché trop tôt : fiole normale
+      }
+      break;
+    }
+    case 'nyxsnake':
+      f.vx = 0;
+      if (f.t === 3) { (G.snakes = G.snakes || []).push({ owner: f, x: f.x + f.dir * 24, y0: f.y - 58, y: f.y - 58, dir: f.dir, t: 0, big: f.snakeFull, max: f.snakeFull ? 9999 : W / 2, dist: 0, pts: [] }); sfx('fb'); sfx('parry'); if (f.snakeFull) { G.shake = Math.max(G.shake, 4); sfx('heavy'); } }
+      if (f.t >= 20) setState(f, 'idle');
       break;
     case 'nyxglide': {   // Nyx plane : flotte, se déplace dans les 4 directions (même hors de l'écran en haut), lâche une fiole à la fin
       if (take(c, 's')) { setState(f, 'nyxspin'); f.nHits = 0; f.nHitT = 0; f.vx = 4.6 * f.dir; sfx('whoosh'); sfx('upper'); break; }   // A à nouveau : plongeon tournoyant en diagonale vers le sol
@@ -4106,7 +4126,47 @@ function addPuddle(owner, x, done) {
 }
 function nyxIgnite(o) { o.nyxBurnT = 180; o.burn = Math.max(o.burn || 0, 180); o.burnPal = NYX_FIRE; }   // enflammé 3 s : perd un peu d'énergie, bouge normalement
 function nyxPuff(f) { (G.tpuffs = G.tpuffs || []).push({ x: f.x + (Math.random() - .5) * 26, y: f.y - 10 - Math.random() * 70, vx: (Math.random() - .5) * .8, vy: -.4 - Math.random() * .6, r: 5 + Math.random() * 6, t: 0, c: ['170,140,220', '130,190,120', '190,170,230'][Math.random() * 3 | 0] }); }
+const SNAKE_HIT = { dmg: 9, stun: 18, bstun: 12, push: 4, chip: 1, sfx: 'heavy' }, SNAKE_BIG = { dmg: 15, knock: true, stun: 22, bstun: 16, push: 7, chip: 3, sfx: 'heavy' };
+function updSnakes() {   // serpent électrique rose de Nyx : avance en ondulant, aussi vite que la boule de Kael
+  for (const q of G.snakes || []) {
+    q.t++; q.x += q.dir * 8; q.dist += 8; q.y = q.y0 + Math.sin(q.t * .28) * (q.big ? 16 : 11);
+    q.pts.unshift([q.x, q.y]); if (q.pts.length > (q.big ? 26 : 18)) q.pts.pop();
+    if (q.dist > q.max || q.x < (G.camL || 0) - 120 || q.x > (G.camL || 0) + W + 120) q.dead = true;
+    const o = G.f.find(g => g !== q.owner); if (q.dead || !o || o.ko) continue;
+    const hb = hurtbox(o), r = q.big ? 16 : 12;
+    if (hb && !underShot(o) && overlap([q.x - r, q.y - r, q.x + r, q.y + r], hb)) { q.dead = true; applyHit(q.owner, o, q.big ? SNAKE_BIG : SNAKE_HIT, q.x, q.y, q.x - q.dir * 10, true); addSpark(q.x, q.y, 'parry'); }
+  }
+  if (G.snakes) G.snakes = G.snakes.filter(q => !q.dead);
+}
+function drawSnakes() {
+  for (const f of G.f) if (f.state === 'nyxcharge') {   // énergie rose qui grossit dans la main
+    const k = Math.min(1, f.chargeT / 78), hx = f.x + f.dir * 20, hy = f.y - 58;
+    glowAt(hx, hy, 10 + 22 * k, 'rgba(255,74,200,.95)', .4 + .4 * k);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (let i = 0; i < 2 + Math.round(5 * k); i++) { let px = hx, py = hy, a = Math.random() * 6.28; const L = [[px, py]]; for (let j = 0; j < 3; j++) { a += (Math.random() - .5) * 1.4; const l = 4 + 6 * k; px += Math.cos(a) * l; py += Math.sin(a) * l; L.push([px, py]); } elecArc(L, 'rgba(255,74,200,.9)', 2); elecArc(L, '#ffe0f8', .8); }
+    ctx.restore();
+  }
+  for (const q of G.snakes || []) {
+    const P = q.pts; if (P.length < 2) continue;
+    const W0 = q.big ? 13 : 9;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = P.length - 1; i >= 1; i--) {   // corps : segments de plus en plus fins vers la queue
+      const k = 1 - i / P.length, wdt = 2 + W0 * k;
+      ctx.strokeStyle = `rgba(200,30,160,${.35 * k + .1})`; ctx.lineWidth = wdt * 1.8; ctx.beginPath(); ctx.moveTo(P[i][0], P[i][1]); ctx.lineTo(P[i - 1][0], P[i - 1][1]); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,90,210,${.7 * k + .2})`; ctx.lineWidth = wdt; ctx.stroke();
+      ctx.strokeStyle = `rgba(255,224,248,${.8 * k})`; ctx.lineWidth = Math.max(1, wdt * .3); ctx.stroke();
+    }
+    for (let e = 0; e < 3; e++) elecArc(P.filter((_, i) => i % 2 === 0).map(([x, y]) => [x, y + (Math.random() - .5) * W0]), e ? '#ffd0f4' : 'rgba(255,74,200,.9)', e ? .8 : 1.6);   // éclairs le long du corps
+    const hx = q.x, hy = q.y, hr = W0 * .9;   // tête
+    glowAt(hx, hy, hr * 3, 'rgba(255,74,200,.95)', .7);
+    ctx.fillStyle = '#ff5ad2'; ctx.beginPath(); ctx.ellipse(hx + q.dir * 2, hy, hr * 1.4, hr, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#fff0fb'; ctx.beginPath(); ctx.ellipse(hx + q.dir * 4, hy - 1, hr * .8, hr * .5, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(hx + q.dir * hr * .9) - 1, Math.round(hy - hr * .5) - 1, 3, 2);   // œil
+    ctx.restore();
+  }
+}
 function updNyx() {
+  updSnakes();
   for (const q of G.tpuffs || []) { q.t++; q.x += q.vx; q.y += q.vy; q.r += .35; }
   if (G.tpuffs) G.tpuffs = G.tpuffs.filter(q => q.t < 28);
   for (const q of G.flasks || []) {
@@ -4358,7 +4418,8 @@ function clashProjectiles() {
   for (const q of G.blades || []) if (!q.dead) L.push([q, q.y, 18]);
   for (const q of G.sonics || []) if (!q.dead) L.push([q, q.y, 16]);
   for (const q of G.voids || []) if (!q.dead && !q.charging) L.push([q, q.y, q.r || 14]);
-  for (const q of G.flasks || []) if (!q.dead) L.push([q, q.y, 13]);   // fiole de Nyx : s'annule avec boules de feu, clones, sphères...
+  for (const q of G.flasks || []) if (!q.dead) L.push([q, q.y, 13]);
+  for (const q of G.snakes || []) if (!q.dead) L.push([q, q.y, q.big ? 16 : 12]);   // serpent de Nyx   // fiole de Nyx : s'annule avec boules de feu, clones, sphères...
   for (const q of G.holos || []) if (!q.dead) L.push([q, q.y - 50, 16, 'h']);   // clone énergétique de Vesper = projectile
   for (const q of G.waves || []) if (!q.dead && !q.ring && !q.small) L.push([q, GROUND - 16, 14, 'w']);   // onde au sol de Grog : passe sous les boules de feu, s'annule avec un clone
   for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
@@ -4918,7 +4979,7 @@ function startRound() {
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
   G.hats = []; G.zfloor = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
-  G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
+  G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.snakes = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
   G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
 }
@@ -4954,7 +5015,7 @@ const TUT_SP = {
   vesper: [['A', 'HOLO FLASH', st_('holo')], ['BACK + A', 'SHADOW STEP', st_('shadow')], ['UP + A', 'ZENITH BLADE', st_('zenith')], ['JUMP, THEN A', 'NEON DIVE', st_('dive')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
-  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
+  nyx: [['A', 'MAGMA FLASK', st_('flask')], ['HOLD A, RELEASE', 'VOLT SERPENT', st_('nyxsnake')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
   zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY DASH', st_('zdash')], ['JUMP, THEN DOWN + A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['HOLD A 1 SEC, RELEASE', 'STORM HAT', st_('hatthrow')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
 };
@@ -6140,7 +6201,7 @@ function drawFight() {
   if (G.clash) drawClash();
   G.fbs.forEach(drawFireball);
   drawSupers();
-  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx(); drawZFloor(); drawHats();
+  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx(); drawSnakes(); drawZFloor(); drawHats();
   // énergie qui grossit entre les mains pendant la charge
   G.f.forEach(f => {
     if ((f.state !== 'special' && f.state !== 'axgp') || f.fired || !f.chargeT) return;
