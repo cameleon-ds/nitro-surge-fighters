@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v327';
+const VERSION = 'v328';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -818,7 +818,8 @@ function drawFighter(f, x = f.x, y = f.y) {
   const d = f.def, P = POSES[poseOf(f)];
   let swE = null, swH = null;
   const spinning = (f.state === 'zdash' && f.t >= 3) || (f.state === 'tatsu' && f.t >= 4) || (f.state === 'gtatsu' && f.t >= 6 && f.t < 54) || (f.state === 'tornado' && f.t >= 3 && f.vy < 0);
-  const dir = spinning && ((f.t >> 2) & 1) ? -f.dir : f.dir;
+  const dir0 = spinning && ((f.t >> 2) & 1) ? -f.dir : f.dir;
+  const mir = d.kit === 'grog' && dir0 < 0, dir = mir ? 1 : dir0;   // Grog : vers la gauche = miroir exact du dessin vers la droite
   // Regard vers la droite : vue de face 3/4 · regard vers la gauche : vue de dos 3/4
   const upRise = f.state === 'uppercut' && (f.apexT == null || f.t - f.apexT < 4);
   const backView = f.state === 'rupper' || (upRise && f.t >= 3) || f.state === 'axgp' || (f.state === 'nsuper' && superKit(f) === 'axel' && f.t >= 12);   // Axel : frappe au sol vue de dos 3/4
@@ -929,7 +930,7 @@ function drawFighter(f, x = f.x, y = f.y) {
   // Bras : lead = bras avant (celui qui frappe), rear = bras arrière
   const arm = (s0, e, hd, near, fd = dir) => {
     if (window.__skip) return;
-    if (s0 === sdA) { swE = e; swH = hd; if (f.id === 0 || f.id === 1) f.handW = [x + (hd[0] - OX) * UP, y + (hd[1] - OY) * UP]; }   // main avant (sabre, gants chargés)
+    if (s0 === sdA) { swE = e; swH = hd; if (f.id === 0 || f.id === 1) f.handW = [x + (mir ? -1 : 1) * (hd[0] - OX) * UP, y + (hd[1] - OY) * UP]; }   // main avant (sabre, gants chargés)
     const S = near ? sk : dim(sk), T = near ? top : dim(top), Gl = near ? d.glove : dim(d.glove);
     if (d.armor) {   // Grog : biceps nus et musclés, avant-bras blindé sanglé, gantelet, énorme épaulière
       const AR = near ? d.armorP : dim(d.armorP), SP = d.strap || ['#2a1608', '#5a3418', '#7a4a26'];
@@ -1373,10 +1374,11 @@ function drawFighter(f, x = f.x, y = f.y) {
     const cx = OX;
     rx.setTransform(1, 0, 0, 1, 0, 0); rx.clearRect(0, 0, ROLLC.width, ROLLC.height);
     rx.imageSmoothingEnabled = false;
-    rx.translate(cx, cy); rx.rotate(ang); rx.drawImage(SPR, -cx, -cy);
+    rx.translate(cx, cy); rx.rotate(mir ? -ang : ang); rx.drawImage(SPR, -cx, -cy);
     src = ROLLC;
   }
-  ctx.drawImage(src, Math.round(x) - OX * UP, Math.round(y) - OY * UP, SPR.width * UP, SPR.height * UP);
+  if (mir) { ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1); ctx.drawImage(src, -OX * UP, Math.round(y) - OY * UP, SPR.width * UP, SPR.height * UP); ctx.restore(); }
+  else ctx.drawImage(src, Math.round(x) - OX * UP, Math.round(y) - OY * UP, SPR.width * UP, SPR.height * UP);
   ctx.imageSmoothingEnabled = prev;
 }
 
