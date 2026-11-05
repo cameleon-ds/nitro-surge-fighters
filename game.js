@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v343';
+const VERSION = 'v344';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2360,10 +2360,13 @@ function updRush(f, o) {
         G.waves.push({ owner: f, x: f.x, dir: f.dir, t: 0, life: 30, small: true, ring: true, dome: true, done: true, big: true });
         o.vy = -7.5; o.vx = f.dir * 5; f.rampT = 0; sfx('parry'); sfx('fb');
       }
+      const zFin = surge && f.def.kit === 'zephyr' && o.hp > 0;   // Zephyr : le Surge finit par son shoryuken à 3 coups
+      if (zFin) { setState(o, 'hit'); o.air = false; o.y = GROUND; o.vx = 0; o.vy = 0; o.stun = 45; }
       G.darkT = 50; G.flashT = 12; G.boltX = sx; G.boltY = sy; G.freeze = 14; G.shake = 9;
       G.bigPop = { txt: surge ? 'NITRO SURGE COMBO!' : 'NITRO COMBO!', col: surge ? '#d070ff' : '#5aff8a', t: 0 };
       addScore(f, surge ? SCORE_PTS.surge : SCORE_PTS.nitro);
       sfx('fb'); sfx('heavy');
+      if (zFin) { setState(f, 'zslash'); f.vx = 0; sfx('whoosh'); return; }
     }
   }
   if (f.rushGhost && G.frame >= f.rushGhost) { f.rushGhost = 0; const sx = f.x + f.dir * 30, sy = f.y + RUSH_Y[(f.rushN + 1) % 4]; addSpark(sx, sy, 'parry'); comboHit(f); if (o.hp > 1) o.hp = Math.max(1, o.hp - 1); sfx('hit'); }
