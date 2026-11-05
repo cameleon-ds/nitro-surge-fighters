@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v338';
+const VERSION = 'v339';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -3297,7 +3297,7 @@ function updFighter(f, o) {
       f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
       const hx = f.x + f.dir * 20, hy = f.y - 58;
       if (f.chargeT === 8) vaneChargeStart(f);
-      if (f.chargeT === 30) { addSpark(hx, hy, 'parry'); G.flashT = Math.max(G.flashT, 3); sfx('parry'); }
+      if (f.chargeT === 30) { addSpark(hx, hy, 'parry'); G.flashT = Math.max(G.flashT, 5); G.boltX = hx; G.boltY = hy; sfx('parry'); }   // petit éclat sur la charge, devant Nyx
       if (f.chargeT === 78) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); }
       if (!h.s) {
         vaneChargeStop(f); const n = f.chargeT;
@@ -4356,7 +4356,8 @@ function updSnakes() {   // serpent électrique rose de Nyx : avance en ondulant
   for (const q of G.snakes || []) {
     q.t++; q.x += q.dir * 8; q.dist += 8; q.y = q.y0 + Math.sin(q.t * .28) * (q.big ? 16 : 11);
     q.pts.unshift([q.x, q.y]); if (q.pts.length > (q.big ? 26 : 18)) q.pts.pop();
-    if (q.dist > q.max || q.x < (G.camL || 0) - 120 || q.x > (G.camL || 0) + W + 120) q.dead = true;
+    if (q.dist > q.max) { q.dead = true; (G.clashFx = G.clashFx || []).push({ x: q.x, y: q.y, t: 0 }); addSpark(q.x, q.y, 'parry'); sfx('parry'); }   // demi-serpent : petit éclat au bout quand il s'arrête
+    else if (q.x < (G.camL || 0) - 120 || q.x > (G.camL || 0) + W + 120) q.dead = true;
     const o = G.f.find(g => g !== q.owner); if (q.dead || !o || o.ko) continue;
     const hb = hurtbox(o), r = q.big ? 16 : 12;
     if (hb && !underShot(o) && overlap([q.x - r, q.y - r, q.x + r, q.y + r], hb)) { q.dead = true; applyHit(q.owner, o, q.big ? SNAKE_BIG : SNAKE_HIT, q.x, q.y, q.x - q.dir * 10, true); addSpark(q.x, q.y, 'parry'); }
