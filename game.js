@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v298';
+const VERSION = 'v299';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6390,7 +6390,7 @@ function drawSelect() {
     }
   }
   {   // INVITE A PLAYER (PC : sous ADD CONTROLLERS ; mobile : seul bouton)
-    const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : gy + 2 * S + gap + 6, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
+    const pc = !isTouch, bw = pc ? ADD_BTN[2] : 84, bh = pc ? ADD_BTN[3] : 14, bx = Math.round(CX - bw / 2), by = pc ? ADD_BTN[1] + ADD_BTN[3] + 5 : gy + 2 * S + gap + 12, on = sel === 9;   // PC : sous ADD CONTROLLERS, même taille ; mobile : sous SELECT YOUR FIGHTER
     if (NET.guest) {   // Player 2 connecté : plus de bouton, juste CONNECTED
       INV_BTN[0] = INV_BTN[1] = -999; INV_BTN[2] = INV_BTN[3] = 0;
       artCircle(CX - 30, by + bh / 2, 6.5, '#a83ae8'); artText('P2', CX - 30, by + bh / 2 - 2.6, 5, '#ffffff');
