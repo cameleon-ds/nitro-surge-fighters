@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v294';
+const VERSION = 'v295';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4938,7 +4938,7 @@ function stepMoves() {
 }
 const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 0, 3, 10, 4, 5] : [6, 2, 1, 0, 3, 10, 4, 5, 7, 8];   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
+const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -4984,6 +4984,7 @@ function stepOptions() {
     saveOpt(); sfx('select');
   }
   if (L === 3 && ok) { OPT.blood = !OPT.blood; saveOpt(); sfx('select'); }
+  if (L === 11 && (l || r || ok)) { OPT.time = OPT.time === false; saveOpt(); sfx('select'); }   // TIME : 99 / OFF
   if (L === 10 && (l || r || ok)) { OPT.guides = !OPT.guides; saveOpt(); sfx('select'); }   // GUIDES : SHOW / HIDE
   if (L === 2 && (l || r || ok)) {
     { const ord = G.mode === 'arcade' && G.arc ? DIFF_ORDER.filter(v => v !== 3) : DIFF_ORDER, k = Math.max(0, ord.indexOf(OPT.diff)), n = ord.length; OPT.diff = ord[(k + (l ? n - 1 : 1)) % n]; }   // ARCADE : pas de TRAINING   // en boucle : EASY, NORMAL, HARD, EXTREME, TRAINING
@@ -5520,7 +5521,7 @@ function stepFight() {
 
   if (G.scene === 'fight') {
     G.mTime = (G.mTime || 0) + 1;
-    if (OPT.diff !== 3 && !(G.tut && G.tut.phase !== 4) && ++G.tick >= 45) { G.tick = 0; G.timer = Math.max(0, G.timer - 1); }   // entraînement : temps infini
+    if (OPT.diff !== 3 && OPT.time !== false && !(G.tut && G.tut.phase !== 4) && ++G.tick >= 45) { G.tick = 0; G.timer = Math.max(0, G.timer - 1); }   // entraînement : temps infini
     if (G.demo) { a.hp = Math.max(a.hp, 1); b.hp = Math.max(b.hp, 1); }   // démo : jamais de K.O.
     if (a.hp <= 0 || b.hp <= 0) {
       const loser = a.hp <= 0 ? a : b;
@@ -5668,7 +5669,7 @@ function drawHUD() {
   R(CX - 21, 8, 42, 13, flash ? '#ffffff' : '#d8261c');
   text('KO', CX, 11, 8, flash ? '#d8261c' : '#ffe14a', 'center', '#5a0a06');
   // Chrono
-  if (OPT.diff !== 3) text(String(G.timer).padStart(2, '0'), CX, 26, 16, '#ffffff', 'center');   // entraînement : pas de chrono ni de symbole
+  if (OPT.diff !== 3 && OPT.time !== false) text(String(G.timer).padStart(2, '0'), CX, 26, 16, '#ffffff', 'center');   // TIME : OFF = pas de chrono   // entraînement : pas de chrono ni de symbole
   // Noms + victoires
   text(a.def.name, bx, 30, 8, '#ffffff', 'left');
   text(b.def.name, W - bx, 30, 8, '#ffffff', 'right');
@@ -6010,7 +6011,7 @@ function panel(y0, h, title, small, w = 200) {
 }
 function drawOptions() {
   if (G.showKeys) { drawKeys(); return; }
-  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 10 ? 12 : 13) : (OB > 8 ? 14 : 16);
+  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 11 ? 11 : OB > 10 ? 12 : 13) : (OB > 8 ? 14 : 16);
   panel(8, 200, 'OPTIONS', true, PW);
   const c = G.ocur, x0 = CX - PW / 2 + 22, vx = CX + PW / 2 - 40, bx = vx - 6;
   const pos = i => optOrder().indexOf(i), col = i => c === pos(i) ? '#ffd23a' : 'rgba(255,255,255,.55)';
@@ -6029,6 +6030,7 @@ function drawOptions() {
   const dsel = c === pos(2);
   text((dsel ? '< ' : '') + DIFFS[OPT.diff] + (dsel ? ' >' : ''), vx, Y(2), 8, dsel ? '#ffd23a' : '#ffffff', 'center');
   text('BLOOD', x0, Y(3), 8, col(3), 'left'); box(Y(3), OPT.blood, 3);
+  { const ts = c === pos(11); text('TIME', x0, Y(11), 8, col(11), 'left'); text((ts ? '< ' : '') + (OPT.time === false ? 'OFF' : '99') + (ts ? ' >' : ''), vx, Y(11), 8, ts ? '#ffd23a' : '#ffffff', 'center'); }
   { const gs = c === pos(10); text('GUIDES', x0, Y(10), 8, col(10), 'left'); text((gs ? '< ' : '') + (OPT.guides ? 'SHOW' : 'HIDE') + (gs ? ' >' : ''), vx, Y(10), 8, gs ? '#ffd23a' : '#ffffff', 'center'); }
   text('MUSIC VOLUME', x0, Y(4), 8, col(4), 'left'); bars(Y(4), OPT.music);
   text('SFX VOLUME', x0, Y(5), 8, col(5), 'left'); bars(Y(5), OPT.sfx);
