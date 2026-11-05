@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v346';
+const VERSION = 'v347';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5250,7 +5250,7 @@ function startRound() {
     setState(f, 'idle');
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
-  G.hats = []; G.zfloor = []; G.vclones = []; G.vblasts = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
+  G.hats = []; G.zfloor = []; G.vclones = []; G.vblasts = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.camS = null; G.zoom = 1;
   G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.snakes = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
   G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
@@ -6458,7 +6458,9 @@ function drawFight() {
     G.zoom = z0 + (zt - z0) * e; lift = 34 * (1 - e);
   }
   const z = G.zoom, vw = W / z, vh = H / z;
-  const left = Math.max(0, Math.min(SW - vw, (a.x + b.x) / 2 - vw / 2)), top = H - vh - lift;
+  const tgtL = Math.max(0, Math.min(SW - vw, (a.x + b.x) / 2 - vw / 2)), top = H - vh - lift;
+  G.camS = G.camS == null || G.preT > 0 || Math.abs(tgtL - G.camS) < .5 ? tgtL : G.camS + (tgtL - G.camS) * .14;   // caméra en travelling (pas de saut d'image, ex. téléportation)
+  const left = Math.max(0, Math.min(SW - vw, G.camS));
   G.camL = left; G.camW = vw;
   ctx.save();
   ctx.scale(z, z); ctx.translate(-left, -top);
