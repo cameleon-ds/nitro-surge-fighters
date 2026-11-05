@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v333';
+const VERSION = 'v334';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6274,6 +6274,10 @@ function shotIncoming(f) {   // un projectile adverse renvoyable arrive vers moi
 function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur humain
   if (f.ko || f.hp <= 0) return null;
   const o = G.f[0] === f ? G.f[1] : G.f[0];
+  if (f.def.kit === 'vane') {   // Vane : X → « HOLD X » pendant la charge, chargé → « A »
+    if (f.vxReady > 0) return ['A', '#ff80ff'];
+    if (f.state === 'vxcharge' || f.state === 'parry') return ['HOLD X', '#ff80ff'];
+  }
   if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffffff'];   // objet lancé sur moi : X pour le renvoyer
   if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];
   if (shotIncoming(f)) return ['XA', '#ffffff'];   // boule de feu, clone, projectile qui arrive : X puis A pour le renvoyer   // objet à portée : X pour le lancer
