@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v316';
+const VERSION = 'v317';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2376,15 +2376,15 @@ function throwHat(f, o) { f.noHat = true; (G.hats = G.hats || []).push({ owner: 
 const ZFLOOR_HIT = { dmg: 7, stun: 40, bstun: 12, push: 1, chip: 0, sfx: 'heavy', unblock: true };
 function updZFloor() {   // éclairs qui courent sur tout le sol après le plongeon de Zephyr : paralysent qui les touche
   for (const q of G.zfloor || []) {
-    q.t++; if (q.t > 75) { q.dead = true; continue; }
-    const o = G.f.find(g => g !== q.owner); if (!o || q.hit || o.air || o.ko || q.t > 62 || !hurtbox(o)) continue;
+    q.t++; if (q.t > 48) { q.dead = true; continue; }
+    const o = G.f.find(g => g !== q.owner); if (!o || q.hit || o.air || o.ko || q.t > 40 || !hurtbox(o)) continue;
     if (Math.abs(o.x - q.x) <= q.t * 5.5 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); o.paraBlue = true; addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
   }
   if (G.zfloor) G.zfloor = G.zfloor.filter(q => !q.dead);
 }
 function drawZFloor() {
   for (const q of G.zfloor || []) {
-    const a = q.t > 55 ? (75 - q.t) / 20 : 1, reach = q.t * 5.5;
+    const a = q.t > 30 ? (48 - q.t) / 18 : 1, reach = q.t * 5.5;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(47,180,255,.25)'; ctx.fillRect(Math.round(q.x - reach), GROUND - 2, Math.round(reach * 2), 3);
     for (const dd of [-1, 1]) {
@@ -4591,7 +4591,11 @@ function drawGrogFx() {   // ondes électriques bleues de Grog
   }
 }
 function drawDiveTrail() {   // coup de pied plongeant de Vesper : électricité chaotique tout autour d'elle (remplace l'ancien trait néon)
-  for (const f of G.f) if (f.state === 'dive' && f.t >= 3) { glowAt(f.x, f.y - 40, 46, 'rgba(58,200,255,.9)', .35); zapChaos(f.x, f.y + 4, 26, 88, 8); }
+  for (const f of G.f) if (f.state === 'dive' && f.t >= 3) {   // même effet que la vrille de Zephyr : corps en glow bleu + petits éclairs collés
+    glowAt(f.x, f.y - 38, 50, 'rgba(90,200,255,.9)', .45);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .32 + .15 * Math.random(); drawFighter(Object.assign({}, f, { flash: 0, tint: 'rgba(110,210,255,1)' }), f.x, f.y); ctx.restore();
+    zapChaos(f.x, f.y - 2, 22, 72, 9, .45);
+  }
   if (G.frame >= 0) return;
   for (const f of G.f) {
     if (f.state !== 'dive' || !f.trail || f.trail.length < 2) continue;
