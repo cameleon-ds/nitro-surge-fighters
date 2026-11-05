@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v270';
+const VERSION = 'v271';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6231,8 +6231,8 @@ function drawTitle() {
 // Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
 const SEL_KEYS = ['hiro', 'axel', 'vesper', 'grog', 'zephyr', 'nyx', 'kael', 'vane'];   // indices DEFS
 const SEL_FACE_DIR = [-1, 1, 1, -1, 1, 1, -1, 1];   // sens du regard de chaque image en pied (indices DEFS : Hiro, Axel, Vesper, Grog, Zephyr, Nyx, Kael, Vane)
-const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=4'); return im; });
-const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=8'); return im; });
+const SEL_ART = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'sel_' + k + '.webp?v=5'); return im; });
+const SEL_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'face_' + k + '.jpg?v=9'); return im; });
 const ADD_BTN = [0, 0, 0, 0], QR_POP = [0, 0, 0, 0];
 const inRect = (t, r) => t.x >= r[0] && t.x <= r[0] + r[2] && t.y >= r[1] && t.y <= r[1] + r[3];
 const imgOk = im => im && (im instanceof HTMLCanvasElement ? im.width > 0 : im.complete && im.naturalWidth);
