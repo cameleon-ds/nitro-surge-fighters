@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v315';
+const VERSION = 'v316';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -586,7 +586,7 @@ const DEFS = [
     legs:  ['#3a4048', '#8a929c', '#c4ccd4', '#eef2f6'],               // pantalon blanc cassé
     belt:  ['#0a1420', '#16263a', '#24405a', '#3a6080'],
     glove: ['#0a1420', '#16263a', '#24405a', '#3a6080'],
-    shoe:  ['#0a1018', '#1a2836', '#6a4022', '#4a2c16'],               // bottes bleu nuit, semelles marron
+    shoe:  ['#0a1018', '#1a2836', '#d8b462', '#b8944a'],               // bottes bleu nuit, semelles beige (couleur du chapeau)
     fb: ['#ffffff', '#d8fbff', '#7ae8f0', '#2a9aaa'] },
   { name: 'NYX', style: 'tshirt', vneck: true, head: HEAD_SORA, headBack: HEAD_SORA_BACK, witchHat: true, hairDown: true, female: true, slim: true, sleeveless: true, thinArms: true, noAbs: true, softNeck: true, flaps: true, shoes: true, kit: 'nyx',
     skin:  ['#7a3c1c', '#b8683a', '#e8a46a', '#ffd8a0'],   // peau claire comme Hiro
