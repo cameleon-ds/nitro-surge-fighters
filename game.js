@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v304';
+const VERSION = 'v305';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4682,6 +4682,7 @@ function startRound() {
 function endRound(winner) {
   G.fighting = false;
   if (G.sc) G.f.forEach((f, i) => { G.sc[i].taken += Math.max(0, 100 - Math.max(0, f.hp)); });   // dégâts reçus pendant le round
+  G.f.forEach(f => { f.surgeT = 0; f.nitroT = 0; f.necho = []; f.rushGhost = 0; }); G.ghostQ = [];   // fin du round : le Surge / Nitro s'arrête (pas de double mauve pendant la victoire)
   G.winner = winner;
   if (winner) winner.wins++;
 }
