@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v275';
+const VERSION = 'v276';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5211,8 +5211,8 @@ addEventListener('pointerup', e => {
         if (Math.abs(p.y - 88) < 10) { G.bcur = 0; bootToggleFS(); }                         // FULL SCREEN : OFF / ON
         else if (Math.abs(p.y - 106) < 9) { G.bcur = 0; bootOk(); }                           // PRESS A
         else if (installAvail() && Math.abs(p.y - 144) < 10) { G.bcur = 2; bootOk(); }
-      } else if (Math.abs(p.y - 94) < 14) bootStart();                                         // START
-      else if (Math.abs(p.y - 120) < 8) bootBack();
+      } else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
+      else if (Math.abs(p.y - 132) < 6) bootBack();
     }
     return;
   }
@@ -6110,11 +6110,11 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   if (bootStep() === 0) {
     const sel = c === 0;
     text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    if (sel && blink) text('PRESS ' + kA, CX, 102, 8, '#ffffff', 'center');
+    if (sel && blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 102, 8, '#ffffff', 'center');
     if (items.includes(2)) { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 140, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); }
   } else {
     text('START', CX, 86, 16, '#ffd23a', 'center');
-    if (blink) text('PRESS ' + kA + ' TO CONFIRM' + (fsAvail() ? ' / ' + kB + ' TO GO BACK' : ''), CX, 116, 8, '#ffffff', 'center');
+    if (blink) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
   }
 }
 const VOL_N = 130;   // message « monte le son » après START : fondu entrant, pause, fondu sortant
