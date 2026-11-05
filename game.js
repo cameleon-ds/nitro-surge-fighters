@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v276';
+const VERSION = 'v277';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4936,7 +4936,7 @@ function stepMoves() {
 }
 const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return o; };
+const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return fsAvail() ? o : o.filter(i => i !== 6); };   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -5181,11 +5181,11 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
 const bootStep = () => fsAvail() ? (G.bootStep || 0) : 1;
-const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else o.push(1); return o; };
+const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
 const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
 function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
-function bootOk() { if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
+function bootOk() { if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   if (!G.boot) return;
   G.boot = false; G.t = 0; G.volT = 0;   // puis message « monte le son », puis logo
@@ -5211,7 +5211,8 @@ addEventListener('pointerup', e => {
         if (Math.abs(p.y - 88) < 10) { G.bcur = 0; bootToggleFS(); }                         // FULL SCREEN : OFF / ON
         else if (Math.abs(p.y - 106) < 9) { G.bcur = 0; bootOk(); }                           // PRESS A
         else if (installAvail() && Math.abs(p.y - 144) < 10) { G.bcur = 2; bootOk(); }
-      } else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
+      } else if (!fsAvail() && installAvail() && Math.abs(p.y - 154) < 8) { G.bcur = 2; bootOk(); }   // ADD TO HOME SCREEN
+      else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
       else if (Math.abs(p.y - 132) < 6) bootBack();
     }
     return;
@@ -6113,8 +6114,13 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     if (sel && blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 102, 8, '#ffffff', 'center');
     if (items.includes(2)) { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 140, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); }
   } else {
-    text('START', CX, 86, 16, '#ffd23a', 'center');
-    if (blink) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
+    const s1 = c !== 2;
+    text('START', CX, 86, 16, s1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
+    if (items.includes(2)) {   // iPhone dans le navigateur : le plein écran passe par l'icône sur l'écran d'accueil
+      text('FOR FULL SCREEN:', CX, 140, 8, '#9a8aa0', 'center');
+      text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 152, 8, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
+    }
+    if (blink && s1) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
   }
 }
 const VOL_N = 130;   // message « monte le son » après START : fondu entrant, pause, fondu sortant
