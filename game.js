@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v334';
+const VERSION = 'v335';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -3141,7 +3141,7 @@ function updFighter(f, o) {
         const q = G.voids.find(v => v.owner === f && v.charging);
         if (q) {
           const held = f.ctl && f.ctl.held && f.ctl.held.s;
-          if (held && q.ch < 150) { q.ch++; f.t = 8; }
+          if (held && q.ch < 300) { q.ch++; f.t = 8; }   /* tenue jusqu'à 5 s */
           else {
             const c = Math.min(1, q.ch / 90); q.charging = false; q.c = c; q.vx = f.dir * (3.2 - 2 * c);   // plus elle est grosse, plus elle est lente
             q.hit = Object.assign({}, VOID_HIT, { dmg: Math.round(8 + 24 * c), push: .6 + c * 3, chip: 1 + Math.round(c * 5), knock: c > .75 });
@@ -3981,6 +3981,11 @@ function updVane() {
     if (q.charging) {   // sphère en charge, tenue devant Vane
       const w = q.owner; if (w.state !== 'voidcast') { q.dead = true; vaneChargeStop(w); continue; }
       q.r = 10 + Math.min(1, q.ch / 90) * 28; q.x = w.x + w.dir * (26 + q.r * .9); q.y = w.y - 54 - floatOff(w) - Math.max(0, q.r - 24) * .6;
+      if (q.ch >= 90) {   // chargée à fond (A encore tenu) : bouclier, annule les projectiles adverses qui la touchent, sans blesser l'adversaire
+        let n = killShots(w, q.x - q.r, q.x + q.r, q.y - q.r, q.y + q.r);
+        for (const s2 of G.snakes || []) if (!s2.dead && s2.owner !== w && Math.abs(s2.x - q.x) < q.r + 10 && Math.abs(s2.y - q.y) < q.r + 10) { s2.dead = true; n++; (G.clashFx = G.clashFx || []).push({ x: s2.x, y: s2.y, t: 0 }); }
+        if (n) { G.flashT = Math.max(G.flashT, 3); G.shake = Math.max(G.shake, 4); sfx('parry'); sfx('heavy'); }
+      }
       if (q.t % 2 === 0) for (let k = 0; k < 2; k++) { const a = Math.random() * 6.28, d = q.r * 2.4; G.vdust.push({ x: q.x + Math.cos(a) * d, y: q.y + Math.sin(a) * d, vx: -Math.cos(a) * d / 11, vy: -Math.sin(a) * d / 11, t: 0, pink: Math.random() < .7 }); }
       continue;
     }
