@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v293';
+const VERSION = 'v294';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6153,7 +6153,7 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
     slide(-80, () => text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // START arrive du haut
     slide(130, () => text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // ADD TO HOME SCREEN arrive du bas
-    if (blink) iconLine(124, 'TO SELECT    PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
+    if (blink) iconLine(124, 'TO SELECT  PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
