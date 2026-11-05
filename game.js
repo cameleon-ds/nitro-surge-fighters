@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v273';
+const VERSION = 'v274';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5294,10 +5294,10 @@ function step() {
         break;
       }
       if (G.invPop) {   // fenêtre INVITE A PLAYER
-        if (edge(pctl, 'l') || edge(pctl, 'r')) { G.invSel = 1 - (G.invSel || 0); sfx('beep'); }
+        if (edge(pctl, 'l') || edge(pctl, 'r')) { G.invSel = isTouch ? 1 - (G.invSel || 0) : G.invSel === 1 ? 2 : 1; sfx('beep'); }
         if (tap) { if (!inRect(tap, INV_POP)) G.invPop = false; else if (inRect(tap, INV_L)) G.invSel = 0; else if (inRect(tap, INV_R)) G.invSel = 1; }
         if (backPress(pctl)) { G.invPop = false; sfx('beep'); }
-        else if (okPress(pctl) && G.invSel === 1 && !isTouch && G.frame - (G.shareF || -99) > 3) doShare();   // écran tactile : le partage part au relâché du bouton A (vrai geste)
+        else if (okPress(pctl) && !isTouch && G.frame - (G.shareF || -99) > 3) { if (G.invSel === 2) doCopy(); else if (G.invSel === 1) doShare(); }   // écran tactile : le partage part au relâché du bouton A (vrai geste)
         break;
       }
       const btnOn = !isTouch;   // PC : bouton « ADD CONTROLLERS » sous la grille ; partout : « INVITE A PLAYER »
@@ -6361,8 +6361,15 @@ function drawSelect() {
 }
 
 // ---- INVITE A PLAYER : QR code (local) ou lien à partager (à distance) ----
-const INV_BTN = [0, 0, 0, 0], INV_POP = [0, 0, 0, 0], INV_L = [0, 0, 0, 0], INV_R = [0, 0, 0, 0], INV_SHARE = [0, 0, 0, 0];
-function openInvite() { netStart(); G.invPop = true; G.invSel = G.invSel || 0; G.invMsg = ''; sfx('select'); }
+const INV_BTN = [0, 0, 0, 0], INV_POP = [0, 0, 0, 0], INV_L = [0, 0, 0, 0], INV_R = [0, 0, 0, 0], INV_SHARE = [0, 0, 0, 0], INV_COPY = [0, 0, 0, 0];
+function openInvite() { netStart(); G.invPop = true; G.invSel = isTouch ? G.invSel || 0 : 1; G.invMsg = ''; sfx('select'); }   // PC : uniquement ONLINE (SHARE / COPY LINK)
+function doCopy() {   // PC : copie du lien d'invitation
+  const url = inviteURL(); G.shareF = G.frame; sfx('select');
+  if (!url) { G.invMsg = 'PLEASE WAIT, CONNECTING...'; return; }
+  const ok = () => { G.invMsg = 'LINK COPIED! PASTE IT IN A MESSAGE'; };
+  const old = () => { try { const t = document.createElement('textarea'); t.value = url; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); ok(); } catch (e) { G.invMsg = 'COPY FAILED'; } };
+  try { navigator.clipboard.writeText(url).then(ok, old); } catch (e) { old(); }
+}
 function doShare(gesture) {   // menu de partage du téléphone / PC (WhatsApp, Messenger...) ; sinon copie du lien
   const url = inviteURL(); G.shareF = G.frame; sfx('select');
   if (!url) { G.invMsg = 'PLEASE WAIT, CONNECTING...'; return; }
@@ -6375,10 +6382,11 @@ const evPt = e => { const r = cv.getBoundingClientRect(); return ROT ? { x: (e.c
 addEventListener('pointerup', e => {
   if (!G.invPop || G.scene !== 'select') return;
   if (inRect(evPt(e), INV_SHARE)) { G.invSel = 1; doShare(true); return; }
+  if (!isTouch && inRect(evPt(e), INV_COPY)) { G.invSel = 2; doCopy(); return; }
   const el = document.elementFromPoint(e.clientX, e.clientY), b = el && el.closest ? el.closest('.b') : null;   // bouton A de l'écran tactile
   if (b && b.dataset.b === 's' && G.invSel === 1) doShare(true);
 }, { passive: true });
-addEventListener('keydown', e => { if (G.invPop && G.scene === 'select' && G.invSel === 1 && (e.code === KEYS.s || e.code === 'Enter')) doShare(true); });
+addEventListener('keydown', e => { if (G.invPop && G.scene === 'select' && (e.code === KEYS.s || e.code === 'Enter')) { if (G.invSel === 1) doShare(true); else if (G.invSel === 2 && !isTouch) doCopy(); } });
 function drawShareIcon(x, y, col) {   // icône de partage (vectorielle)
   const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1;
   g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = .9 * r;
@@ -6390,6 +6398,26 @@ function drawShareIcon(x, y, col) {   // icône de partage (vectorielle)
 function drawInvitePopup() {
   if (HI.width > W) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore(); }
   artFill('rgba(0,0,0,.82)');
+  if (!isTouch) {   // PC : uniquement ONLINE, avec SHARE et COPY LINK
+    const pw = 250, ph = 150, px = Math.round(CX - pw / 2), py = Math.round(H / 2 - ph / 2); INV_POP.splice(0, 4, px, py, pw, ph);
+    INV_L.fill(0); INV_R.fill(0);
+    artFill('#120a1c', px, py, pw, ph); ring(px, py, pw, ph, 1, '#ffd23a');
+    artText('INVITE A PLAYER', CX, py + 7, 11, '#ffd23a');
+    artText('ONLINE', CX, py + 24, 9, '#ffffff');
+    artText('Send an invitation link (WhatsApp, Messenger, e-mail...)', CX, py + 37, 6, '#d8c8e0');
+    const sw = 84, sh = 20, sy = py + 52, s1 = CX - sw - 5, s2 = CX + 5, on1 = G.invSel !== 2, on2 = G.invSel === 2;
+    INV_SHARE.splice(0, 4, s1, sy, sw, sh); INV_COPY.splice(0, 4, s2, sy, sw, sh);
+    artFill(on1 ? '#ffd23a' : '#3a2a48', s1, sy, sw, sh); ring(s1, sy, sw, sh, 1, '#ffffff');
+    drawShareIcon(s1 + 22, sy + sh / 2 + .5, on1 ? '#1a0a24' : '#ffffff');
+    artText('SHARE', s1 + 48, sy + 5.5, 9, on1 ? '#1a0a24' : '#ffffff', 'center', null, true);
+    artFill(on2 ? '#ffd23a' : '#3a2a48', s2, sy, sw, sh); ring(s2, sy, sw, sh, 1, '#ffffff');
+    artText('COPY LINK', s2 + sw / 2, sy + 5.5, 9, on2 ? '#1a0a24' : '#ffffff', 'center', null, true);
+    const url = inviteURL(); if (url) artText(url.replace(/^https?:\/\//, ''), CX, sy + sh + 8, 5.5, '#9a8aa0', 'center', null, true);
+    if (G.invMsg) artText(G.invMsg, CX, sy + sh + 19, 6, '#5aff8a');
+    artText(NET.guest ? 'PLAYER 2 CONNECTED!' : NET.id ? 'WAITING FOR PLAYER 2...' : 'CONNECTING...', CX, py + ph - 24, 6.5, NET.guest ? '#5aff8a' : '#c8b8d8');
+    artText('< > : CHOOSE   ENTER: SELECT   ESC: CLOSE', CX, py + ph - 13, 6, '#ffffff');
+    return;
+  }
   const pw = W - 16, ph = H - 16, px = 8, py = 8; INV_POP.splice(0, 4, px, py, pw, ph);
   artFill('#120a1c', px, py, pw, ph); ring(px, py, pw, ph, 1, '#ffd23a');
   artText('INVITE A PLAYER', CX, py + 7, 11, '#ffd23a');
