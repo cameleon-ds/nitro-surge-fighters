@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v288';
+const VERSION = 'v289';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1628,6 +1628,8 @@ addEventListener('blur', () => keys.clear());
 
 const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || /[?&]touch/.test(location.search);
 if (isTouch) document.body.classList.add('touch');
+if (isTouch && innerHeight > innerWidth) document.body.classList.add('needrot');   // démarré en portrait : « ROTATE YOUR PHONE » reste jusqu'à CONTINUE, même après la rotation
+document.body.classList.add('booting');   // écran de démarrage : pas de bouton START de la manette
 
 const touch = { x: 0, y: 0, btn: new Set() };
 let tap = null; // dernier tap en coordonnées canvas
@@ -1894,7 +1896,7 @@ function addNote(txt) { G.note = { txt, t: 0 }; }
 function drawNote() { const N = G.note; if (!N) return; N.t++; if (N.t > 150) { G.note = null; return; } const a = Math.min(1, N.t / 8, (150 - N.t) / 20); ctx.save(); ctx.globalAlpha = a; R(CX - 90, 4, 180, 14, 'rgba(10,4,20,.85)'); text(N.txt, CX, 7, 8, '#5aff8a', 'center'); ctx.restore(); }
 // ---- côté Player 2 (lien d'invitation) ----
 function guestStart() {
-  G.guest = { status: 'connecting', t: 0 }; G.musicHold = true; G.boot = false;
+  G.guest = { status: 'connecting', t: 0 }; G.musicHold = true; G.boot = false; document.body.classList.remove('booting');
   const v = document.createElement('video'); v.id = 'guestVid'; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
   Object.assign(v.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', objectFit: 'contain', background: '#000', zIndex: '3', imageRendering: 'pixelated', display: 'none' });
   document.getElementById('app').appendChild(v); G.guest.vid = v;
@@ -5194,6 +5196,7 @@ function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcu
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
 function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
+  document.body.classList.remove('booting');
   if (!G.boot) return;
   G.boot = false; G.t = 0; G.volT = 0;   // puis message « monte le son », puis logo
   if (OPT.full && fsAvail()) enterFS(); else if (!OPT.full) exitFS();

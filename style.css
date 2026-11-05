@@ -65,6 +65,8 @@ body.touch #touch{display:block}
 @media (orientation:portrait){
   body.touch:not(.rotok) #rotate{display:flex}
 }
+body.touch.needrot:not(.rotok) #rotate{display:flex}   /* démarré en portrait : reste affiché jusqu'au bouton CONTINUE */
+body.booting #startBtn{display:none}   /* premier écran : pas de bouton START */
 
 /* ---------- Bouton START (pause) ---------- */
 #startBtn{
