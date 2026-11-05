@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v340';
+const VERSION = 'v341';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6322,6 +6322,7 @@ function shotIncoming(f) {   // un projectile adverse renvoyable arrive vers moi
 function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur humain
   if (f.ko || f.hp <= 0) return null;
   const o = G.f[0] === f ? G.f[1] : G.f[0];
+  if (f.state === 'nyxglide') return ['A', '#ff80ff'];   // Nyx plane : A pour le plongeon (bulle sous elle)
   if (f.def.kit === 'vane') {   // Vane : X → « HOLD X » pendant la charge, chargé → « A »
     if (f.vxReady > 0) return ['A', '#ff80ff'];
     if (f.state === 'vxcharge' || f.state === 'parry') return ['HOLD X', '#ff80ff'];
@@ -6341,7 +6342,7 @@ function drawGuides() {
     f.guideA = (f.guideA || 0) + 1;
     const k = Math.min(1, f.guideA / 10), pop = k < 1 ? 1.25 * Math.sin(k * Math.PI * .5) - .25 * Math.sin(k * Math.PI) : 1;   // apparition : zoom avec léger rebond
     const sc = Math.max(.01, pop * (1 + .06 * Math.sin(G.frame * .12)));   // puis léger zoom continu
-    const x = Math.round(f.x + f.dir * 6), y = Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;
+    const below = f.state === 'nyxglide', x = Math.round(f.x + f.dir * 6), y = below ? Math.round(f.y - 14) : Math.round(f.y - (f.dizzy ? 112 : 100) - floatOff(f)), w = g[0].length * 8 + 8;   // Nyx en vol plané : bulle juste sous elle
     ctx.save(); ctx.translate(x, y + 4); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, k * 1.5);
     ctx.fillStyle = 'rgba(10,4,20,.75)'; ctx.beginPath(); ctx.arc(-w / 2 + 6, 0, 6, Math.PI / 2, Math.PI * 1.5); ctx.arc(w / 2 - 6, 0, 6, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();   // bulle en pilule, sans contour
     text(g[0], 0, -3, 8, g[1], 'center');
