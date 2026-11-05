@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v335';
+const VERSION = 'v336';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2606,7 +2606,7 @@ function drawVClones() {
     glowAt(x, y, 12 + 4 * pul, 'rgba(200,80,255,.95)', .6 * fade);
     ctx.save(); ctx.globalAlpha = fade; ctx.fillStyle = '#e8a0ff'; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, 1, 1); ctx.restore();
   }
-  for (const f of G.f) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / 60); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
+  for (const f of G.f) if (f.state === 'vsuper' || f.state === 'vxcharge') { const k = Math.min(1, f.chargeT / (f.state === 'vxcharge' ? 72 : 60)); glowAt(f.x + f.dir * 22, f.y - 56, 12 + 26 * k, 'rgba(170,60,255,.95)', .4 + .4 * k); }
   for (const q of G.vclones || []) {
     const fig = (x, y) => ({ def: q.owner.def, id: 9, dir: q.dir, state: q.ph === 'grab' ? 'vgrabH' : 'vgrabC', t: 8, flash: 0, x, y, vx: 0, air: false, ghostDraw: true });
     q.trail.forEach(([tx, ty, ox, oy], i) => {   // échos mauves (clone et adversaire qui monte)
@@ -2996,11 +2996,11 @@ function updFighter(f, o) {
     case 'vsuper': updVaneSuper(f, o); break;
     case 'vxcharge': {   // X maintenu 1 s : écran foncé ; puis A = clone mauve qui attrape l'adversaire par le cou
       f.vx = 0; face(f, o); const hx = f.x + f.dir * 22, hy = f.y - 56;
-      if (f.chargeT < 60) {
+      if (f.chargeT < 72) {
         if (!h.x) { vaneChargeStop(f); f.chg = null; setState(f, 'idle'); break; }   // relâché trop tôt : plus aucune trace de la charge
         f.chargeT++; if (f.chargeT === 16) vaneChargeStart(f);
         if (f.t % 3 === 0) { const a = Math.random() * 6.28, d = 30 + Math.random() * 20; (f.chg = f.chg || []).push({ x: hx + Math.cos(a) * d, y: hy + Math.sin(a) * d, tx: hx, ty: hy, t: 0 }); }
-        if (f.chargeT === 60) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); f.chg = null; f.vxReady = 180; setState(f, 'idle'); }   // chargé : Vane reprend ses mouvements, la charge reste 3 s
+        if (f.chargeT === 72) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = hx; G.boltY = hy; vaneChargeStop(f); sfx('counter'); f.chg = null; f.vxReady = 180; setState(f, 'idle'); }   // chargé : Vane reprend ses mouvements, la charge reste 3 s
         break;
       }
       if (take(c, 's')) { f.chg = null; (G.vclones = G.vclones || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y, dir: f.dir, t: 0, ph: 'fly', lift: 0, trail: [] }); G.flashT = Math.max(G.flashT, 6); sfx('fb'); sfx('tele'); setState(f, 'vsrel'); break; }
