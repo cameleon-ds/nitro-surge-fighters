@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v279';
+const VERSION = 'v280';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5217,11 +5217,11 @@ addEventListener('pointerup', e => {
       if (bootStep() === 0) {
         if (Math.abs(p.y - 88) < 7) { G.bcur = 0; bootToggleFS(); }                          // FULL SCREEN : OFF / ON
         else if (two && Math.abs(p.y - 102) < 7) { G.bcur = 2; bootOk(true); }                // INSTALL / ADD TO HOME SCREEN
-        else if (Math.abs(p.y - 120) < 7) bootOk(true);                                      // PRESS A TO CONFIRM
+        else if (Math.abs(p.y - (two ? 132 : 120)) < 7) bootOk(true);                                      // PRESS A TO CONFIRM
       } else if (two) {
         if (Math.abs(p.y - 88) < 7) { G.bcur = 1; bootStart(); }                             // START
         else if (Math.abs(p.y - 102) < 8) { G.bcur = 2; bootOk(true); }                      // ADD TO HOME SCREEN
-        else if (Math.abs(p.y - 128) < 7) bootOk(true);
+        else if (Math.abs(p.y - 140) < 7) bootOk(true);
       }
       else if (Math.abs(p.y - 94) < 14 || Math.abs(p.y - 120) < 6) bootStart();                // START
       else if (Math.abs(p.y - 132) < 6) bootBack();
@@ -6130,14 +6130,14 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     const sel = c === 0;
     text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     if (two) row2();
-    if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center');
-    if (two) bootUpDown(128);
+    if (two) bootUpDown(114);
+    if (blink) text('PRESS ' + kA + ' TO CONFIRM / ' + kB + ' TO GO BACK', CX, two ? 128 : 116, 8, '#ffffff', 'center');
   } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
     text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 84, 8, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     row2();
     text('FOR FULL SCREEN', CX, 109, 6, '#9a8aa0', 'center');   // un peu plus petit, juste sous ADD TO HOME SCREEN
-    if (blink) text('PRESS ' + kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center');
-    bootUpDown(136);
+    bootUpDown(122);
+    if (blink) text('PRESS ' + kA + ' TO CONFIRM / ' + kB + ' TO GO BACK', CX, 136, 8, '#ffffff', 'center');
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
