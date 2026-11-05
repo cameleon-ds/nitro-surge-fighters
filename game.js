@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v311';
+const VERSION = 'v312';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1333,6 +1333,7 @@ function drawFighter(f, x = f.x, y = f.y) {
     if (f.state === 'wallslash') {   // sabre levé derrière la tête, puis abattu jusqu'au sol
       const th = f.t < 8 ? -2.0 : f.t < 14 ? -2.0 + (f.t - 8) / 6 * 3.3 : 1.3; ux2 = dir * Math.cos(th); uy2 = Math.sin(th);
     }
+    if (f.state === 'zslash' && f.t >= 2) { const th = -2.1 + Math.min(1, ((f.t - 2) % 8) / 5) * 2.8; ux2 = dir * Math.cos(th); uy2 = Math.sin(th); }   // shoryuken à 3 coups : même arc que avant + Y
     if (f.state === 'fpunch' && f.t < 16) {   // avant + Y : coup de sabre en arc de cercle, du haut vers le bas en passant par l'avant
       const th = -2.1 + Math.min(1, f.t / 13) * 2.8; ux2 = dir * Math.cos(th); uy2 = Math.sin(th);
     }   // plongeon : lame pointée vers le sol
@@ -2033,6 +2034,7 @@ const ATK = {
   sonic:    { dur: 26, act: [6, 10], box: [10, -70, 44, -40], dmg: 8, stun: 16, bstun: 10, push: 2.5, sfx: 'heavy' },
   plunge:   { act: [0, 99], box: [-10, -34, 16, 6], high: true, dmg: 12, knock: true, stun: 20, bstun: 14, push: 2.5, sfx: 'heavy' },
   tornado:  { act: [3, 26], box: [-24, -104, 30, -8], dmg: 13, knock: true, lift: 7.5, bstun: 16, push: 1.5, sfx: 'heavy' },
+  zdash:    { act: [3, 21], box: [-22, -80, 28, -22], dmg: 10, knock: true, stun: 18, bstun: 12, push: 2, sfx: 'heavy' },   // Zephyr : vrille électrique horizontale en l'air
   zslash:   { act: [2, 23], box: [0, -64, 40, -4], dmg: 5, stun: 18, bstun: 10, push: .5, sfx: 'hit' },   // Zephyr : 3 coups de sabre en glissant
   gust:     { dur: 26, act: [7, 12], box: [10, -70, 46, -30], dmg: 6, stun: 14, bstun: 10, push: 1.6, sfx: 'hit' },
   gpound:   { act: [7, 99], box: [-18, -40, 18, 4], high: true, dmg: 15, knock: true, stun: 22, bstun: 16, push: 3, sfx: 'heavy' },
@@ -2055,7 +2057,7 @@ const ATK = {
 };
 const FB_HIT = { dmg: 10, stun: 18, bstun: 14, push: 2.6, chip: 2, sfx: 'heavy' };
 const FB_BIG = { dmg: 22, knock: true, stun: 24, bstun: 20, push: 3.6, chip: 5, sfx: 'heavy' };
-const ATTACKING = ['bflip', 'vtripP', 'vtripK', 'vdive', 'hslide', 'fjump', 'grogroll', 'aflip', 'nyxspin', 'kbarrage', 'kspin', 'flipk', 'nslide', 'gpound', 'axgp', 'tpstrike', 'meteor', 'meteorD', 'voidcast', 'plasmawall', 'sonic', 'flask', 'geyser', 'wallslash', 'plunge', 'tornado', 'gust', 'cyclone', 'crushD', 'quake', 'zenith', 'holo', 'punch', 'kick', 'fpunch', 'fkick', 'flame', 'gtatsu', 'cpunch', 'rupper', 'ckick', 'jpunch', 'jkick', 'tatsu', 'dive', 'uppercut', 'special'];
+const ATTACKING = ['zdash', 'bflip', 'vtripP', 'vtripK', 'vdive', 'hslide', 'fjump', 'grogroll', 'aflip', 'nyxspin', 'kbarrage', 'kspin', 'flipk', 'nslide', 'gpound', 'axgp', 'tpstrike', 'meteor', 'meteorD', 'voidcast', 'plasmawall', 'sonic', 'flask', 'geyser', 'wallslash', 'plunge', 'tornado', 'gust', 'cyclone', 'crushD', 'quake', 'zenith', 'holo', 'punch', 'kick', 'fpunch', 'fkick', 'flame', 'gtatsu', 'cpunch', 'rupper', 'ckick', 'jpunch', 'jkick', 'tatsu', 'dive', 'uppercut', 'special'];
 const NEUTRAL = ['idle', 'walk', 'block', 'crouch', 'cblock'];
 
 /* ---------------- État du jeu ---------------- */
@@ -2076,7 +2078,7 @@ function makeFighter(def, id, x, dir, cpu) {
 }
 
 const chargeMax = f => { const T = f.def.twinFb ? 72 : f.def.fireUpper ? 72 : 120; return f.hp <= 80 ? T / 2 : T; };   // charge max : Hiro 1,2 s, Axel 1,2 s (moitié à 80 % d'énergie ou moins)
-function setState(f, s) { if (f.chSnd && s !== f.state) vaneChargeStop(f); if (s !== 'pteleport' && s !== 'nyxtele') f.fadeK = 0; if (s !== 'sink') f.sinkK = 0; if (s === 'hit' || s === 'fall') f.wallT = 0; if (f.dizzy && s !== 'stunned') { f.dizzy = false; f.dizzyEnd = G.frame; } if (s !== 'jump') { f.rollT = 0; f.rollA0 = 0; f.airNoS = false; } f.fireDash = 0; f.state = s; f.t = 0; f.hasHit = false; f.rotAng = null; }
+function setState(f, s) { if (s !== 'jump' && s !== 'hatcharge') f.hatHold = false; if (f.chSnd && s !== f.state) vaneChargeStop(f); if (s !== 'pteleport' && s !== 'nyxtele') f.fadeK = 0; if (s !== 'sink') f.sinkK = 0; if (s === 'hit' || s === 'fall') f.wallT = 0; if (f.dizzy && s !== 'stunned') { f.dizzy = false; f.dizzyEnd = G.frame; } if (s !== 'jump') { f.rollT = 0; f.rollA0 = 0; f.airNoS = false; } f.fireDash = 0; f.state = s; f.t = 0; f.hasHit = false; f.rotAng = null; }
 function face(f, o) { f.dir = o.x >= f.x ? 1 : -1; }
 
 const VANE_NORMALS = ['punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick', 'flame', 'vtripP', 'vtripK'];
@@ -2146,7 +2148,7 @@ function poseOf(f) {
     case 'cyclone': return f.t < 4 ? 'crouch' : f.air ? 'tuck' : 'special1';
     case 'sink': return f.t < 22 ? 'block' : 'upper0';
     case 'tornado': return f.t < 3 ? 'sho0' : 'upper2';
-    case 'hover': return 'tuck';
+    case 'hover': case 'zdash': return 'tuck';
     case 'flask': return f.t < 8 ? 'special0' : 'punch1';
     case 'sonic': return f.t < 5 ? 'fpunch0' : f.t < 16 ? 'fpunch1' : 'fpunch0';
     case 'voidcast': return f.t < 7 ? 'fpunch0' : f.t < 26 ? 'fpunch1' : 'fpunch0';   // un seul bras tendu
@@ -2164,7 +2166,7 @@ function poseOf(f) {
     case 'plunge': return 'sho0';
     case 'hatcharge': case 'hatcatch': return 'hatc';
     case 'hatthrow': return f.t < 4 ? 'hatc' : 'punch1';
-    case 'zslash': return f.t < 2 ? 'crouch' : ((f.t - 2) % 8 < 4 ? 'sho0' : 'rup1');
+    case 'zslash': { if (f.t < 2) return 'crouch'; const ph = (f.t - 2) % 8; return ph < 2 ? 'upper1' : ph < 5 ? 'fpunch1' : 'punch1'; }   // 3 coups de sabre en arc (comme avant + Y), rapides
     case 'zenith': return f.t < 3 ? 'crouch' : 'tuck';
     case 'uppercut': {
       // accroupi, le poing monte, envol de dos ; au sommet il se retourne et redescend de face
@@ -2365,6 +2367,46 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t > 90) { f.chg = null; setState(f, 'idle'); }
 }
 const HAT_HIT = { dmg: 9, stun: 22, bstun: 12, push: 2, chip: 1, sfx: 'hit' };
+function hatReady(f) { G.darkT = Math.max(G.darkT, 60); G.flashT = 12; G.boltX = f.x + f.dir * 4; G.boltY = f.y - 82; vaneChargeStop(f); sfx('counter'); }
+function throwHat(f, o) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 11, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); sfx('whoosh'); G.flashT = Math.max(G.flashT, 6); G.shake = Math.max(G.shake, 4); }
+const ZFLOOR_HIT = { dmg: 7, stun: 40, bstun: 12, push: 1, chip: 0, sfx: 'heavy', unblock: true };
+function updZFloor() {   // éclairs qui courent sur tout le sol après le plongeon de Zephyr : paralysent qui les touche
+  for (const q of G.zfloor || []) {
+    q.t++; if (q.t > 75) { q.dead = true; continue; }
+    const o = G.f.find(g => g !== q.owner); if (!o || q.hit || o.air || o.ko || q.t > 62 || !hurtbox(o)) continue;
+    if (Math.abs(o.x - q.x) <= q.t * 5.5 + 6) { q.hit = true; shock(q.owner, o, ZFLOOR_HIT, o.x, GROUND - 12); o.paraT = Math.max(o.paraT || 0, 40); addPopup(o.x, o.y - 104, 'PARALYZED!', '#7af0ff'); }
+  }
+  if (G.zfloor) G.zfloor = G.zfloor.filter(q => !q.dead);
+}
+function drawZFloor() {
+  for (const q of G.zfloor || []) {
+    const a = q.t > 55 ? (75 - q.t) / 20 : 1, reach = q.t * 5.5;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(47,180,255,.25)'; ctx.fillRect(Math.round(q.x - reach), GROUND - 2, Math.round(reach * 2), 3);
+    for (const dd of [-1, 1]) {
+      for (let line = 0; line < 2; line++) {
+        const pts = []; for (let d = 0; d <= reach; d += 7) pts.push([q.x + dd * d, GROUND - 1 - Math.random() * (line ? 9 : 5)]);
+        if (pts.length < 2) continue;
+        elecArc(pts, 'rgba(20,88,196,.9)', 3); elecArc(pts, 'rgba(90,200,255,1)', 1.6); elecArc(pts, '#ffffff', .8);
+      }
+      for (let b = 0; b < 4; b++) {   // petits éclairs qui jaillissent du sol
+        const bx = q.x + dd * Math.random() * reach, L = [[bx, GROUND]]; let y = GROUND; for (let k = 0; k < 3; k++) { y -= 3 + Math.random() * 5; L.push([bx + (Math.random() - .5) * 8, y]); }
+        elecArc(L, 'rgba(168,244,255,.9)', 1);
+      }
+      glowAt(q.x + dd * reach, GROUND - 6, 16, 'rgba(120,220,255,.9)', .7 * a);
+    }
+    ctx.restore();
+  }
+}
+function zapChaos(x, y0, w, hgt, n) {   // éclairs chaotiques éparpillés autour du personnage (effet foudre)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    let px = x + (Math.random() - .5) * 2 * w, py = y0 - Math.random() * hgt, ang = Math.random() * 6.28; const L = [[px, py]];
+    for (let k = 0; k < 4; k++) { ang += (Math.random() - .5) * 1.6; const len = 4 + Math.random() * 5; px += Math.cos(ang) * len; py += Math.sin(ang) * len; L.push([px, py]); }
+    elecArc(L, 'rgba(20,88,196,.9)', 3); elecArc(L, 'rgba(90,200,255,1)', 1.6); elecArc(L, '#ffffff', .8);
+  }
+  ctx.restore();
+}
 function updHats() {   // chapeau de Zephyr : part très vite, téléguidé vers l'adversaire, puis revient en arc sur sa tête
   for (const q of G.hats || []) {
     const f = q.owner, o = q.target; q.t++; q.rot += .9;
@@ -2445,7 +2487,7 @@ function drawHats() {
   }
   for (const f of G.f) {
     if (f.def.kit !== 'zephyr') continue;
-    if (f.state === 'hatcharge') {   // énergie qui va et vient sur le contour du chapeau
+    if (f.hatHold) {   // énergie qui va et vient sur le contour du chapeau
       const k = Math.min(1, (f.chargeT || 0) / 60), hx = f.x + f.dir * 4, hy = f.y - 82, pul = .5 + .5 * Math.sin(G.frame * .5);
       const gr = 1 + 1.6 * k;   // le cercle électrique grossit pendant la charge
       glowAt(hx, hy, (18 + 10 * k) * gr, 'rgba(120,220,255,.9)', .25 + .45 * k);
@@ -2453,7 +2495,7 @@ function drawHats() {
       ctx.beginPath(); ctx.ellipse(hx, hy, (18 + 3 * pul) * gr, (6 + 1.5 * pul) * gr, 0, 0, 6.29); ctx.stroke(); ctx.restore();
       zapAround(hx, hy, 20 * gr, 8 * gr, 2 + Math.round(5 * k), .5 + .5 * k);
     }
-    if (f.state === 'hover' || f.state === 'tornado') zapAround(f.x, f.y - 50, 26, 46, f.state === 'hover' ? 6 : 5, .9);   // électricité : arrêt en l'air (invincible) et tornade
+    if (['hover', 'tornado', 'plunge', 'zdash'].includes(f.state)) zapChaos(f.x, f.y - 2, 28, 100, f.state === 'zdash' ? 9 : 7);   // électricité chaotique autour de lui   // électricité : arrêt en l'air (invincible) et tornade
   }
 }
 function updSupers() {
@@ -2725,6 +2767,11 @@ function updFighter(f, o) {
       if (f.t > 11 && f.vy >= 0 && f.apexT == null) f.apexT = f.t;
       break;
     case 'jump':
+      if (f.hatHold) {   // saut pendant la charge du chapeau : A lâché en l'air = lancer en l'air
+        f.chargeT = (f.chargeT || 0) + 1; if (f.chargeT === 60) hatReady(f);
+        if (!h.s) { f.hatHold = false; f.airAtk = true; vaneChargeStop(f); if (f.chargeT >= 60) throwHat(f, o); }
+        break;
+      }
       if (!f.airAtk && live) {
         if (take(c, 'p')) { setState(f, 'jpunch'); f.airAtk = true; sfx('whoosh'); }
         else if (take(c, 'k')) { setState(f, 'jkick'); f.airAtk = true; sfx('whoosh'); }
@@ -2735,8 +2782,11 @@ function updFighter(f, o) {
         else if (f.def.kit === 'vane' && take(c, 's')) {   // en l'air + A : grosse sphère du vide en diagonale vers le sol
           setState(f, 'airvoid'); f.airAtk = true;
         }
-        else if (f.def.kit === 'zephyr' && take(c, 's')) {   // Zephyr : arrêt en l'air puis plongeon sabre pointé vers le sol
+        else if (f.def.kit === 'zephyr' && h.d && take(c, 's')) {   // Zephyr : en l'air + bas + A : arrêt en l'air puis plongeon sabre pointé vers le sol
           setState(f, 'hover'); f.airAtk = true; f.vx = 0; f.vy = 0; sfx('whoosh');
+        }
+        else if (f.def.kit === 'zephyr' && take(c, 's')) {   // Zephyr : en l'air + A : vrille électrique horizontale vers l'avant
+          setState(f, 'zdash'); f.airAtk = true; f.vx = 0; f.vy = 0; sfx('upper'); sfx('parry');
         }
         else if (f.def.kit === 'grog' && take(c, 's')) {   // Grog : chute verticale comme un poids énorme
           setState(f, 'gpound'); f.airAtk = true; f.vx = 0; f.vy = -1.2; sfx('whoosh');
@@ -2852,20 +2902,22 @@ function updFighter(f, o) {
       break;
     case 'crushLand': f.vx = 0; if (f.t >= 20) setState(f, 'idle'); break;
     case 'zslash':   // glissade + 3 coups de sabre de bas en haut, puis tornade
-      f.vx = f.t < 22 ? 3.4 * f.dir * (1 - f.t / 26) : 0;
+      f.vx = f.t < 22 ? 5.2 * f.dir * (1 - f.t / 30) : 0;   // avance aussi loin que la glissade de Hiro
       if (f.t === 2 || f.t === 10 || f.t === 18) { f.hasHit = false; sfx('whoosh'); }
       if (f.t >= 24) { setState(f, 'tornado'); f.invuln = 10; sfx('parry'); }
       break;
-    case 'hatcharge': {   // A maintenu : la main tient le chapeau, l'énergie se charge sur son contour
-      f.vx = 0; f.chargeT = (f.chargeT || 0) + 1;
+    case 'hatcharge': {   // A maintenu : la main tient le chapeau, l'énergie se charge ; Zephyr peut avancer / reculer (plus lentement) ou sauter
+      face(f, o); f.hatHold = true; f.chargeT = (f.chargeT || 0) + 1;
       if (f.chargeT === 8) vaneChargeStart(f);
-      if (!h.s && f.chargeT < 60) { vaneChargeStop(f); setState(f, 'gust'); f.t = 6; break; }   // relâché trop tôt : lame d'air normale
-      if (f.chargeT >= 60) { vaneChargeStop(f); setState(f, 'hatthrow'); }
+      if (f.chargeT === 60) hatReady(f);   // 1 s : écran foncé + éclat sur le chapeau (comme Hiro)
+      if (!h.s) { vaneChargeStop(f); f.hatHold = false; if (f.chargeT >= 60) setState(f, 'hatthrow'); else { setState(f, 'gust'); f.t = 6; } break; }   // A lâché : lance le chapeau (ou lame d'air si trop tôt)
+      if (live && h.u) { setState(f, 'jump'); f.hatHold = true; f.vy = -7.4; f.air = true; f.airAtk = false; f.roll = 0; f.vx = (fwd ? 1.8 : back ? -1.8 : 0) * f.dir; sfx('jump'); break; }
+      f.vx = fwd ? 1.1 * f.dir : back ? -.85 * f.dir : 0;
       break;
     }
     case 'hatthrow':
       f.vx = 0;
-      if (f.t === 4) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 11, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); sfx('whoosh'); G.flashT = Math.max(G.flashT, 6); G.shake = Math.max(G.shake, 4); }
+      if (f.t === 4) throwHat(f, o);
       if (f.t >= 18) setState(f, 'idle');
       break;
     case 'hatcatch': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
@@ -3086,6 +3138,16 @@ function updFighter(f, o) {
       if (f.t === 13) { f.wallT = 26; f.wallX = f.x + f.dir * 34; G.shake = Math.max(G.shake, 2); }
       if (f.t >= 34) setState(f, 'idle');
       break;
+    case 'zdash':   // vrille horizontale en l'air (comme le shoryuken, mais couché), traverse un tiers de l'écran puis retombe
+      f.vy = -GRAV;
+      if (f.t < 3) { f.vx = 0; break; }
+      f.vx = 7.2 * f.dir; f.rotAng = f.dir * (f.t - 3) * .75;
+      if (f.t % 6 === 0) sfx('whoosh');
+      if (killShots(f, f.x - 26, f.x + 26, f.y - 84, f.y - 8)) {   // touche une boule de feu : les deux s'annulent, roulade arrière automatique
+        setState(f, 'jump'); f.air = true; f.roll = -1; f.t = 3; f.rollT = 22; f.vx = -4.4 * f.dir; f.vy = -5.6; f.airAtk = false; f.airNoS = true; sfx('parry'); sfx('jump'); break;
+      }
+      if (f.t >= 21) { setState(f, 'jump'); f.t = 4; f.airAtk = true; f.vx = 1.2 * f.dir; f.vy = 0; }
+      break;
     case 'hover':   // suspendu en l'air une demi-seconde : entouré d'électricité et invincible
       f.vx = 0; f.vy = -GRAV; f.invuln = Math.max(f.invuln || 0, 2);
       if (f.t >= 30) { setState(f, 'plunge'); sfx('upper'); }
@@ -3124,7 +3186,7 @@ function updFighter(f, o) {
       else if (f.state === 'meteor' || f.state === 'meteorD' || f.state === 'airvoid') { f.rotAng = null; setState(f, 'land'); f.landT = 10; G.shake = Math.max(G.shake, 3); }
       else if (f.state === 'plunge' || f.state === 'hover') {   // impact : onde de choc électrique jusqu'aux deux bords de l'écran
         setState(f, 'land'); f.landT = 16; G.shake = Math.max(G.shake, 7); G.flashT = Math.max(G.flashT, 4); sfx('thud'); sfx('heavy');
-        for (const dd of [-1, 1]) G.waves.push({ owner: f, x: f.x + dd * 8, dir: dd, t: 0, life: 200, speed: 5.5 });
+        (G.zfloor = G.zfloor || []).push({ owner: f, x: f.x, t: 0 }); sfx('parry');   // éclairs qui se propagent sur tout le sol, à gauche et à droite
       }
       else if (f.state === 'gpound') {   // impact : onde de choc sur tout le sol, l'écran tremble
         setState(f, 'crushLand'); G.shake = Math.max(G.shake, 18); G.flashT = Math.max(G.flashT, 5); G.quakeT = 40; sfx('thud'); sfx('heavy');
@@ -3134,6 +3196,8 @@ function updFighter(f, o) {
         const hit = f.hasHit; f.rotAng = null; setState(f, 'crushLand'); G.shake = Math.max(G.shake, 8); sfx('thud'); sfx('heavy');
         for (const dd of [-1, 1]) G.waves.push({ owner: f, x: f.x + dd * 10, dir: dd, t: 0, life: 12, small: true, done: hit });
       }
+      else if (f.state === 'jump' && f.hatHold) { setState(f, 'hatcharge'); }   // retombe en continuant de charger le chapeau
+      else if (f.state === 'zdash') { f.rotAng = null; setState(f, 'land'); f.landT = 8; }
       else if (['jump', 'jpunch', 'jkick', 'airflask', 'nyxglide', 'nyxspin', 'airfb'].includes(f.state)) { f.rotAng = null; setState(f, 'land'); f.landT = 4; }
       f.vx = 0;
     }
@@ -3159,7 +3223,7 @@ function atkBox(f) {
   const a = ATK[f.state];
   if (!a || f.hasHit) return null;
   if (f.t < a.act[0] || f.t >= a.act[1]) return null;
-  if (['vdive', 'hslide', 'fjump', 'aflip', 'nyxspin', 'kspin', 'flipk', 'jpunch', 'jkick', 'uppercut', 'tatsu', 'zenith', 'dive', 'crushD', 'gpound', 'tornado', 'plunge', 'meteor', 'meteorD'].includes(f.state) && !f.air) return null;
+  if (['vdive', 'hslide', 'fjump', 'aflip', 'nyxspin', 'kspin', 'flipk', 'jpunch', 'jkick', 'uppercut', 'tatsu', 'zenith', 'dive', 'crushD', 'gpound', 'tornado', 'plunge', 'zdash', 'meteor', 'meteorD'].includes(f.state) && !f.air) return null;
   let [x0, y0, x1, y1] = a.box;
   if (f.def.float && VANE_NORMALS.includes(f.state)) { x0 += 26; x1 += 26; y0 -= floatOff(f); y1 -= floatOff(f); }   // c'est le double, plus loin devant, qui frappe
   return f.dir > 0 ? [f.x + x0, f.y + y0, f.x + x1, f.y + y1] : [f.x - x1, f.y + y0, f.x - x0, f.y + y1];
@@ -3796,7 +3860,7 @@ function drawVaneBehind() {   // échos derrière Vane
     if (!f.echo || !f.echo.length) continue;
     f.echo.forEach((e, i) => {
       const a = (i + 1) / (f.echo.length + 1);
-      ctx.save(); ctx.globalAlpha = .55 * a; if (i % 2 === 0) ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, e, { flash: 0, tint: i % 2 ? 'rgba(10,0,20,.85)' : e.state === 'bflip' ? ((f.def.fb && f.def.fb[2]) || '#ffffff') : (f.def.kit === 'vesper' ? 'rgba(58,220,255,.85)' : f.def.twinFb ? 'rgba(60,140,255,.85)' : 'rgba(255,60,200,.85)') }), e.x, e.y); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .55 * a; if (i % 2 === 0) ctx.globalCompositeOperation = 'lighter'; drawFighter(Object.assign({}, f, e, { flash: 0, tint: i % 2 ? 'rgba(10,0,20,.85)' : e.state === 'bflip' ? ((f.def.fb && f.def.fb[2]) || '#ffffff') : (f.def.kit === 'vesper' ? 'rgba(58,220,255,.85)' : (f.def.twinFb || f.def.kit === 'zephyr') ? 'rgba(60,140,255,.85)' : 'rgba(255,60,200,.85)') }), e.x, e.y); ctx.restore();
     });
   }
 }
@@ -3904,8 +3968,13 @@ const SONIC_HIT = { dmg: 8, stun: 18, bstun: 12, push: 6.5, chip: 1, sfx: 'heavy
 const PWALL_HIT = { dmg: 14, knock: true, lift: 5, stun: 22, bstun: 16, push: 3, chip: 3, sfx: 'heavy', unblock: true };   // électrifié, tombe en arrière
 const ELEC_PAL = ['#ffffff', '#c8faff', '#5af0ff', '#1a78d0'];
 const SONIC_BIG = { dmg: 15, knock: true, stun: 22, bstun: 16, push: 8, chip: 3, sfx: 'heavy' };
-function updHiroEcho() {   // échos bleus derrière Hiro (glissade + shoryuken)
+function updHiroEcho() {   // échos bleus derrière Hiro (glissade + shoryuken) et Zephyr (shoryuken, vrille en l'air)
   for (const f of G.f) {
+    if (f.def.kit === 'zephyr') {
+      if (['zslash', 'tornado', 'zdash'].includes(f.state)) { (f.echo = f.echo || []).push({ x: f.x, y: f.y, state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll }); if (f.echo.length > 7) f.echo.shift(); }
+      else if (f.echo && f.echo.length && f.state !== 'bflip') f.echo.shift();
+      continue;
+    }
     if (!f.def.twinFb) continue;
     if (f.state === 'hslide' || f.state === 'uppercut') { (f.echo = f.echo || []).push({ x: f.x, y: f.y, state: f.state, t: f.t, rotAng: f.rotAng, dir: f.dir, vx: f.vx, air: f.air, roll: f.roll, apexT: f.apexT }); if (f.echo.length > 7) f.echo.shift(); }
     else if (f.echo && f.echo.length && f.state !== 'bflip') f.echo.shift();
@@ -4277,14 +4346,6 @@ function drawZephyrFx() {
         const ph = ((G.frame * 6 + k * 37) % 120) / 120, len = 26;
         const x0 = f.x + f.dir * (150 - ph * 130), y0 = f.y - 14 - k * 12 + Math.sin(G.frame * .2 + k) * 3;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + f.dir * len, y0 + 2); ctx.stroke();
-      }
-    }
-    if (f.state === 'tornado' && f.t >= 3 && f.t < 34) {   // mini-cyclone autour de la vrille
-      const a = f.air ? 1 : .5;
-      for (let k = 0; k < 7; k++) {
-        const yy = f.y - 8 - k * 14, rw = 10 + k * 3.2, ph = G.frame * .5 + k * .9;
-        ctx.strokeStyle = k % 2 ? `rgba(122,232,240,${.7 * a})` : `rgba(255,255,255,${.6 * a})`; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.ellipse(f.x, yy, rw, 3, 0, ph, ph + 3.6); ctx.stroke();
       }
     }
   }
@@ -4856,7 +4917,7 @@ function startRound() {
     setState(f, 'idle');
     f.ai.holdT = 0; f.ai.press = null; f.ai.cd = 40;
   });
-  G.hats = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
+  G.hats = []; G.zfloor = []; G.props = makeProps(); G.shards = []; G.slowAll = 0; G.blood = []; G.stains = []; G.camL = EXT; G.zoom = 1;
   G.rPerf = null; G.quakeT = 0; G.clashFx = []; G.toxics = []; G.toxFx = []; G.holos = []; G.mines = []; G.waves = []; G.blades = []; G.flasks = []; G.puddles = []; G.smokes = []; G.geysers = []; G.sonics = []; G.pwalls = []; G.voids = []; G.shadowFx = []; G.vdust = [];
   G.fbs = []; G.sparks = []; G.popups = []; G.feed = [[], []]; G.powerMsg = null; G.flashT = 0; G.darkT = 0; G.timer = 99; G.tick = 0; G.fighting = false;
   G.scene = 'intro'; G.t = 0; G.winner = null; G.preT = 0;
@@ -4894,7 +4955,7 @@ const TUT_SP = {
   vane: [['A', 'VOID FLARE', st_('voidcast')], ['BACK + A', 'PHANTOM TELEPORT', st_('pteleport')], ['UP + A', 'METEOR IMPACT', st_('meteor')], ['JUMP, THEN A', 'VOID BOMB', st_('airvoid')], ['JUMP, THEN DOWN + A', 'DIVE KICK', st_('vdive')], ['HOLD Y, THEN RELEASE', '5 FAST PUNCHES', st_('vtripP')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   kael: [['A', 'SONIC WAVE', st_('sonic')], ['BACK + A', 'FLASH STEP', st_('flashstep')], ['THEN Y', 'THUNDER RUSH', st_('kbarrage')], ['UP + A', 'PLASMA WALL', st_('plasmawall')], ['JUMP, THEN A', 'VOLT SPIN', st_('kspin')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   nyx: [['A', 'MAGMA FLASK', st_('flask')], ['BACK + A', 'TOXIC MIST', st_('smokeback')], ['BACK + A AGAIN', 'SMOKE TELEPORT', st_('nyxtele')], ['UP + A', 'ALCHEMIC GEYSER', st_('geyser')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb'], ['JUMP, THEN A', 'WITCH GLIDE', st_('nyxglide')], ['WHILE GLIDING, A', 'SPIN DIVE (3 HITS)', st_('nyxspin')]],
-  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
+  zephyr: [['A', 'GALE BLADE', st_('gust')], ['FWD + Y', 'HEAVEN CUT', st_('wallslash')], ['BACK + A', 'STORM PASSAGE', st_('sink')], ['UP + A', 'RISING TORNADO', st_('tornado')], ['JUMP, THEN A', 'SKY DASH', st_('zdash')], ['JUMP, THEN DOWN + A', 'SKY PLUNGE', f => f.state === 'hover' || f.state === 'plunge'], ['HOLD A 1 SEC, RELEASE', 'STORM HAT', st_('hatthrow')], ['DOWN + A', 'SLIDE KICK', st_('nslide')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
   grog: [['A', 'SEISMIC IMPACT', st_('quake')], ['BACK + A', 'IRON RAMPART', st_('rampart')], ['THEN A AGAIN', 'DOME BLAST', st_('rburst')], ['UP + A', 'CELESTIAL CRUSH', st_('crush')], ['JUMP, THEN A', 'GROUND POUND', st_('gpound')], ['DOWN + A', 'ROLLING ATTACK', st_('grogroll')], ['X, THEN A', 'REFLECT HIS FIREBALL', f => f.reflF != null && G.frame - f.reflF < 40 && f.state === 'bflip', 'fb']],
 };
 const TUT_COMBO = [['ppkk', 'Y, Y, B, B'], ['kkpp', 'B, B, Y, Y'], ['ppks', 'Y, Y, B, A'], ['kkps', 'B, B, Y, A']];
@@ -5731,7 +5792,7 @@ function stepFight() {
     }
   }
 
-  surgeStep(); updSupers(); updHats();
+  surgeStep(); updSupers(); updHats(); updZFloor();
   updProps(); updBlood(); updVesper(); updGrog(); updZephyr(); updNyx(); updKael(); updVane(); clashProjectiles(); updToxics();
   // Étincelles
   G.sparks.forEach(s => s.t++);
@@ -6079,7 +6140,7 @@ function drawFight() {
   if (G.clash) drawClash();
   G.fbs.forEach(drawFireball);
   drawSupers();
-  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx(); drawHats();
+  drawDiveTrail(); drawFireTrail(); drawVesperFx(); drawGrogFx(); drawZephyrFx(); drawNyxFx(); drawBlind(); drawKaelFx(); drawFlipFire(); drawVaneFx(); drawClashFx(); drawZFloor(); drawHats();
   // énergie qui grossit entre les mains pendant la charge
   G.f.forEach(f => {
     if ((f.state !== 'special' && f.state !== 'axgp') || f.fired || !f.chargeT) return;
