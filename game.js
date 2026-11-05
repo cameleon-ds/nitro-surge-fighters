@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v274';
+const VERSION = 'v275';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6316,7 +6316,7 @@ function drawSelect() {
     if (ev > 0) artText('VS', CX, 52, 38, '#ff9a1a', 'center', ['#ffd23a', '#ff5a0a']);
   }
   // grille 4 x 2 : nouveaux visages
-  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = 100;
+  const S = 34, gap = 4, gx = CX - (4 * S + 3 * gap) / 2, gy = isTouch ? 100 : 93;   // PC : grille un peu plus haute, espace avant les boutons
   artFill('rgba(0,0,0,.55)', gx - 3, gy - 3, 4 * S + 3 * gap + 6, 2 * S + gap + 6);
   for (let i = 0; i < 8; i++) {
     const x = gx + (i % 4) * (S + gap), y = gy + (i >> 2) * (S + gap), c = ROSTER[i];
@@ -6328,7 +6328,7 @@ function drawSelect() {
     if (on) text(ph ? (two ? '2P' : 'CPU') : '1P', x + 2, y + 2, 8, ph ? '#ff7a6a' : '#5ac8ff', 'left');
   }
   if (!isTouch) {   // PC : bouton ADD CONTROLLERS
-    const bw = 76, bh = 11, bx = Math.round(CX - bw / 2), by = gy + 2 * S + gap + 7, on = sel === 8;
+    const bw = 76, bh = 11, bx = Math.round(CX - bw / 2), by = 100 + 2 * S + gap + 7, on = sel === 8;
     ADD_BTN[0] = bx; ADD_BTN[1] = by; ADD_BTN[2] = bw; ADD_BTN[3] = bh;
     artFill(on ? 'rgba(255,210,58,.18)' : 'rgba(0,0,0,.45)', bx, by, bw, bh);
     ring(bx, by, bw, bh, 1, on ? '#ffd23a' : '#d8d8e0');
