@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v285';
+const VERSION = 'v286';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6142,7 +6142,6 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
     text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    text('FOR FULL SCREEN', CX, 104, 6, '#9a8aa0', 'center');   // un peu plus petit, juste sous ADD TO HOME SCREEN
     if (blink) iconLine(124, 'TO SELECT    PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
