@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v282';
+const VERSION = 'v283';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6114,12 +6114,17 @@ function drawImg(img, cx, cy, w, al) {
   ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   ctx.restore(); return true;
 }
-function bootUpDown(y) {   // aide : haut / bas pour choisir (flèches vectorielles + texte)
-  ctx.font = '8px "Press Start 2P", monospace'; const col = 'rgba(255,255,255,.55)', w = ctx.measureText('USE UP OR DOWN TO SELECT').width, x = Math.round(CX - w / 2 - 8);
-  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 3); ctx.lineTo(x + 3, y + 3); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x - 3, y + 5); ctx.lineTo(x + 3, y + 5); ctx.fill();
-  text('USE UP OR DOWN TO SELECT', CX, y, 8, col, 'center');
+function upDownIcons(x, y, col) {   // icônes HAUT et BAS (triangles vectoriels), 8 px de haut, à partir de x
+  ctx.save(); ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(x + 3.5, y); ctx.lineTo(x, y + 7); ctx.lineTo(x + 7, y + 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + 10, y); ctx.lineTo(x + 17, y); ctx.lineTo(x + 13.5, y + 7); ctx.fill();
+  ctx.restore(); return 17;
 }
+function iconLine(y, txt, col) {   // ligne centrée : [HAUT][BAS] + texte
+  ctx.font = '8px "Press Start 2P", monospace'; const tw = ctx.measureText(txt).width, w = 17 + 6 + tw, x = Math.round(CX - w / 2);
+  upDownIcons(x, y, col); text(txt, x + 23, y, 8, col, 'left');
+}
+function bootUpDown(y) { iconLine(y, 'TO SELECT', 'rgba(255,255,255,.7)'); }
 function drawBoot() {   // écran de démarrage : même style que le menu du titre (> CHOIX <)
   const PW = 240, items = bootItems(), c = items.includes(G.bcur) ? G.bcur : 1;
   R(0, 0, W, H, '#000');   // fond noir, sans cadre
@@ -6138,7 +6143,7 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     text('FOR FULL SCREEN', CX, 104, 6, '#9a8aa0', 'center');   // un peu plus petit, juste sous ADD TO HOME SCREEN
-    if (blink) text('UP / DOWN TO SELECT    PRESS ' + kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center');   // une seule ligne, en blanc
+    if (blink) iconLine(124, 'TO SELECT    PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
