@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v286';
+const VERSION = 'v287';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6128,20 +6128,27 @@ function bootUpDown(y) { iconLine(y, 'TO SELECT', 'rgba(255,255,255,.7)'); }
 function drawBoot() {   // écran de démarrage : même style que le menu du titre (> CHOIX <)
   const PW = 240, items = bootItems(), c = items.includes(G.bcur) ? G.bcur : 1;
   R(0, 0, W, H, '#000');   // fond noir, sans cadre
+  // apparition animée : le choix du haut descend, celui du bas monte, le texte du bas en fondu ; démarre quand l'écran est vraiment visible (après CONTINUE / rotation)
+  if (typeof rotateShown === 'function' && rotateShown()) { G.bootAt = null; return; }
+  if (G.bootAt == null) G.bootAt = G.frame;
+  const ak = Math.min(1, (G.frame - G.bootAt) / 26), ae = 1 - Math.pow(1 - ak, 3), done = ak >= 1;
+  const slide = (dy, fn) => { ctx.save(); ctx.globalAlpha = ae; ctx.translate(0, Math.round(dy * (1 - ae))); fn(); ctx.restore(); };
+  ctx.save(); ctx.globalAlpha = ae;
   text('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
   text('POWERED BY SUPER ROCKET GAMES', CX, 186, 8, '#5a5a5a', 'center');
   text('ALL RIGHTS RESERVED 2026', CX, 197, 8, '#4a4a4a', 'center');
-  const [kA, kB] = bootKeys(), blink = (G.frame >> 5) % 2 === 0;
+  ctx.restore();
+  const [kA, kB] = bootKeys(), blink = done && ((G.frame - G.bootAt - 26) >> 5) % 2 === 0;
   const two = items.includes(2), row2 = () => { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 98, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); };
   if (bootStep() === 0) {   // FULL SCREEN < OFF / ON >, puis INSTALL juste en dessous, puis PRESS ... TO CONFIRM
     const sel = c === 0;
-    text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    if (two) row2();
-    if (two) bootUpDown(114);
+    slide(-90, () => text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));
+    if (two) slide(120, row2);
+    if (two && done) bootUpDown(114);
     if (blink) text('PRESS ' + kA + ' TO CONFIRM / ' + kB + ' TO GO BACK', CX, two ? 128 : 116, 8, '#ffffff', 'center');
   } else if (two) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN (même taille), puis PRESS A TO CONFIRM
-    text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
-    text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
+    slide(-80, () => text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // START arrive du haut
+    slide(130, () => text((c === 2 ? '> ' : '') + INSTALL_LBL() + (c === 2 ? ' <' : ''), CX, 88, 12, c === 2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // ADD TO HOME SCREEN arrive du bas
     if (blink) iconLine(124, 'TO SELECT    PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
