@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v347';
+const VERSION = 'v348';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2767,7 +2767,7 @@ function updFighter(f, o) {
         if (f.def.kit === 'nyx') {   // Nyx : Geyser Alchimique / Écran de Fumée Toxique / Fiole Magma
           f.vx = 0;
           if (h.u) { setState(f, 'geyser'); break; }
-          if (back) { if (G.smokes.some(c => c.owner === f && !c.dead)) { setState(f, 'nyxtele'); f.invuln = 26; sfx('tele'); } else if (G.frame - (f.smokeLast || -999) >= 30) setState(f, 'smokeback'); break; }   /* nouvelle fumée : 0,5 s après la précédente */   // une seule fumée ; 2e fois : téléportation de l'autre côté
+          if (back) { const sm = G.smokes.find(c => c.owner === f && !c.dead); if (sm) { if (!sm.used) { sm.used = true; setState(f, 'nyxtele'); f.invuln = 26; sfx('tele'); } } else if (G.frame - (f.smokeLast || -999) >= 30) setState(f, 'smokeback'); break; }   /* nouvelle fumée : 0,5 s après la précédente */   // une seule fumée ; 2e fois : téléportation de l'autre côté
           if (shotOK(f)) { shotUse(f); setState(f, 'flask'); break; }
           break;
         }
@@ -5120,7 +5120,7 @@ function xBrain(f, o, a, dist, fwd, back, neutral) {
   if (dist > 150) {
     if (r < .45 && shotOK(f)) press(a, 's');                                            // tir
     else if (r < .65) { a.hold = { u: true, [fwd]: true }; a.holdT = 6; }              // saut vers l'adversaire (spécial aérien ensuite)
-    else if (kit === 'nyx' && G.smokes.some(c => c.owner === f)) sp({ [back]: true }); // téléportation
+    else if (kit === 'nyx' && G.smokes.some(c => c.owner === f && !c.used)) sp({ [back]: true }); // téléportation
     else { a.hold = { [fwd]: true }; a.holdT = 18; }
   } else if (dist > 70) {
     if (r < .22 && shotOK(f)) press(a, 's');
@@ -6334,7 +6334,7 @@ function guideOf(f) {   // aide affichée au-dessus de la tête d'un joueur huma
   if ((G.props || []).some(p => p.fly && p.fly.target === f && p.fly.owner !== f)) return ['X', '#ffffff'];   // objet lancé sur moi : X pour le renvoyer
   if (!(G.props || []).some(p => p.held === f) && nearProp(f)) return ['X', '#ffffff'];
   if (shotIncoming(f)) return ['XA', '#ffffff'];   // boule de feu, clone, projectile qui arrive : X puis A pour le renvoyer   // objet à portée : X pour le lancer
-  if (f.def.kit === 'nyx' && (f.state === 'smokeback' || (G.smokes || []).some(c => c.owner === f && !c.dead))) return ['@+A', '#ff80ff'];   // fumée posée (@ = flèche vers l'arrière) : arrière + A pour s'y téléporter
+  if (f.def.kit === 'nyx' && (f.state === 'smokeback' || (G.smokes || []).some(c => c.owner === f && !c.dead && !c.used))) return ['@+A', '#ff80ff'];   // fumée posée (@ = flèche vers l'arrière) : arrière + A pour s'y téléporter
   if (f.nitroT > 0) return [(G.frame / 60 | 0) % 2 ? 'YYBA' : 'YYBB', f.surgeT > 0 ? '#ff80ff' : '#5aff8a'];   // Nitro / Surge : super coup
   return null;
 }
