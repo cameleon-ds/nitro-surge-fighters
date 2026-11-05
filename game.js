@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v289';
+const VERSION = 'v290';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -4938,7 +4938,7 @@ function stepMoves() {
 }
 const PAUSE_ITEMS = ['CONTINUE', 'MOVE LIST', 'OPTIONS', 'CHARACTER SELECT', 'BACK TO TITLE'];
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) o.push(9); return fsAvail() ? o : o.filter(i => i !== 6); };   // iPhone (navigateur) : pas de plein écran possible, option cachée
+const optOrder = () => { const o = G.paused ? (isTouch && !padOn() ? [2, 6, 0, 1, 3, 10, 4, 5] : [2, 6, 0, 1, 3, 10, 4, 5, 7, 8]) : (isTouch && !padOn() ? [6, 0, 1, 2, 3, 10, 4, 5] : [6, 0, 1, 2, 3, 10, 4, 5, 7, 8]);   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -6021,7 +6021,7 @@ function drawOptions() {
     for (let i = 0; i < 4; i++) R(vx - 16 + i * 9, y + 8 - (i + 1) * 2.5, 6, (i + 1) * 2.5, i < v ? '#ffffff' : 'rgba(255,255,255,.18)');
   };
   if (c < OB) { R(CX - PW / 2 + 10, 40 + c * RH - 4, PW - 20, Math.min(15, RH), 'rgba(255,255,255,.08)'); text('>', x0 - 4, 40 + c * RH, 8, '#ffd23a', 'right'); }   // ligne sélectionnée surlignée
-  text('FULL SCREEN', x0, Y(6), 8, col(6), 'left'); box(Y(6), OPT.full, 6);
+  if (pos(6) >= 0) { text('FULL SCREEN', x0, Y(6), 8, col(6), 'left'); box(Y(6), OPT.full, 6); }
   text('ZOOM IN GAME', x0, Y(0), 8, col(0), 'left'); box(Y(0), OPT.zoom, 0);
   text('FIGHTERS ENERGY', x0, Y(1), 8, col(1), 'left');
   for (let i = 0; i < 3; i++) drawStar(vx - 12 + i * 12, Y(1) + 4, 5.5, i < OPT.energy);
