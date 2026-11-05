@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v310';
+const VERSION = 'v311';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2447,10 +2447,11 @@ function drawHats() {
     if (f.def.kit !== 'zephyr') continue;
     if (f.state === 'hatcharge') {   // énergie qui va et vient sur le contour du chapeau
       const k = Math.min(1, (f.chargeT || 0) / 60), hx = f.x + f.dir * 4, hy = f.y - 82, pul = .5 + .5 * Math.sin(G.frame * .5);
-      glowAt(hx, hy, 18 + 10 * k, 'rgba(120,220,255,.9)', .25 + .45 * k);
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#7af0ff'; ctx.lineWidth = 1 + k; ctx.globalAlpha = .4 + .5 * pul;
-      ctx.beginPath(); ctx.ellipse(hx, hy, 18 + 3 * pul, 6 + 1.5 * pul, 0, 0, 6.29); ctx.stroke(); ctx.restore();
-      zapAround(hx, hy, 20, 8, 2 + Math.round(4 * k), .5 + .5 * k);
+      const gr = 1 + 1.6 * k;   // le cercle électrique grossit pendant la charge
+      glowAt(hx, hy, (18 + 10 * k) * gr, 'rgba(120,220,255,.9)', .25 + .45 * k);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#7af0ff'; ctx.lineWidth = 1 + 1.5 * k; ctx.globalAlpha = .4 + .5 * pul;
+      ctx.beginPath(); ctx.ellipse(hx, hy, (18 + 3 * pul) * gr, (6 + 1.5 * pul) * gr, 0, 0, 6.29); ctx.stroke(); ctx.restore();
+      zapAround(hx, hy, 20 * gr, 8 * gr, 2 + Math.round(5 * k), .5 + .5 * k);
     }
     if (f.state === 'hover' || f.state === 'tornado') zapAround(f.x, f.y - 50, 26, 46, f.state === 'hover' ? 6 : 5, .9);   // électricité : arrêt en l'air (invincible) et tornade
   }
