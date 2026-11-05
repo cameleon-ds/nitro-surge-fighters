@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v308';
+const VERSION = 'v309';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2224,6 +2224,11 @@ function reflectNear(g, R, yc, yr) {
   for (const q of G.voids || []) if (!q.charging) mir(q, 'vx', q.y);
   for (const q of G.flasks || []) mir(q, 'vx', q.y);
   for (const q of G.holos || []) mir(q, null, q.y - 50);
+  for (const q of G.hats || []) {   // chapeau de Zephyr renvoyé : il repart vers Zephyr, qui le rattrape
+    if (q.owner === g || q.back || Math.abs(q.x - g.x) > R + 10 || Math.abs(q.y - yc) > yr + 14) continue;
+    q.hit = true; hatReturn(q); q.vx = Math.sign(q.owner.x - q.x) * 6;
+    addSpark(q.x, q.y, 'parry'); sfx('parry'); G.flashT = Math.max(G.flashT, 4); G.freeze = Math.max(G.freeze || 0, 4); addPopup(g.x, g.y - 120, 'REFLECT!', '#7af0ff'); g.reflF = G.frame;
+  }
   for (const p of G.props || []) {
     const F = p.fly; if (!p.alive || !F || F.owner === g || F.lastBy === g) continue;
     if (Math.abs(p.x - g.x) > R + 6 || Math.abs(p.y - yc) > yr + 10) continue;
@@ -2346,21 +2351,58 @@ function updSuper(f, o) {   // recule, charge (écran noir), puis lâche le proj
   if (f.t > 90) { f.chg = null; setState(f, 'idle'); }
 }
 const HAT_HIT = { dmg: 9, stun: 22, bstun: 12, push: 2, chip: 1, sfx: 'hit' };
-function updHats() {   // chapeau de Zephyr : téléguidé vers l'adversaire, puis revient sur sa tête
+function updHats() {   // chapeau de Zephyr : part très vite, téléguidé vers l'adversaire, puis revient en arc sur sa tête
   for (const q of G.hats || []) {
-    const f = q.owner, o = q.target; q.t++; q.rot += .45;
-    q.trail.unshift([q.x, q.y]); if (q.trail.length > 6) q.trail.pop();
-    const back = q.back || q.t > 80;
-    const tx = back ? f.x + f.dir * 3 : o.x, ty = back ? f.y - 80 : o.y - 52, dx = tx - q.x, dy = ty - q.y, d = Math.hypot(dx, dy) || 1, sp = back ? 6 : 4.6;
-    q.vx += (dx / d * sp - q.vx) * (back ? .2 : .1); q.vy += (dy / d * sp - q.vy) * (back ? .2 : .1);
-    q.x += q.vx; q.y += q.vy;
-    if (!back && !q.hit && !q.big && o && !o.ko) {
-      const hb = hurtbox(o);
-      if (hb && overlap([q.x - 14, q.y - 8, q.x + 14, q.y + 8], hb)) { q.hit = true; q.back = true; applyHit(f, o, HAT_HIT, q.x, q.y, q.x - Math.sign(q.vx || 1) * 10, true); }
+    const f = q.owner, o = q.target; q.t++; q.rot += .9;
+    q.trail.unshift([q.x, q.y, q.rot]); if (q.trail.length > 9) q.trail.pop();
+    if (!q.back && q.t > 45) hatReturn(q);
+    const back = q.back;
+    if (back) {   // retour à vitesse normale, en arc (la direction se corrige doucement)
+      q.bt = (q.bt || 0) + 1;
+      const tx = f.x + f.dir * 3, ty = f.y - 80, dx = tx - q.x, dy = ty - q.y, d = Math.hypot(dx, dy) || 1, k = Math.min(.35, .05 + q.bt * .004);
+      q.vx += (dx / d * 5 - q.vx) * k; q.vy += (dy / d * 5 - q.vy) * k;
+      q.x += q.vx; q.y += q.vy;
+      if (d < 14) { q.dead = true; f.noHat = false; if (!f.air && ['idle', 'walk', 'crouch'].includes(f.state)) setState(f, 'hatcatch'); sfx('counter'); }   // attrapé et remis sur la tête
+      continue;
     }
-    if (back && d < 10) { q.dead = true; f.noHat = false; if (!f.air && ['idle', 'walk', 'crouch'].includes(f.state)) setState(f, 'hatcatch'); sfx('select'); }   // attrapé et remis sur la tête
+    const tx = o.x, ty = o.y - 52, dx = tx - q.x, dy = ty - q.y, d = Math.hypot(dx, dy) || 1;   // aller : très rapide et téléguidé
+    q.vx += (dx / d * 11 - q.vx) * .3; q.vy += (dy / d * 11 - q.vy) * .3;
+    q.x += q.vx; q.y += q.vy;
+    if (!q.hit && !q.big && o && !o.ko) {
+      const hb = hurtbox(o);
+      if (hb && overlap([q.x - 24, q.y - 24, q.x + 24, q.y + 24], hb)) { q.hit = true; applyHit(f, o, HAT_HIT, q.x, q.y, q.x - Math.sign(q.vx || 1) * 10, true); hatReturn(q); }
+    }
   }
   if (G.hats) G.hats = G.hats.filter(q => !q.dead);
+}
+function hatReturn(q) { q.back = true; q.bt = 0; q.vx = -Math.sign(q.vx || 1) * 1.5; q.vy = -6.5; }   // rebondit vers le haut puis revient en arc
+function hatDisc(x, y, r, rot, ghost) {   // chapeau vu de dessus : disque de paille 2D qui tourne très vite, entouré d'électricité
+  ctx.save(); ctx.translate(x, y);
+  if (ghost) {   // écho bleu (comme le Nitro, mais en bleu)
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(47,140,255,.55)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.29); ctx.fill();
+    ctx.strokeStyle = 'rgba(168,244,255,.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.29); ctx.stroke(); ctx.restore(); return;
+  }
+  ctx.rotate(rot);
+  ctx.fillStyle = '#b8944a'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.29); ctx.fill();
+  ctx.strokeStyle = '#8a6a30'; ctx.lineWidth = 1; for (let i = 0; i < 12; i++) { const a = i / 12 * 6.29; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); ctx.stroke(); }
+  for (const k of [.35, .7]) { ctx.beginPath(); ctx.arc(0, 0, r * k, 0, 6.29); ctx.stroke(); }
+  ctx.fillStyle = '#d8b462'; ctx.beginPath(); ctx.arc(0, 0, r * .18, 0, 6.29); ctx.fill();
+  ctx.fillStyle = '#3a2a12'; ctx.fillRect(r * .55, -1, r * .4, 2);   // repère qui montre la rotation
+  ctx.strokeStyle = '#3a2a12'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.29); ctx.stroke();
+  ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';   // électricité identique à l'onde au sol, mais en cercle
+  const g = ctx.createRadialGradient(x, y, r * .5, x, y, r * 1.6);
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.4, 'rgba(120,220,255,.45)'); g.addColorStop(1, 'rgba(20,88,196,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.6, 0, 6.29); ctx.fill();
+  for (const [rr, col, lw] of [[1.25, 'rgba(20,88,196,.9)', 5], [1.12, 'rgba(47,180,255,1)', 3], [1.04, '#a8f4ff', 2], [.98, '#ffffff', 1.2]]) {
+    const pts = []; for (let i = 0; i <= 28; i++) { const t = rot * 1.5 + i / 28 * 6.29; pts.push([x + Math.cos(t) * r * rr, y + Math.sin(t) * r * rr]); }
+    elecArc(pts, col, lw);
+  }
+  for (let b = 0; b < 4; b++) {   // éclairs qui jaillissent du bord
+    const t = Math.random() * 6.29, L = []; for (let s2 = 0; s2 <= 3; s2++) L.push([x + Math.cos(t + s2 * .15) * r * (1.1 + s2 * .2), y + Math.sin(t + s2 * .15) * r * (1.1 + s2 * .2)]);
+    elecArc(L, 'rgba(168,244,255,.9)', 1.2);
+  }
+  ctx.restore();
 }
 function hatShape(x, y, sc, rot) {   // chapeau de paille conique (vu de profil), qui tourne
   ctx.save(); ctx.translate(x, y); ctx.scale(sc * (.75 + .25 * Math.cos(rot)), sc);
@@ -2382,11 +2424,10 @@ function zapAround(x, y, rx, ry, n, al) {   // éclairs électriques autour d'un
 function glowAt(x, y, r, col, al) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = al; const g = ctx.createRadialGradient(x, y, 1, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.29); ctx.fill(); ctx.restore(); }
 function drawHats() {
   for (const q of G.hats || []) {
-    const sc = q.big ? 2.2 : 1;
-    q.trail.forEach(([tx, ty], i) => { ctx.save(); ctx.globalAlpha = .28 * (1 - i / 6); hatShape(tx, ty, sc, q.rot - i * .45); ctx.restore(); });   // échos
-    glowAt(q.x, q.y, 26 * sc, 'rgba(120,220,255,.9)', .55);
-    hatShape(q.x, q.y, sc, q.rot);
-    zapAround(q.x, q.y - 3 * sc, 19 * sc, 10 * sc, 4, .9);
+        const r = 30 * (q.big ? 1.3 : 1);
+    for (let i = q.trail.length - 1; i >= 1; i--) { const [tx, ty] = q.trail[i]; ctx.save(); ctx.globalAlpha = .5 * (1 - i / q.trail.length); hatDisc(tx, ty, r, 0, true); ctx.restore(); }   // échos bleus
+    glowAt(q.x, q.y, r * 1.8, 'rgba(120,220,255,.9)', .5);
+    hatDisc(q.x, q.y, r, q.rot);
   }
   for (const f of G.f) {
     if (f.def.kit !== 'zephyr') continue;
@@ -2809,7 +2850,7 @@ function updFighter(f, o) {
     }
     case 'hatthrow':
       f.vx = 0;
-      if (f.t === 4) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 4.5, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); G.flashT = Math.max(G.flashT, 4); }
+      if (f.t === 4) { f.noHat = true; (G.hats = G.hats || []).push({ owner: f, target: o, x: f.x + f.dir * 20, y: f.y - 70, vx: f.dir * 11, vy: -.5, t: 0, rot: 0, trail: [] }); sfx('fb'); sfx('parry'); sfx('whoosh'); G.flashT = Math.max(G.flashT, 6); G.shake = Math.max(G.shake, 4); }
       if (f.t >= 18) setState(f, 'idle');
       break;
     case 'hatcatch': f.vx = 0; if (f.t >= 10) setState(f, 'idle'); break;
