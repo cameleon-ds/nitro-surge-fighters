@@ -103,3 +103,15 @@ body.photoclean #touch{display:none!important}   /* mode photo : capture d'écra
 #instTut .tt-help{text-align:center;color:rgba(255,255,255,.6);font-size:clamp(7px,1.1vw,10px);padding-top:4px}
 #instTut .tt-nav{display:none!important}
 #instTut .tt-slide img{flex:none!important;width:auto!important;height:auto!important;max-width:100%;max-height:calc(100% - 34px);object-fit:initial;border-radius:14px}   /* coins arrondis sur l'image elle-même */
+/* images encore plus grandes : titre, étape et aide posés par-dessus */
+#instTut .tt-card{padding:4px max(4px,env(safe-area-inset-right)) 4px max(4px,env(safe-area-inset-left));position:relative}
+#instTut .tt-head{position:absolute;top:6px;left:10px;right:10px;z-index:2;pointer-events:none}
+#instTut .tt-head span{background:rgba(14,8,22,.75);padding:6px 8px;border-radius:8px}
+#instTut .tt-x{pointer-events:auto}
+#instTut .tt-body{height:100%}
+#instTut .tt-slide{position:relative;gap:0}
+#instTut .tt-step{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:1;background:rgba(14,8,22,.8);padding:6px 10px;border-radius:8px}
+#instTut .tt-slide img{max-height:100%!important}
+#instTut .tt-dots{position:absolute;bottom:20px;left:0;right:0;z-index:2;padding:0}
+#instTut .tt-help{position:absolute;bottom:4px;left:0;right:0;z-index:2;padding:0;text-shadow:0 1px 2px #000}
+#instTut .tt-help span{background:rgba(14,8,22,.8);padding:3px 8px;border-radius:6px}
