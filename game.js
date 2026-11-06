@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v353';
+const VERSION = 'v354';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -7272,7 +7272,10 @@ function drawStageSelect() {
 
 // Écran de fin de combat : les deux visages, le perdant blessé ; RETRY / SELECT CHARACTER
 const SEL_GRAY = [];
-function grayOf(i) {   // visage en noir et blanc (perdant)
+const LOSE_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'lose_' + k + '.jpg?v=1'); return im; });   // image de chaque perdant
+const LOSE_DIR = [-1, -1, -1, -1, 1, 1, -1, 1];   // sens du regard des images de perdant
+function grayOf(i) {   // perdant : son image de défaite (sinon visage en noir et blanc)
+  if (imgOk(LOSE_FACE[i])) return LOSE_FACE[i];
   if (SEL_GRAY[i]) return SEL_GRAY[i];
   const im = SEL_FACE[i]; if (!imgOk(im)) return null;
   const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
@@ -7283,7 +7286,7 @@ function grayOf(i) {   // visage en noir et blanc (perdant)
 function overFace(i, x, y, sz, border, look, gray) {
   artFill('#000', x - 2, y - 2, sz + 4, sz + 4); ring(x, y, sz, sz, 1, border);
   const im = gray ? grayOf(i) : SEL_FACE[i];
-  if (im && imgOk(im)) artDraw(im, x, y, sz, sz, SEL_FACE_DIR[i] !== look); else drawPortrait(i, x, y, sz, border, look, gray);
+  if (im && imgOk(im)) artDraw(im, x, y, sz, sz, (gray && im === LOSE_FACE[i] ? LOSE_DIR[i] : SEL_FACE_DIR[i]) !== look); else drawPortrait(i, x, y, sz, border, look, gray);
 }
 function drawOver() {
   R(0, 0, W, H, '#000');
