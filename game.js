@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v369';
+const VERSION = 'v370';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1879,11 +1879,16 @@ function netStart() {
     conn.on('open', opened); if (conn.open) opened();
     conn.on('data', m => {
       r.last = performance.now(); if (!r.open) opened();
+      if (m && m.t === 'li') { lsRecv(m); return; }
+      if (m && m.t === 'ck') { lsRecvCk(m); return; }
+      if (m && m.t === 'end') { lsDesync(); return; }
+      if (m && m.t === 'gw') { if (NET.guest && NET.guest.conn === conn) NET.guest.w = +m.w || 0; return; }
+      if (m && m.t === 'po') { const rt = performance.now() - m.ts; LS.rtt = LS.rtt ? LS.rtt * .7 + rt * .3 : rt; return; }
       if (!m || m.t !== 'in') return;
       for (const b of ['p', 'k', 's', 'x', 'start']) { const v = !!(b === 'x' ? m.bx : m[b]); if (v && !r.held[b]) r.tap[b] = true; r.held[b] = v; }
       r.x = +m.x || 0; r.y = +m.y || 0;
     });
-    conn.on('close', () => { if (NET.rem[p] === r) { r.open = false; r.held = {}; r.x = r.y = 0; } if (NET.guest && NET.guest.conn === conn) { try { NET.guest.call && NET.guest.call.close(); } catch (e) {} NET.guest = null; addNote('PLAYER 2 LEFT'); } });
+    conn.on('close', () => { if (NET.rem[p] === r) { r.open = false; r.held = {}; r.x = r.y = 0; } if (NET.guest && NET.guest.conn === conn) { try { NET.guest.call && NET.guest.call.close(); } catch (e) {} NET.guest = null; if (LS.role === 1) lsStop(); addNote('PLAYER 2 LEFT'); } });
     conn.on('error', () => {});
   });
   // battement de cœur : le PC répond régulièrement ; une manette muette depuis 6 s est considérée déconnectée (elle se reconnecte seule)
@@ -1891,7 +1896,7 @@ function netStart() {
     const now = performance.now();
     for (const p of [1, 2]) {
       const r = NET.rem[p]; if (!r || !r.conn) continue;
-      if (r.open) { try { r.conn.send({ t: 'hb' }); } catch (e) {} }
+      if (r.open) { try { r.conn.send({ t: 'hb' }); if (NET.guest && NET.guest.conn === r.conn) r.conn.send({ t: 'pg', ts: performance.now() }); } catch (e) {} }
       if (r.open && now - r.last > 6000) { r.open = false; r.held = {}; r.x = r.y = 0; }
     }
   }, 1000);
@@ -1936,6 +1941,91 @@ function guestJoined(conn) {   // un joueur a ouvert le lien : il devient le Pla
   if (G.scene === 'title') { G.mode = 'vs'; G.scene = 'select'; G.selPhase = 0; G.t = 0; }
   addNote('PLAYER 2 JOINED!'); sfx('counter');
 }
+
+/* ---------------- MODE EN LIGNE « SYNC » (lockstep avec délai d'entrée) ----------------
+  Le combat tourne sur les DEUX téléphones ; on n'échange que les touches (un nombre par image).
+  Chaque touche locale est appliquée D images plus tard sur les deux téléphones, le temps qu'elle traverse le réseau.
+  Les menus (sélection, stage) restent en vidéo ; le mode SYNC couvre le combat, la pause et l'écran de fin. */
+const LS = { on: false, role: 0, conn: null, D: 4, F: 0, loc: {}, rem: {}, locNext: 0, stall: 0, pending: null, optBak: null, rtt: 0 };
+const syncWanted = () => OPT.online !== 'video' && NET.guest && NET.guest.conn && NET.guest.conn.open && G.mode === 'vs';
+function lsSend(m) { try { LS.conn && LS.conn.open && LS.conn.send(m); } catch (e) {} }
+function lsHostGo(stage) {   // Player 1 (hôte) : lance le combat sur les deux téléphones
+  const d = Math.max(3, Math.min(9, Math.ceil((LS.rtt || 80) / 2 / (1000 / 60)) + 2));   // délai selon le ping
+  const cfg = { p1: G.p1, p2: G.p2, stage, seed: (Math.random() * 4294967296) >>> 0, w: Math.min(W, NET.guest.w || W), frame: G.frame, d, opt: { zoom: OPT.zoom, energy: OPT.energy, time: OPT.time, guides: OPT.guides, blood: OPT.blood } };
+  LS.conn = NET.guest.conn; LS.role = 1;
+  try { LS.conn.send({ t: 'go', cfg }); } catch (e) {}
+  LS.pending = cfg;
+}
+function lsGuestGo(cfg) { LS.conn = G.guest.conn; LS.role = 2; LS.pending = cfg; }
+function lsBegin(cfg) {   // même point de départ sur les deux téléphones (appelé en haut d'une image)
+  LS.pending = null; LS.on = true; LS.n = (LS.n || 0) + 1; LS.D = cfg.d; LS.ck = {}; LS.rck = {}; LS.F = 0; LS.loc = {}; LS.rem = {}; LS.locNext = 0; LS.stall = 0;
+  for (let f = 0; f < LS.D; f++) { LS.loc[f] = 0; LS.rem[f] = 0; } LS.locNext = LS.D;
+  if (!LS.optBak) LS.optBak = Object.assign({}, OPT);
+  Object.assign(OPT, cfg.opt);   // options du combat de l'hôte (non enregistrées sur le téléphone de l'invité)
+  syncW(cfg.w); rngSeed(cfg.seed);
+  G.frame = cfg.frame; G.st = 0; G.mode = 'vs'; G.tut = null; G.arc = null; G.demo = false; G.instHelp = false; G.paused = false; G.noAI = false; G.freeze = 0; G.shake = 0; G.photo = null; G.showOpts = G.showMoves = false; G.pconf = null; G.qrPop = false; G.invPop = false;
+  startMatch(cfg.p1, cfg.p2, cfg.stage);
+  G.f[0].cpu = false; G.f[0].ctl = pctl; G.f[1].cpu = false; G.f[1].ctl = p2ctl;
+  pctl.held = {}; pctl.prev = {}; pctl.buf = {}; pctl.q = null; p2ctl.held = {}; p2ctl.prev = {}; p2ctl.buf = {}; p2ctl.q = null;
+  SYNC.src = lsSrc;
+  if (LS.role === 1) castPause(true);
+  if (G.guest) { G.guest.vid.style.display = 'none'; G.musicHold = false; }
+}
+function lsStop() {   // fin du mode SYNC (retour aux menus, déconnexion)
+  if (!LS.on && !LS.pending) return;
+  LS.on = false; LS.pending = null; SYNC.src = null; rngOff(); syncW(null);
+  if (LS.optBak) { Object.assign(OPT, LS.optBak); LS.optBak = null; }
+  if (LS.role === 1) castPause(false);
+  if (G.guest) { G.musicHold = true; if (G.guest.status === 'live') G.guest.vid.style.display = 'block'; }
+  LS.role = 0;
+}
+function lsSrc(m1) {   // touches de l'image LS.F (null = celles de l'autre téléphone ne sont pas encore arrivées)
+  if (LS.locNext <= LS.F + LS.D) {
+    LS.loc[LS.locNext] = m1; LS.locNext++;
+    const a = []; for (let f = Math.max(0, LS.locNext - 8); f < LS.locNext; f++) a.push(LS.loc[f]);   // les 8 dernières : une perte de paquet ne bloque pas
+    lsSend({ t: 'li', s: Math.max(0, LS.locNext - 8), a });
+  }
+  const r = LS.rem[LS.F];
+  if (r === undefined) { LS.stall++; return null; }
+  const l = LS.loc[LS.F]; delete LS.loc[LS.F - 30]; delete LS.rem[LS.F - 30];
+  if (LS.F % 30 === 0 && LS.F > 0) lsCheck(LS.F);   // anti-écart : empreinte de l'état AVANT cette image
+  LS.F++; LS.stall = 0;
+  return LS.role === 1 ? [l, r] : [r, l];
+}
+function lsHash() {   // empreinte du combat (positions, vie, états, projectiles)
+  let h = 2166136261; const add = v => { const t = String(v); for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); };
+  add(G.scene); add(G.round); add(G.timer); add(G.paused ? 1 : 0);
+  if (G.f) for (const f of G.f) { add(Math.round(f.x)); add(Math.round(f.y)); add(Math.round(f.hp * 10)); add(f.state); add(f.wins); }
+  if (G.fbs) add(G.fbs.length);
+  return h >>> 0;
+}
+function lsCheck(F) {
+  const h = lsHash(); LS.ck = LS.ck || {}; LS.ck[F] = h; delete LS.ck[F - 600];
+  lsSend({ t: 'ck', f: F, h });
+  if (LS.rck && LS.rck[F] != null && LS.rck[F] !== h) lsDesync();
+}
+function lsRecvCk(m) {
+  if (!LS.on) return; LS.rck = LS.rck || {}; LS.rck[m.f] = m.h; delete LS.rck[m.f - 600];
+  if (LS.ck && LS.ck[m.f] != null && LS.ck[m.f] !== m.h) lsDesync();
+}
+function lsDesync() {   // les deux combats ne sont plus identiques : on repasse en mode vidéo (le combat de l'hôte continue)
+  if (!LS.on) return;
+  lsSend({ t: 'end' }); LS.desyncs = (LS.desyncs || 0) + 1;
+  if (LS.role === 1) { if (G.f && G.f[1]) G.f[1].ctl = p2ctl; addNote('ONLINE: VIDEO MODE'); }
+  lsStop();
+}
+function lsRecv(m) { if (!LS.on && !LS.pending) return; for (let i = 0; i < m.a.length; i++) { const f = m.s + i; if (LS.rem[f] === undefined) LS.rem[f] = m.a[i] | 0; } }
+function castPause(off) {   // vidéo et son vers le Player 2 : coupés pendant le combat SYNC (inutiles, et libèrent le réseau)
+  if (!CAST.stream) return; CAST.stream.getTracks().forEach(t => { t.enabled = !off; });
+}
+function lsAfterStep() {   // fin du combat : retour aux menus -> fin du mode SYNC (au même moment sur les deux téléphones)
+  if (LS.on && (G.scene === 'select' || G.scene === 'title' || G.scene === 'stage')) lsStop();
+}
+function drawLsWait() {   // l'autre téléphone ne répond plus : message d'attente
+  if (!LS.on || LS.stall < 20) return;
+  R(CX - 100, H / 2 - 12, 200, 24, 'rgba(10,4,20,.85)');
+  text(LS.stall > 600 ? 'CONNECTION LOST' : 'WAITING FOR THE OTHER PLAYER...', CX, H / 2 - 4, 8, '#ffd23a', 'center');
+}
 function addNote(txt) { G.note = { txt, t: 0 }; }
 function drawNote() { const N = G.note; if (!N) return; N.t++; if (N.t > 150) { G.note = null; return; } const a = Math.min(1, N.t / 8, (150 - N.t) / 20); ctx.save(); ctx.globalAlpha = a; R(CX - 90, 4, 180, 14, 'rgba(10,4,20,.85)'); text(N.txt, CX, 7, 8, '#5aff8a', 'center'); ctx.restore(); }
 // ---- côté Player 2 (lien d'invitation) ----
@@ -1968,9 +2058,9 @@ function guestDial() {   // connexion au Player 1 (et reconnexion si la liaison 
   if (Gs.conn && Gs.conn.open) return;
   const c = Gs.peer.connect(JOIN, { metadata: { p: 2, guest: true }, serialization: 'json' });
   Gs.conn = c; if (Gs.status !== 'live') Gs.status = 'connecting';
-  c.on('open', () => { if (Gs.status !== 'live') Gs.status = 'joined'; });
-  c.on('data', m => { if (m && m.t === 'bye') Gs.status = 'replaced'; if (m && m.t === 'sc') Gs.fight = !!m.fi; });
-  c.on('close', () => { Gs.status = 'lost'; Gs.vid.style.display = 'none'; setTimeout(guestDial, 2500); });
+  c.on('open', () => { if (Gs.status !== 'live') Gs.status = 'joined'; try { c.send({ t: 'gw', w: W }); } catch (e) {} });   // largeur de scène naturelle de ce téléphone (mode SYNC)
+  c.on('data', m => { if (!m) return; if (m.t === 'li') { lsRecv(m); return; } if (m.t === 'ck') { lsRecvCk(m); return; } if (m.t === 'end') { lsDesync(); return; } if (m.t === 'pg') { try { c.send({ t: 'po', ts: m.ts }); } catch (e) {} return; } if (m.t === 'go') { lsGuestGo(m.cfg); return; } if (m.t === 'bye') Gs.status = 'replaced'; if (m.t === 'sc') Gs.fight = !!m.fi; });
+  c.on('close', () => { Gs.status = 'lost'; if (LS.role === 2) lsStop(); Gs.vid.style.display = 'none'; setTimeout(guestDial, 2500); });
   c.on('error', () => {});
 }
 function guestStep() {   // le Player 2 envoie ses touches (clavier, écran tactile, manette) comme une manette
@@ -2039,8 +2129,8 @@ const edge = (c, b) => !!(c.held[b] && !c.prev[b]);
 const okPress = c => edge(c, 's') || edge(c, 'start');
 const backPress = c => edge(c, 'k') || edge(c, 'back');
 let entKbT = -1e9; addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'NumpadEnter') entKbT = performance.now(); }, true);
-const entRecent = () => performance.now() - entKbT < 250;
-const entKb = () => !isTouch && edge(pctl, 'start') && entRecent();   // PC : ENTRÉE (clavier) = valider comme A
+const entRecent = () => !LS.on && performance.now() - entKbT < 250;
+const entKb = () => !isTouch && !LS.on && edge(pctl, 'start') && entRecent();   // PC : ENTRÉE (clavier) = valider comme A
 
 /* ---------------- Données d'attaque ---------------- */
 const ATK = {
@@ -5560,7 +5650,7 @@ function stepMoves() {
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
 const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'PHOTO MODE', 'CHARACTER SELECT', 'BACK TO TITLE'];
-const pauseItems = () => isTouch ? PAUSE_ITEMS : ['CONTINUE', 'ADD CONTROLLERS', ...PAUSE_ITEMS.slice(1)];   // PC / Mac : ADD CONTROLLERS sous CONTINUE (QR codes P1 / P2)   // OPTIONS juste sous CONTINUE
+const pauseItems = () => LS.on ? ['CONTINUE', 'CHARACTER SELECT', 'BACK TO TITLE'] : isTouch ? PAUSE_ITEMS : ['CONTINUE', 'ADD CONTROLLERS', ...PAUSE_ITEMS.slice(1)];   // en ligne SYNC : même menu sur les deux téléphones   // PC / Mac : ADD CONTROLLERS sous CONTINUE (QR codes P1 / P2)   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
 const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
@@ -5931,10 +6021,12 @@ addEventListener('touchend', () => { if (!G.boot) syncFS(); }, { capture: true, 
 document.addEventListener('visibilitychange', () => { if (document.hidden) BGM.pause(); });
 
 function step() {
-  if (G.guest) { G.frame++; guestStep(); tap = null; return; }   // Player 2 en ligne : il n'envoie que ses touches
+  if (LS.pending) lsBegin(LS.pending);   // début d'un combat en ligne SYNC
+  if (G.guest && !LS.on) { G.frame++; guestStep(); tap = null; return; }   // Player 2 en ligne (menus) : il n'envoie que ses touches, il voit la vidéo
   let syncIn = null;
   if (SYNC.src) {   // en ligne (mode SYNC) : touches des deux joueurs pour cette image, échangées par le réseau ; null = pas encore arrivées
     syncIn = SYNC.src(inPack(readPlayer()), inPack(readP2()));
+    if (LS.on) tap = null;   // les touchers de l'écran ne sont pas partagés : en ligne, seuls les boutons comptent
     if (!syncIn) { updateMusic(); return; }   // on attend les touches de l'autre téléphone (le combat ne bouge pas)
   }
   updateMusic();
@@ -6052,7 +6144,7 @@ function step() {
         if (edge(pctl, 'l')) { G.scur = (c0 + N - 1) % N; sfx('beep'); }
         if (edge(pctl, 'r')) { G.scur = (c0 + 1) % N; sfx('beep'); }
         if (edge(pctl, 'u') || edge(pctl, 'd')) { G.scur = (c0 + 4) % N; sfx('beep'); } }
-      if (G.t > 10 && okPress(pctl)) { startMatch(G.p1, G.p2, STAGES[G.scur || 0][0]); sfx('select'); }
+      if (G.t > 10 && okPress(pctl)) { if (syncWanted()) lsHostGo(STAGES[G.scur || 0][0]); else startMatch(G.p1, G.p2, STAGES[G.scur || 0][0]); sfx('select'); }
       else if (G.t > 10 && backPress(pctl)) { G.scene = 'select'; G.selPhase = 1; G.t = 0; sfx('beep'); }
       break;
     }
@@ -7361,7 +7453,7 @@ function drawOver() {
 
 function render() {
   hiUsed = false;
-  if (G.guest) { ctx.save(); drawGuest(); ctx.restore(); if (HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden'; return; }
+  if (G.guest && !LS.on) { ctx.save(); drawGuest(); ctx.restore(); if (HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden'; return; }
   ctx.save();
   const grp = ['intro', 'fight', 'ko', 'timeup', 'score'].includes(G.scene) ? 'fight' : G.scene;
   if (G.noWipe) { G.noWipe = false; prevGroup = grp; }
@@ -7384,10 +7476,10 @@ function render() {
   if (G.instHelp) drawInstHelp();
   if (transT < TRANS_N) { drawTransition(transT / TRANS_N); transT++; }
   if (G.demo && (G.frame >> 5) % 2 === 0) text('PRESS ANY KEY', CX, H - 30, 8, '#ffffff', 'center');   // démo
-  drawNote();
+  drawNote(); drawLsWait();
   if (G.fadeK > 0) { R(0, 0, W, H, `rgba(0,0,0,${Math.min(1, G.fadeK).toFixed(3)})`); if (!G.demo && G.scene === 'title' && !(G.demoOut > 0)) G.fadeK = Math.max(0, G.fadeK - 1 / DEMO_FADE); }   // fondus de la démo
   if (!hiUsed && HI.style.visibility !== 'hidden') HI.style.visibility = 'hidden';
-  castFrame();   // image envoyée au Player 2 en ligne
+  if (!LS.on) castFrame();   // image envoyée au Player 2 en ligne (inutile pendant un combat SYNC)
 }
 // Transition entre écrans : un volet diagonal noir bordé d'une lame de lumière balaie l'ancien écran
 let prevGroup = null, transT = 99;
@@ -7421,10 +7513,10 @@ let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
 let infightCls = null;
 function loop(now) {
-  { const f0 = G.guest ? !!G.guest.fight : ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot, f = G.photo ? 'photo' : f0;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; if (f === 'photo') { document.body.classList.add('infight'); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', 'PHOTO'); lb('.bb', 'BACK'); lb('.by', 'ZOOM -'); lb('.bx', 'ZOOM +'); } else { document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
+  { const f0 = G.guest && !LS.on ? !!G.guest.fight : ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot, f = G.photo ? 'photo' : f0;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; if (f === 'photo') { document.body.classList.add('infight'); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', 'PHOTO'); lb('.bb', 'BACK'); lb('.by', 'ZOOM -'); lb('.bx', 'ZOOM +'); } else { document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
-  while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }
+  while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); lsAfterStep(); } catch (e) { errLog(e); } }
   try { render(); } catch (e) { errLog(e); try { for (let i = 0; i < 30; i++) ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.shadowBlur = 0; } catch (e2) {} }
 }
 const go = () => requestAnimationFrame(t => { last = t; loop(t); });
