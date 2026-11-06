@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v367';
+const VERSION = 'v368';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2015,6 +2015,11 @@ function drawQRs() {
 }
 
 const makeCtl = () => ({ held: {}, prev: {}, buf: {} });
+// Touches d'une image, compactées en un nombre (10 bits) : c'est tout ce qui passe par le réseau en mode SYNC
+const IN_KEYS = ['l', 'r', 'u', 'd', 'p', 'k', 's', 'x', 'start', 'back'];
+const inPack = h => { let m = 0; IN_KEYS.forEach((k, i) => { if (h[k]) m |= 1 << i; }); return m; };
+const inUnpack = m => { const h = {}; IN_KEYS.forEach((k, i) => { h[k] = !!(m & (1 << i)); }); return h; };
+const SYNC = { src: null };   // src(p1, p2) -> [p1, p2] | null : source des touches en ligne (inactive hors ligne)
 function confuse(held, f) {   // brume de Nyx : gauche/droite et haut/bas inversés (les coups spéciaux restent possibles)
   if (!f || !(f.confT > 0) || f.noSpecT > 0 || G.scene !== 'fight' || G.paused || held.s) return held;   // le menu pause n'est jamais inversé
   const o = Object.assign({}, held), sw = (a, b) => { const t = o[a]; o[a] = o[b]; o[b] = t; };
@@ -5926,11 +5931,16 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) BGM.p
 
 function step() {
   if (G.guest) { G.frame++; guestStep(); tap = null; return; }   // Player 2 en ligne : il n'envoie que ses touches
+  let syncIn = null;
+  if (SYNC.src) {   // en ligne (mode SYNC) : touches des deux joueurs pour cette image, échangées par le réseau ; null = pas encore arrivées
+    syncIn = SYNC.src(inPack(readPlayer()), inPack(readP2()));
+    if (!syncIn) { updateMusic(); return; }   // on attend les touches de l'autre téléphone (le combat ne bouge pas)
+  }
   updateMusic();
   G.frame++; G.st = (G.st || 0) + 1;
   netSendState();
   if (loadDone()) netStart();   // manettes smartphone : connexion possible dès le démarrage du jeu
-  const raw1 = readPlayer(), raw2 = readP2();
+  const raw1 = syncIn ? inUnpack(syncIn[0]) : readPlayer(), raw2 = syncIn ? inUnpack(syncIn[1]) : readP2();
   // Menus (écran titre, options, pause, choix du stage, fin de combat) : les deux joueurs connectés peuvent les manipuler
   const menuShared = G.paused || !['intro', 'fight', 'ko', 'timeup', 'score', 'select'].includes(G.scene);
   if (menuShared) for (const b in raw2) if (raw2[b]) raw1[b] = true;
