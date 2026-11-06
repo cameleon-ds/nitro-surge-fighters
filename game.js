@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v354';
+const VERSION = 'v355';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5784,15 +5784,15 @@ function tutBuild() {
   const arrow = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="${d < 0 ? '15 5 8 12 15 19' : '9 5 16 12 9 19'}"/></svg>`;
   tutEl.innerHTML = `<div class="tt-card"><div class="tt-head"><span>ADD TO HOME SCREEN</span><button class="tt-x" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>
     <div class="tt-body"><button class="tt-nav tt-prev" aria-label="Previous">${arrow(-1)}</button><div class="tt-track">${[1, 2, 3].map(i => `<div class="tt-slide"><div class="tt-step">STEP ${i}</div><img src="tut${i}.jpg?v=1" alt="Step ${i}" draggable="false"></div>`).join('')}</div><button class="tt-nav tt-next" aria-label="Next">${arrow(1)}</button></div>
-    <div class="tt-dots"><i></i><i></i><i></i></div></div>`;
-  document.body.appendChild(tutEl);
+    <div class="tt-dots"><i></i><i></i><i></i></div><div class="tt-help">STICK &lt; &gt; : STEP &nbsp; B : CLOSE</div></div>`;
+  { const tc = document.getElementById('touch'); if (tc && tc.parentNode) tc.parentNode.insertBefore(tutEl, tc); else document.body.appendChild(tutEl); }   // sous la manette tactile : stick et boutons restent visibles et utilisables
   const tr = tutEl.querySelector('.tt-track');
   tr.addEventListener('scroll', () => { const k = Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)); tutEl.querySelectorAll('.tt-dots i').forEach((d, i) => d.classList.toggle('on', i === k)); }, { passive: true });
   tutEl.querySelector('.tt-x').addEventListener('click', () => { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); });
   tutEl.querySelector('.tt-prev').addEventListener('click', () => tutGo(-1));
   tutEl.querySelector('.tt-next').addEventListener('click', () => tutGo(1));
-  ['touchstart', 'touchend', 'pointerdown'].forEach(ev => tutEl.addEventListener(ev, e => e.stopPropagation()));
 }
+window.tutIdx = tutIdx;
 function tutIdx() { const tr = tutEl && tutEl.querySelector('.tt-track'); return tr ? Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)) : 0; }
 function tutGo(d) { const tr = tutEl && tutEl.querySelector('.tt-track'); if (!tr) return; const k = Math.max(0, Math.min(2, tutIdx() + d)); tr.scrollTo({ left: k * tr.clientWidth, behavior: 'smooth' }); sfx('beep'); }
 function tutSync() {
@@ -5871,7 +5871,7 @@ addEventListener('keydown', e => {
 }, true);
 // Sur mobile, le navigateur n'autorise le plein écran qu'au RELÂCHEMENT du doigt (pointerup / touchend), pas à l'appui
 addEventListener('pointerup', e => {
-  if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 20) { G.instHelp = false; G.instClosed = G.frame; } return; }
+  if (G.instHelp) { if (!TUT_ON() && G.frame - (G.instOpen || 0) > 20) { G.instHelp = false; G.instClosed = G.frame; } return; }   // tutoriel mobile : on navigue avec la manette, un appui ne ferme pas
   if (G.boot && loadDone()) {
     const r = cv.getBoundingClientRect();
     const p = ROT ? { x: (e.clientY - r.top) / r.height * W, y: (r.right - e.clientX) / r.width * H } : { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
