@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v359';
+const VERSION = 'v360';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -5889,7 +5889,7 @@ addEventListener('pointerup', e => {
       if (bootStep() === 0) {
         if (Math.abs(p.y - 88) < 7) { G.bcur = 0; bootToggleFS(); }                          // FULL SCREEN : OFF / ON
         else if (two && Math.abs(p.y - 102) < 7) { G.bcur = 2; bootOk(true); }                // INSTALL / ADD TO HOME SCREEN
-        else if (Math.abs(p.y - (two ? 132 : 120)) < 7) bootOk(true);                                      // PRESS A TO CONFIRM
+        else if (Math.abs(p.y - (two ? 130 : 118)) < 6) bootOk(true);                                      // PRESS A TO CONFIRM
       } else if (bootItems().length > 1) {
         if (Math.abs(p.y - 74) < 9) { G.bcur = 1; bootStart(); }                             // START
         else if (Math.abs(p.y - 94) < 9) { G.bcur = bootItems()[1]; bootOk(true); }                       // ADD TO HOME SCREEN
@@ -6890,7 +6890,7 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
     slide(-90, () => text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));
     if (two) slide(120, row2);
     if (two && done) bootUpDown(114);
-    if (blink) text('PRESS ' + kA + ' TO CONFIRM / ' + kB + ' TO GO BACK', CX, two ? 128 : 116, 8, '#ffffff', 'center');
+    if (blink) { const y = two ? 126 : 114; text(kA + ' TO CONFIRM', CX, y, 8, '#ffffff', 'center'); text(kB + ' TO GO BACK', CX, y + 12, 8, '#ffffff', 'center'); }
   } else if (items.length > 1) {   // iPhone dans le navigateur : START ou ADD TO HOME SCREEN ; app : START ou DOWNLOAD OFFLINE MODE (même taille), puis PRESS A TO CONFIRM
     slide(-80, () => text((c === 1 ? '> ' : '') + 'START' + (c === 1 ? ' <' : ''), CX, 68, 12, c === 1 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));   // START arrive du haut
     { const sec = items[1], on2 = c === sec, lb = sec === 3 ? offLbl() : INSTALL_LBL(), sz = lb.length > 18 ? 8 : 12;
@@ -6901,11 +6901,11 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
         ctx.fillStyle = g; ctx.fillRect(bx, by, Math.round(bw * G.offPct), 6);
         text(Math.round(G.offPct * 100) + '%', CX, by + 12, 8, '#9a8aa0', 'center');
       } else slide(130, () => text((on2 ? '> ' : '') + lb + (on2 ? ' <' : ''), CX, 88 + (12 - sz) / 2, sz, on2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center')); }   // ADD TO HOME SCREEN arrive du bas
-    if (blink) iconLine(124, 'TO SELECT  PRESS ' + kA + ' TO CONFIRM', '#ffffff');   // une seule ligne, en blanc : icônes HAUT / BAS
+    if (blink) { iconLine(112, 'TO SELECT', '#ffffff'); text(kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center'); if (fsAvail()) text(kB + ' TO GO BACK', CX, 136, 8, '#ffffff', 'center'); }   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
-    if (blink && s1) { text('PRESS ' + kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text('PRESS ' + kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
+    if (blink && s1) { text(kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text(kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
     if (isStandalone() && G.offState === 'ready') text('OFFLINE MODE READY', CX, 146, 8, '#5aff8a', 'center');   // mode hors ligne prêt : en petit, en bas
   }
 }
