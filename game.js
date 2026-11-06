@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v365';
+const VERSION = 'v366';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -1800,6 +1800,10 @@ function netStateFor(p) {
 }
 function netSendState() {
   if (G.frame % 6) return;
+  if (NET.guest && NET.guest.conn && NET.guest.conn.open) {   // Player 2 en ligne : combat ou menu (pour activer Y / X et les noms des boutons)
+    const fi = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo, g = NET.guest;
+    if (fi !== g.fiSent || G.frame - (g.fiF || 0) > 60) { g.fiSent = fi; g.fiF = G.frame; try { g.conn.send({ t: 'sc', fi }); } catch (e) {} }
+  }
   for (const p of [1, 2]) {
     const r = NET.rem[p]; if (!r || !r.open) continue;
     const m = netStateFor(p), k = JSON.stringify(m);
@@ -1953,7 +1957,7 @@ function guestDial() {   // connexion au Player 1 (et reconnexion si la liaison 
   const c = Gs.peer.connect(JOIN, { metadata: { p: 2, guest: true }, serialization: 'json' });
   Gs.conn = c; if (Gs.status !== 'live') Gs.status = 'connecting';
   c.on('open', () => { if (Gs.status !== 'live') Gs.status = 'joined'; });
-  c.on('data', m => { if (m && m.t === 'bye') Gs.status = 'replaced'; });
+  c.on('data', m => { if (m && m.t === 'bye') Gs.status = 'replaced'; if (m && m.t === 'sc') Gs.fight = !!m.fi; });
   c.on('close', () => { Gs.status = 'lost'; Gs.vid.style.display = 'none'; setTimeout(guestDial, 2500); });
   c.on('error', () => {});
 }
@@ -7395,7 +7399,7 @@ let last = performance.now(), acc = 0;
 const ERRS = []; function errLog(e) { if (ERRS.length < 20) { ERRS.push(String(e && e.stack || e)); console.error(e); } }
 let infightCls = null;
 function loop(now) {
-  { const f0 = ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot, f = G.photo ? 'photo' : f0;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; if (f === 'photo') { document.body.classList.add('infight'); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', 'PHOTO'); lb('.bb', 'BACK'); lb('.by', 'ZOOM -'); lb('.bx', 'ZOOM +'); } else { document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
+  { const f0 = G.guest ? !!G.guest.fight : ['intro', 'fight', 'ko', 'timeup'].includes(G.scene) && !G.demo && !G.boot, f = G.photo ? 'photo' : f0;   /* score / YOU WIN : boutons des menus */ if (f !== infightCls) { infightCls = f; if (f === 'photo') { document.body.classList.add('infight'); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', 'PHOTO'); lb('.bb', 'BACK'); lb('.by', 'ZOOM -'); lb('.bx', 'ZOOM +'); } else { document.body.classList.toggle('infight', f); const lb = (sel, t) => { const e = document.querySelector(sel + ' small'); if (e) e.textContent = t; }; lb('.ba', f ? 'SPECIAL' : 'CONFIRM'); lb('.bb', f ? 'KICK' : 'BACK'); lb('.by', f ? 'PUNCH' : ''); lb('.bx', f ? 'COUNTER' : ''); } } }   // menus : A = CONFIRM, B = BACK ; combat : SPECIAL / KICK   // bouton START de la manette : seulement en combat
   acc += Math.min(100, now - last); last = now;
   requestAnimationFrame(loop);   // planifié d'abord : une erreur ne fige jamais le jeu
   while (acc >= 1000 / 60) { acc -= 1000 / 60; try { step(); } catch (e) { errLog(e); } }
