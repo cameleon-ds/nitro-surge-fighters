@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v368';
+const VERSION = 'v369';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -18,7 +18,8 @@ const HI = document.createElement('canvas'); HI.id = 'hi'; cv.parentNode.insertB
 const hx = HI.getContext('2d'); let hiUsed = false;
 
 // Portrait sur mobile (ex. rotation verrouillée) : on pivote tout le jeu de 90°
-let ROT = false;
+let ROT = false, W_LOCK = null;
+function syncW(w) { W_LOCK = w || null; resize(); }   // fixe (ou libère) la largeur de la scène
 const app = document.getElementById('app');
 function resize() {
   const touchDev = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window || /[?&]touch/.test(location.search);
@@ -31,7 +32,7 @@ function resize() {
   app.style.width = aw + 'px'; app.style.height = ah + 'px';
   app.style.left = ROT ? iw + 'px' : '0px';
   // Plein écran : la largeur interne s'adapte au format de l'écran (16:9 → 21:9)
-  const nw = Math.max(384, Math.min(520, Math.round(H * aw / ah)));
+  const nw = W_LOCK || Math.max(384, Math.min(520, Math.round(H * aw / ah)));   // en ligne (SYNC) : même largeur de scène sur les deux téléphones
   if (nw !== W) {
     const old = W; W = nw; CX = W / 2; SW = W + 2 * EXT;
     cv.width = W; cv.height = H; ctx.imageSmoothingEnabled = false;
