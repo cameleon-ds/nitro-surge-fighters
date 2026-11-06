@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v357';
+const VERSION = 'v359';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -2017,6 +2017,9 @@ const edge = (c, b) => !!(c.held[b] && !c.prev[b]);
 // Menus : A (ou Entrée) valide, B (ou Échap) revient en arrière
 const okPress = c => edge(c, 's') || edge(c, 'start');
 const backPress = c => edge(c, 'k') || edge(c, 'back');
+let entKbT = -1e9; addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'NumpadEnter') entKbT = performance.now(); }, true);
+const entRecent = () => performance.now() - entKbT < 250;
+const entKb = () => !isTouch && edge(pctl, 'start') && entRecent();   // PC : ENTRÉE (clavier) = valider comme A
 
 /* ---------------- Données d'attaque ---------------- */
 const ATK = {
@@ -5535,7 +5538,8 @@ function stepMoves() {
   if (okPress(pctl)) { G.mlOpen = P[G.mlSel].title; G.mscroll = 0; sfx('select'); return; }
   if (backPress(pctl)) { G.showMoves = false; sfx('beep'); }
 }
-const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'PHOTO MODE', 'CHARACTER SELECT', 'BACK TO TITLE'];   // OPTIONS juste sous CONTINUE
+const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'PHOTO MODE', 'CHARACTER SELECT', 'BACK TO TITLE'];
+const pauseItems = () => isTouch ? PAUSE_ITEMS : ['CONTINUE', 'ADD CONTROLLERS', ...PAUSE_ITEMS.slice(1)];   // PC / Mac : ADD CONTROLLERS sous CONTINUE (QR codes P1 / P2)   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
 const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
@@ -5601,7 +5605,7 @@ function stepPhoto() {   // MODE PHOTO : stick = déplacer, Y = dézoomer, X = z
   const any = BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || ['l', 'r', 'u', 'd'].some(b => edge(pctl, b));
   if (P.clean) { if (any || P.tapped) { P.clean = false; P.tapped = false; document.body.classList.remove('photoclean'); } return; }   // n'importe quelle touche : les boutons réapparaissent
   if (backPress(pctl)) { G.photo = null; document.body.classList.remove('photoclean'); sfx('beep'); return; }
-  if (edge(pctl, 's')) { P.msgT = 60; document.body.classList.add('photoclean'); sfx('select'); return; }
+  if (edge(pctl, 's') || entKb()) { P.msgT = 60; document.body.classList.add('photoclean'); sfx('select'); return; }
   const sp = 3 / P.z; if (h.l) P.l -= sp; if (h.r) P.l += sp; if (h.u) P.t -= sp; if (h.d) P.t += sp;
   const zf = h.x ? 1.02 : h.p ? 1 / 1.02 : 1;
   if (zf !== 1) { const cx = P.l + W / P.z / 2, cy = P.t + H / P.z / 2; P.z *= zf; P.l = cx - W / P.z / 2; P.t = cy - H / P.z / 2; }
@@ -5615,19 +5619,22 @@ function stepPause() {
     else if (edge(pctl, 's') || edge(pctl, 'start')) { sfx('select'); if (G.pconf === 0) { G.pconf = null; goTitle(); } else G.pconf = null; }
     return;
   }
-  if (!G.showKeys && (edge(pctl, 'start') || edge(p2ctl, 'start'))) { G.paused = false; G.showOpts = false; G.showMoves = false; sfx('beep'); return; }   // START = reprendre le combat, même depuis OPTIONS / MOVE LIST (seul A change une option)   // START (manette) / ENTRÉE (clavier) = reprendre le combat directement
+  if (!G.showKeys && !G.qrPop && ((edge(pctl, 'start') && !entKb()) || (edge(p2ctl, 'start') && !entRecent()))) { G.paused = false; G.showOpts = false; G.showMoves = false; sfx('beep'); return; }   // START = reprendre le combat, même depuis OPTIONS / MOVE LIST (seul A change une option)   // START (manette) / ENTRÉE (clavier) = reprendre le combat directement
   if (G.showMoves) { stepMoves(); return; }
   if (G.showOpts) { stepOptions(); return; }
-  const n = PAUSE_ITEMS.length, m = navStep();
+  if (G.qrPop) { if (backPress(pctl) || okPress(pctl)) { G.qrPop = false; sfx('beep'); } return; }   // fenêtre ADD CONTROLLERS
+  const PI = pauseItems(), n = PI.length, m = navStep();
   const pc = Math.max(0, Math.min(n - 1, G.pcur + m)); if (pc !== G.pcur) { G.pcur = pc; sfx('beep'); }
   if (backPress(pctl)) { G.paused = false; sfx('beep'); return; }   // B (ou ÉCHAP) = annuler la pause
-  if (edge(pctl, 's')) {   // A = valider le choix
+  if (edge(pctl, 's') || entKb()) {   // A (ou ENTRÉE sur PC) = valider le choix
     sfx('select');
-    if (G.pcur === 0) G.paused = false;
-    else if (G.pcur === 1) { G.showOpts = true; G.ocur = 0; }
-    else if (G.pcur === 2) { G.showMoves = true; G.mscroll = 0; G.mlP = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
-    else if (G.pcur === 3) { G.photo = { z: G.zoom || 1, l: G.camL || 0, t: H - H / (G.zoom || 1), clean: false, msgT: 0 }; }   // MODE PHOTO
-    else if (G.pcur === 4) { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
+    const it = PI[G.pcur];
+    if (it === 'ADD CONTROLLERS') { G.qrPop = true; return; }
+    if (it === 'CONTINUE') G.paused = false;
+    else if (it === 'OPTIONS') { G.showOpts = true; G.ocur = 0; }
+    else if (it === 'MOVE LIST') { G.showMoves = true; G.mscroll = 0; G.mlP = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
+    else if (it === 'PHOTO MODE') { G.photo = { z: G.zoom || 1, l: G.camL || 0, t: H - H / (G.zoom || 1), clean: false, msgT: 0 }; }   // MODE PHOTO
+    else if (it === 'CHARACTER SELECT') { G.paused = false; G.scene = 'select'; G.t = 0; G.shake = 0; G.quakeT = 0; }
     else G.pconf = 1;   // BACK TO TITLE : confirmation (NO par défaut)
   }
 }
@@ -6795,12 +6802,14 @@ function drawPause() {
   if (G.showMoves) { drawMoves(); return; }
   if (G.showOpts) { drawOptions(); return; }
   panel(34, 148, 'PAUSE');
-  PAUSE_ITEMS.forEach((t, i) => {
+  const PI = pauseItems(), st = PI.length > 6 ? 13 : 15;
+  PI.forEach((t, i) => {
     const sel = G.pcur === i;
-    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 64 + i * 15, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
+    text((sel ? '> ' : '') + t + (sel ? ' <' : ''), CX, 62 + i * st, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.55)', 'center');
   });
   const kb = !isTouch && !padOn();
-  text(kb ? keyName(KEYS.s) + ': SELECT   ' + keyName(KEYS.start) + ': RESUME' : 'A: SELECT   START: RESUME   B: BACK', CX, 166, 8, 'rgba(255,255,255,.35)', 'center');
+  text(kb ? keyName(KEYS.s) + ' / ENTER: SELECT   ' + keyName(KEYS.k) + ' / BKSP: BACK' : 'A: SELECT   START: RESUME   B: BACK', CX, 166, 8, 'rgba(255,255,255,.35)', 'center');
+  if (G.qrPop) drawQRPopup();   // ADD CONTROLLERS (PC / Mac) : QR codes P1 / P2
   if (G.pconf != null) {   // fenêtre de confirmation
     R(0, 0, W, H, 'rgba(0,0,0,.5)');
     const PW = 250; R(CX - PW / 2, 78, PW, 64, '#0e0816');
