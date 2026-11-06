@@ -1,6 +1,6 @@
 // Service worker : installation (écran d'accueil / bureau) + MODE HORS LIGNE
 // DOWNLOAD OFFLINE MODE : tous les fichiers du jeu sont mis en cache ; ensuite le jeu marche sans internet.
-// Réseau d'abord (toujours la dernière version quand on est connecté), copie locale si pas de réseau.
+// v2 : Réseau d'abord (toujours la dernière version quand on est connecté), copie locale si pas de réseau.
 const CACHE = 'nsf-offline-v1';
 const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap';
 self.addEventListener('install', () => self.skipWaiting());
@@ -15,7 +15,7 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     try {
-      const res = await fetch(req);
+      const res = await fetch(same ? new Request(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }) : req);   // no-cache : toujours vérifier la dernière version sur le serveur (pas la copie du navigateur)
       if (res && (res.ok || res.type === 'opaque') && await offlineOn()) c.put(req, res.clone()).catch(() => {});   // garde la copie à jour
       return res;
     } catch (err) {
