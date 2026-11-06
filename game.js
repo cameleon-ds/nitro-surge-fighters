@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v364';
+const VERSION = 'v365';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6881,7 +6881,7 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   if (typeof rotateShown === 'function' && rotateShown()) { G.bootAt = null; return; }
   if (G.bootAt == null) G.bootAt = G.frame;
   const ak = Math.min(1, (G.frame - G.bootAt) / 26), ae = 1 - Math.pow(1 - ak, 3), done = ak >= 1;
-  text(VERSION, W - (isTouch ? 34 : 6), isTouch ? 8 : 6, 8, '#6a6a6a', 'right');   // version : seulement sur l'écran de démarrage (avant START)
+  text(VERSION, W - (isTouch ? 34 : 6), isTouch ? 8 : 6, 8, 'rgba(106,106,106,.5)', 'right');   // version : seulement sur l'écran de démarrage (avant START)
   const slide = (dy, fn) => { ctx.save(); ctx.globalAlpha = ae; ctx.translate(0, Math.round(dy * (1 - ae))); fn(); ctx.restore(); };
   ctx.save(); ctx.globalAlpha = ae;
   text('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
