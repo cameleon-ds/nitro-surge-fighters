@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v362';
+const VERSION = 'v364';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -7287,19 +7287,21 @@ function drawStageSelect() {
 const SEL_GRAY = [];
 const LOSE_FACE = SEL_KEYS.map(k => { const im = new Image(); lazySrc(im, 'lose_' + k + '.jpg?v=1'); return im; });   // image de chaque perdant
 const LOSE_DIR = [-1, -1, -1, -1, 1, 1, -1, 1];   // sens du regard des images de perdant
-function grayOf(i) {   // perdant : son image de défaite (sinon visage en noir et blanc)
-  if (imgOk(LOSE_FACE[i])) return LOSE_FACE[i];
-  if (SEL_GRAY[i]) return SEL_GRAY[i];
-  const im = SEL_FACE[i]; if (!imgOk(im)) return null;
+const LOSE_GRAY = [];
+const loseGray = i => imgOk(LOSE_FACE[i]);   // l'image de défaite est utilisée (en noir et blanc)
+function grayOf(i) {   // perdant : son image de défaite en noir et blanc (sinon visage en noir et blanc)
+  const lose = loseGray(i), C = lose ? LOSE_GRAY : SEL_GRAY;
+  if (C[i]) return C[i];
+  const im = lose ? LOSE_FACE[i] : SEL_FACE[i]; if (!imgOk(im)) return null;
   const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
   const g = c.getContext('2d'); g.drawImage(im, 0, 0);
-  try { const d = g.getImageData(0, 0, c.width, c.height), p = d.data; for (let j = 0; j < p.length; j += 4) { const v = p[j] * .3 + p[j + 1] * .59 + p[j + 2] * .11; p[j] = p[j + 1] = p[j + 2] = v; } g.putImageData(d, 0, 0); } catch (e) { return im; }
-  return SEL_GRAY[i] = c;
+  try { const d = g.getImageData(0, 0, c.width, c.height), p = d.data; for (let j = 0; j < p.length; j += 4) { const v = p[j] * .3 + p[j + 1] * .59 + p[j + 2] * .11; p[j] = (p[j] + v) / 2; p[j + 1] = (p[j + 1] + v) / 2; p[j + 2] = (p[j + 2] + v) / 2; }   /* désaturé à 50 % */ g.putImageData(d, 0, 0); } catch (e) { return im; }
+  return C[i] = c;
 }
 function overFace(i, x, y, sz, border, look, gray) {
   artFill('#000', x - 2, y - 2, sz + 4, sz + 4); ring(x, y, sz, sz, 1, border);
   const im = gray ? grayOf(i) : SEL_FACE[i];
-  if (im && imgOk(im)) artDraw(im, x, y, sz, sz, (gray && im === LOSE_FACE[i] ? LOSE_DIR[i] : SEL_FACE_DIR[i]) !== look); else drawPortrait(i, x, y, sz, border, look, gray);
+  if (im && imgOk(im)) artDraw(im, x, y, sz, sz, (gray && (im === LOSE_FACE[i] || im === LOSE_GRAY[i]) ? LOSE_DIR[i] : SEL_FACE_DIR[i]) !== look); else drawPortrait(i, x, y, sz, border, look, gray);
 }
 function drawOver() {
   R(0, 0, W, H, '#000');
