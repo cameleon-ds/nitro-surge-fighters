@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v361';
+const VERSION = 'v362';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6881,6 +6881,7 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   if (typeof rotateShown === 'function' && rotateShown()) { G.bootAt = null; return; }
   if (G.bootAt == null) G.bootAt = G.frame;
   const ak = Math.min(1, (G.frame - G.bootAt) / 26), ae = 1 - Math.pow(1 - ak, 3), done = ak >= 1;
+  text(VERSION, W - (isTouch ? 34 : 6), isTouch ? 8 : 6, 8, '#6a6a6a', 'right');   // version : seulement sur l'écran de démarrage (avant START)
   const slide = (dy, fn) => { ctx.save(); ctx.globalAlpha = ae; ctx.translate(0, Math.round(dy * (1 - ae))); fn(); ctx.restore(); };
   ctx.save(); ctx.globalAlpha = ae;
   text('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 'center');   // titre en bas, en gris
@@ -7036,7 +7037,6 @@ function drawTitle() {
     else text('POWERED BY SUPER ROCKET GAMES - ALL RIGHTS RESERVED 2026', CX, 205, fs, '#d8c8b0', 'center');
   }
   if (G.tstate === 1 && (G.tmenu || 0) < 14) R(0, 0, W, H, `rgba(255,255,255,${(.7 * (1 - (G.tmenu || 0) / 14)).toFixed(3)})`);   // atterrissage : éclair blanc
-  text(VERSION, W - (isTouch ? 34 : 4), isTouch ? 8 : 4, 8, '#5a4a40', 'right');   // mobile : à l'écart des bords arrondis
 }
 
 // Écran de sélection : personnages en entier à gauche (joueur 1) et à droite (joueur 2), grille 4 x 2 au centre
