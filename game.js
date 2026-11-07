@@ -1616,6 +1616,7 @@ function keyAction(code) {
 }
 let bindWait = null;   // { dev: 'kb' | 'pad', act } : attente d'une touche / d'un bouton à associer
 addEventListener('keydown', e => {
+  if (EDITOR) return;   // éditeur de poses : le clavier sert aux champs de saisie
   initAudio();
   if (bindWait && bindWait.dev === 'kb') {   // capture de la nouvelle touche
     e.preventDefault();
@@ -1630,7 +1631,7 @@ addEventListener('keydown', e => {
   if (m) { keys.add(m); latched.add(m); e.preventDefault(); }
   if ((m === 's' || m === 'start') && G.showOpts && !G.showKeys && G.ocur === 0) { OPT.full = !OPT.full; saveOpt(); sfx('select'); G.fsDone = G.frame; if (OPT.full) enterFS(); else exitFS(); }   // option PLEIN ÉCRAN (validée pendant l'appui : autorisé par le navigateur)
 });
-addEventListener('keyup', e => { const m = keyAction(e.code); if (m) keys.delete(m); });
+addEventListener('keyup', e => { if (EDITOR) return; const m = keyAction(e.code); if (m) keys.delete(m); });
 function bindKey(dev, act, val) {   // associe et échange si la touche était déjà utilisée
   const M = dev === 'kb' ? KEYS : PADB;
   for (const a in M) if (M[a] === val && a !== act) M[a] = M[act];
@@ -1764,8 +1765,10 @@ function syncFS() { if (typeof OPT === 'undefined') return; if (OPT.full) enterF
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
   if (!isFS() && !isTouch && typeof OPT !== 'undefined' && OPT.full) { OPT.full = false; saveOpt(); }   // PC : ÉCHAP quitte le plein écran et désactive l'option
 }));
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+if (!EDITOR) {
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+}
 
 // Stick tactile : très petite zone morte, la direction est choisie selon l'angle (8 directions)
 function stickDirs() {
@@ -6018,6 +6021,7 @@ function bootStart() {
 function bootToggleFS() { OPT.full = !OPT.full; saveOpt(); sfx('beep'); if (OPT.full) enterFS(); else exitFS(); }
 const bootRowY = i => { const it = bootItems()[i]; return it === 2 ? 140 : it === 1 ? 86 : 84; };   // INSTALL bien plus bas
 addEventListener('keydown', e => {
+  if (EDITOR) return;
   if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 10 && ['Enter', 'Escape', 'Space', 'Backspace'].includes(e.code)) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); e.preventDefault(); e.stopPropagation(); } return; }
   if (!G.boot || !loadDone()) return;
   const k = e.code;
