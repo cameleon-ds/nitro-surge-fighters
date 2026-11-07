@@ -16,7 +16,7 @@ const ICON = {
 };
 
 const css = `
-.nsfa-ov { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, #2a2036, #0e0c13 70%); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #ece8f4; }
+.nsfa-ov { visibility: visible; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, #2a2036, #0e0c13 70%); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #ece8f4; }
 .nsfa-card { width: min(380px, 92vw); background: #1b1824; border: 1px solid #34303f; border-radius: 14px; padding: 26px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .nsfa-card h2 { margin: 0 0 4px; font-size: 18px; }
 .nsfa-card p.sub { margin: 0 0 18px; color: #9a93aa; font-size: 13px; }
