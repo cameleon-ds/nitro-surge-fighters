@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Éditeur de poses — Nitro Surge Fighters</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root {
+  --bg: #121018; --panel: #1b1824; --panel2: #23202e; --line: #34303f; --txt: #ece8f4; --dim: #9a93aa;
+  --acc: #ffb02e; --acc2: #ff6a1a; --ok: #4fd18b; --warn: #ffcf5a; --bad: #ff5a6a; --sel: #5ab8ff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--txt); font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body { display: grid; grid-template-columns: 260px 1fr 290px; grid-template-rows: 52px 1fr; height: 100vh; overflow: hidden; }
+header { grid-column: 1 / 4; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 14px; margin: 0; letter-spacing: .04em; font-weight: 700; }
+header h1 span { color: var(--acc); }
+header .sp { flex: 1; }
+.status { font-size: 12px; color: var(--dim); }
+.status.dirty { color: var(--warn); }
+.status.saved { color: var(--ok); }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow: auto; padding: 12px; }
+aside.right { border-right: 0; border-left: 1px solid var(--line); }
+label.h { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 14px 0 6px; }
+label.h:first-child { margin-top: 0; }
+select, input[type=search] { width: 100%; background: var(--panel2); color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; }
+.list { display: flex; flex-direction: column; gap: 2px; }
+.act { padding: 6px 8px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; gap: 6px; }
+.act:hover { background: var(--panel2); }
+.act.on { background: #2e2a3c; box-shadow: inset 2px 0 0 var(--acc); }
+.act small { color: var(--dim); }
+.act .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); align-self: center; flex: none; }
+main { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); cursor: pointer; font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+.chip.on { border-color: var(--acc); color: var(--acc); }
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acc); }
+.stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.wrap { position: relative; }
+#view { image-rendering: pixelated; display: block; border-radius: 8px; box-shadow: 0 0 0 1px var(--line); }
+#ov { position: absolute; inset: 0; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel2); color: var(--txt); cursor: pointer; font: inherit; }
+.btn:hover { border-color: #4a4458; }
+.btn.on { border-color: var(--acc); color: var(--acc); }
+.btn.primary { background: linear-gradient(180deg, var(--acc), var(--acc2)); border-color: transparent; color: #1a1006; font-weight: 700; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel2); color: var(--dim); padding: 7px 10px; font: inherit; cursor: pointer; }
+.seg button.on { background: #2e2a3c; color: var(--acc); }
+.full .seg { display: flex; } .full .seg button { flex: 1; }
+.note { font-size: 12px; color: var(--dim); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; margin-top: 8px; }
+.note.warn { border-color: #5a4a1e; color: var(--warn); }
+.note b { color: var(--txt); }
+.joints { display: grid; grid-template-columns: 1fr auto auto; gap: 3px 8px; font-size: 12px; }
+.joints div { padding: 3px 4px; border-radius: 4px; cursor: pointer; }
+.joints div.on { color: var(--sel); }
+.joints .num { color: var(--dim); font-variant-numeric: tabular-nums; text-align: right; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.row .btn { flex: 1; justify-content: center; }
+.kbd { font-size: 11px; color: var(--dim); }
+.empty { color: var(--dim); padding: 30px; text-align: center; }
+#hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<!-- Éléments attendus par le moteur du jeu (invisibles ici) -->
+<div id="hidden"><div id="app"><canvas id="game" width="384" height="216"></canvas>
+<div id="touch"><div id="stickZone"><div id="stick"><div id="knob"></div></div></div><div id="startBtn"></div><div id="btnZone"><div id="btns"></div></div></div></div>
+<div id="rotate"><button id="rotateOk" type="button"></button></div></div>
+
+<header>
+  <div id="pslot" style="display:flex"></div>
+  <h1>NITRO SURGE FIGHTERS <span>— Éditeur de poses</span></h1>
+  <div class="sp"></div>
+  <span id="status" class="status">Aucune modification</span>
+  <button class="btn" id="download" title="Télécharger poses-custom.js (copie pour ton Mac)" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+    Télécharger
+  </button>
+  <button class="btn primary" id="save" title="Enregistrer (Cmd + S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+    Enregistrer
+  </button>
+</header>
+
+<aside>
+  <label class="h">Personnage</label>
+  <select id="char"></select>
+  <label class="h">Action</label>
+  <input type="search" id="search" placeholder="Filtrer les actions">
+  <div class="list" id="acts" style="margin-top:8px"></div>
+</aside>
+
+<main>
+  <div class="chips" id="poses"></div>
+  <div class="toolbar">
+    <button class="btn" id="play" title="Lire l'action (Espace)">
+      <svg id="playIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+      <span>Lecture</span>
+    </button>
+    <div class="seg" id="view-dir"><button data-v="1" class="on">Vue droite</button><button data-v="-1">Vue gauche</button></div>
+    <div class="seg" id="view-skin"><button data-v="0" class="on">Skin P1</button><button data-v="1">Skin P2</button></div>
+    <button class="btn on" id="onion" title="Afficher la pose précédente en transparence">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+      Pelure d'oignon
+    </button>
+    <button class="btn on" id="rigid" title="Les bras et les jambes gardent leur longueur quand tu déplaces une main, un pied, un coude ou un genou">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Membres fixes
+    </button>
+    <button class="btn on" id="bones" title="Afficher le squelette">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><circle cx="12" cy="12" r="2"/><path d="m6.5 7.5 4 3M13.5 13.5l4 3"/></svg>
+      Squelette
+    </button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="wrap" id="wrap"><canvas id="view"></canvas><svg id="ov"></svg></div>
+  </div>
+</main>
+
+<aside class="right">
+  <label class="h">Appliquer la modification à</label>
+  <div class="full"><div class="seg" id="scope"><button data-v="char" class="on" id="scopeChar">Ce personnage</button><button data-v="tous">Tous les personnages</button></div></div>
+  <div id="scopeNote" class="note"></div>
+  <div id="patchNote" class="note warn" style="display:none"></div>
+  <div id="usedNote" class="note"></div>
+
+  <label class="h">Articulations</label>
+  <div class="joints" id="joints"></div>
+  <div class="kbd" style="margin-top:6px">Glisse un point sur le personnage. Flèches : déplacer d'un demi-point (Maj : 2 points).</div>
+
+  <label class="h">Historique</label>
+  <div class="row">
+    <button class="btn" id="undo" title="Annuler (Cmd + Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Annuler</button>
+    <button class="btn" id="redo" title="Rétablir (Cmd + Maj + Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>Rétablir</button>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn" id="reset" title="Revenir à la pose d'origine du jeu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Revenir à l'original</button>
+  </div>
+  <div id="saveNote" class="note" style="margin-top:14px"></div>
+</aside>
+
+<script>window.NSF_EDITOR = true;</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="nsf-auth.js"></script>
+<script src="poses-custom.js"></script>
+<script src="game.js"></script>
+<script>
+(() => {
+'use strict';
+const META = {"HIRO":[{"s":"airfb","q":[{"p":"special1","t":0,"air":true,"vy":-1.62,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":8,"air":true,"vy":1.1,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"block","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flipk","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":4,"air":true,"vy":-6.68,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"held","q":[{"p":"fall","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"sho0","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":15,"air":true,"vy":-3.06,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"idle","q":[{"p":"idle0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"idle1","t":19,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jkick","q":[{"p":"jump","t":1,"air":true,"vy":-2.64,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":4,"air":true,"vy":-1.62,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jpunch","q":[{"p":"jump","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jpunch","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jump","t":1,"air":true,"vy":-6.72,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":8,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":14,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":6,"air":false,"vy":0,"roll":1,"apexT":34,"tt":"toss","g":false},{"p":"throwS","t":22,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"uppercut","q":[{"p":"sho0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"sbk1","t":6,"air":true,"vy":-1.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"sbk2","t":12,"air":true,"vy":-7.02,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"turnA","t":35,"air":true,"vy":0.8,"roll":0,"apexT":34,"tt":null,"g":false},{"p":"turnB","t":38,"air":true,"vy":1.82,"roll":0,"apexT":34,"tt":null,"g":false},{"p":"upper2","t":42,"air":true,"vy":3.18,"roll":0,"apexT":34,"tt":null,"g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":10,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":11,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":14,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]}],"AXEL":[{"s":"aflip","q":[{"p":"jkick","t":0,"air":true,"vy":-2.3,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"axgp","q":[{"p":"gp0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"gpI1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"gpI2","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"gpI3","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"gp1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"block","q":[{"p":"block","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"cblock","q":[{"p":"cblock","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fjump","q":[{"p":"sho0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fjump","t":4,"air":true,"vy":-4.26,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fkick1","t":10,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flipk","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"jkick","t":5,"air":true,"vy":-6.06,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"held","q":[{"p":"fall","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"idle","q":[{"p":"idle1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"idle0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":6.88,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":3,"air":true,"vy":-5.02,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"jpunch","q":[{"p":"jump","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jpunch","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jump","t":1,"air":true,"vy":-6.72,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"toss","g":false},{"p":"throwT","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"throwS","t":22,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"uppercut","q":[{"p":"sho0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"sbk1","t":7,"air":true,"vy":-1.66,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"sbk2","t":13,"air":true,"vy":-4.98,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"turnA","t":29,"air":true,"vy":0.46,"roll":0,"apexT":29,"tt":null,"g":false},{"p":"turnB","t":34,"air":true,"vy":2.16,"roll":0,"apexT":29,"tt":null,"g":false},{"p":"upper2","t":37,"air":true,"vy":3.18,"roll":0,"apexT":29,"tt":null,"g":false}]},{"s":"walk","q":[{"p":"wk0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":8,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":11,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":14,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]}],"VESPER":[{"s":"block","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"crouch","q":[{"p":"crouch","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"dive","q":[{"p":"jkick","t":1,"air":true,"vy":0.34,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"dive","t":4,"air":true,"vy":5.6,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"holo","q":[{"p":"special0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"idle","q":[{"p":"idle1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"idle0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":-3.32,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":3,"air":true,"vy":-2.3,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":1,"air":true,"vy":-6.72,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":1,"air":true,"vy":-6.72,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"shadow","q":[{"p":"tuck","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"throwS","t":23,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":10,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":17,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":20,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":22,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"zenith","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":3,"air":true,"vy":-11.66,"roll":1,"apexT":null,"tt":null,"g":false}]}],"GROG":[{"s":"block","q":[{"p":"block","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"cblock","q":[{"p":"cblock","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"crush","q":[{"p":"crouch","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":7,"air":true,"vy":-8.92,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"crushD","q":[{"p":"crush0","t":1,"air":true,"vy":6.2,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"crushLand","q":[{"p":"gq1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"gpound","q":[{"p":"tuck","t":0,"air":true,"vy":-0.86,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"crush0","t":7,"air":true,"vy":10,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"grogroll","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuckG","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"idle","q":[{"p":"idle1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"idle0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":-2.64,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":3,"air":true,"vy":-1.62,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jpunch","q":[{"p":"jump","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jpunch","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"kick1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":8,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":14,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"quake","q":[{"p":"gq0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"gq1","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"rampart","q":[{"p":"rampart","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"rburst","q":[{"p":"rburst","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":false},{"p":"throwS","t":22,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"wk1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"wk2","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"wk3","t":14,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":22,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]}],"ZEPHYR":[{"s":"block","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch","q":[{"p":"upper1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch0","t":17,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"gust","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":16,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"idle","q":[{"p":"idle0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"idle1","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jkick","q":[{"p":"jump","t":1,"air":true,"vy":3.82,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":4,"air":true,"vy":4.84,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jpunch","q":[{"p":"jump","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jpunch","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":5,"air":true,"vy":-5.36,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"sink","q":[{"p":"block","t":21,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"upper0","t":22,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":false},{"p":"throwS","t":23,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"tornado","q":[{"p":"sho0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"upper2","t":3,"air":true,"vy":-8.46,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":10,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":16,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"wallslash","q":[{"p":"upper1","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":8,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"cpunch","t":11,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"crouch","t":28,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"zdash","q":[{"p":"sho0","t":0,"air":true,"vy":0.34,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"upper2","t":3,"air":true,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"zslash","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"upper1","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]}],"NYX":[{"s":"block","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fall","q":[{"p":"fall","t":1,"air":true,"vy":-5.66,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flame","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"flask","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":8,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"geyser","q":[{"p":"upper1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"gq1","t":8,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"idle","q":[{"p":"idle1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"idle0","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":-1.62,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":3,"air":true,"vy":-0.6,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":8,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":12,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":14,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nyxglide","q":[{"p":"jump","t":0,"air":true,"vy":1.78,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nyxspin","q":[{"p":"tuck","t":0,"air":true,"vy":0.08,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nyxtele","q":[{"p":"idle0","t":10,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"smokeback","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"hit","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":false},{"p":"throwS","t":22,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":10,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk4","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk5","t":16,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk6","t":19,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"wk7","t":22,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]}],"KAEL":[{"s":"block","q":[{"p":"block","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"ckick","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"ckick","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"fkick","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"flame","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"flashstep","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"getup","q":[{"p":"upper0","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"idle","q":[{"p":"idle0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"idle1","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":-5.36,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"jkick","t":3,"air":true,"vy":-4.34,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-7.06,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"jump","t":1,"air":true,"vy":-6.72,"roll":1,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":4,"air":true,"vy":-5.7,"roll":1,"apexT":null,"tt":"slam","g":false}]},{"s":"kbarrage","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":30,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"kick","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"kick1","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"kspin","q":[{"p":"jump","t":0,"air":true,"vy":-0.6,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":2,"air":true,"vy":0.08,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nslide","q":[{"p":"crouch","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"slide","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"plasmawall","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"win","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"upper0","t":34,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"punch","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"punch1","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"rupper","q":[{"p":"rup0","t":1,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":10,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"sonic","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":false},{"p":"throwS","t":22,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"walk","q":[{"p":"wk0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"wk1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"wk7","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk2","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"wk6","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"wk3","t":10,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"wk4","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"wk5","t":13,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]}],"LORD VANE":[{"s":"airvoid","q":[{"p":"jump","t":0,"air":true,"vy":-1.8,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jpunch","t":6,"air":true,"vy":-0.98,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"airvoid#double","q":[{"p":"jump","t":0,"air":true,"vy":-1.8,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"jpunch","t":6,"air":true,"vy":-0.98,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"block","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"block#double","q":[{"p":"block","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"cblock","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"cblock#double","q":[{"p":"cblock","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"ckick","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"ckick#double","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"ckick","t":2,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"crouch","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"crouch#double","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"down","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"down#double","q":[{"p":"down","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"fall","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"fall#double","q":[{"p":"fall","t":0,"air":true,"vy":-4.8,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"fkick","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fkick#double","q":[{"p":"fkick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"fkick1","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"flame","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"flame#double","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"special1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"fpunch","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"fpunch#double","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"fpunch1","t":5,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"getup","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"getup#double","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"held","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"held#double","q":[{"p":"fall","t":1,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"hit","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"hit#double","q":[{"p":"hit","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"idle","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"idle#double","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"jkick","q":[{"p":"jump","t":0,"air":true,"vy":-0.78,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jkick","t":3,"air":true,"vy":0.24,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jkick#double","q":[{"p":"jump","t":0,"air":true,"vy":-0.78,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"jkick","t":3,"air":true,"vy":0.24,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"jump","q":[{"p":"jump","t":0,"air":true,"vy":-8.26,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"jump","t":0,"air":true,"vy":-8.26,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"tuck","t":4,"air":true,"vy":-6.9,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"jump#double","q":[{"p":"jump","t":0,"air":true,"vy":-8.26,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"jump","t":0,"air":true,"vy":-8.26,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"tuck","t":4,"air":true,"vy":-6.9,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"kick","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"kick#double","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"kick1","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"land","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"land#double","q":[{"p":"upper0","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"meteor","q":[{"p":"tuck","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"meteor#double","q":[{"p":"tuck","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"meteorD","q":[{"p":"dive","t":0,"air":true,"vy":-0.02,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"meteorD#double","q":[{"p":"dive","t":0,"air":true,"vy":-0.02,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"nitroUp","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nitroUp#double","q":[{"p":"win","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"nrush","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"punch0","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"nrush#double","q":[{"p":"punch1","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"punch0","t":7,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"fpunch1","t":9,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"kick1","t":13,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true},{"p":"ckick","t":18,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"nslide","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"slide","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"nslide#double","q":[{"p":"crouch","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"slide","t":3,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"parry","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"parry#double","q":[{"p":"parry","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"pteleport","q":[{"p":"idle0","t":14,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"pteleport#double","q":[{"p":"idle0","t":14,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"pthrow","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"pthrow#double","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"special1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"punch","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"punch#double","q":[{"p":"punch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"punch1","t":2,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"rupper","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup2","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"rupper#double","q":[{"p":"rup0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"rup1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"rup2","t":9,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"rup3","t":17,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"special","q":[{"p":"special0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"special#double","q":[{"p":"special1","t":12,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"stunned","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":false}]},{"s":"stunned#double","q":[{"p":"stunned","t":0,"air":false,"vy":0,"roll":1,"apexT":null,"tt":null,"g":true}]},{"s":"throw","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"throwT","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false},{"p":"tuck","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":false},{"p":"throwS","t":23,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":false}]},{"s":"throw#double","q":[{"p":"throw0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":true},{"p":"throwT","t":6,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":true},{"p":"tuck","t":6,"air":false,"vy":0,"roll":1,"apexT":null,"tt":"toss","g":true},{"p":"throwS","t":23,"air":false,"vy":0,"roll":0,"apexT":null,"tt":"slam","g":true}]},{"s":"tpstrike","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"kick1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"tpstrike#double","q":[{"p":"kick0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"kick1","t":4,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"voidcast","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false},{"p":"fpunch1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"voidcast#double","q":[{"p":"fpunch0","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true},{"p":"fpunch1","t":7,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]},{"s":"walk","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":false}]},{"s":"walk#double","q":[{"p":"vidle","t":0,"air":false,"vy":0,"roll":0,"apexT":null,"tt":null,"g":true}]}]};
+const LABELS = { idle: 'Garde', walk: 'Marche', jump: 'Saut', jpunch: 'Poing sauté', jkick: 'Pied sauté', crouch: 'Accroupi', cblock: 'Garde basse',
+  cpunch: 'Poing accroupi', ckick: 'Pied accroupi', block: 'Garde haute', punch: 'Poing faible', fpunch: 'Poing fort', kick: 'Pied faible', fkick: 'Pied fort',
+  special: 'Coup spécial', airfb: 'Coup spécial en l\'air', flame: 'Boule de feu (variante)', hit: 'Coup reçu', fall: 'Chute', down: 'Au sol', win: 'Victoire',
+  parry: 'Parade', stunned: 'Étourdi', throw: 'Projection', held: 'Projeté', land: 'Atterrissage', getup: 'Relevé', nsuper: 'Super', nrush: 'Rafale (super)',
+  nitroUp: 'Activation Nitro', uppercut: 'Uppercut', rupper: 'Uppercut (variante)', hslide: 'Glissade', nslide: 'Glissade', tornado: 'Tornade', fjump: 'Saut enflammé',
+  flipk: 'Pied retourné', aflip: 'Salto', dive: 'Plongeon' };
+const JN = ['Tête', 'Cou', 'Bassin', 'Coude avant', 'Main avant', 'Coude arrière', 'Main arrière', 'Genou avant', 'Pied avant', 'Genou arrière', 'Pied arrière'];
+const BONES = [[0, 1], [1, 2], [1, 3], [3, 4], [1, 5], [5, 6], [2, 7], [7, 8], [2, 9], [9, 10]];
+
+const N = window.__NSF;
+if (!N) { document.getElementById('stage').innerHTML = '<div class="empty">Le moteur du jeu (game.js) ne s\'est pas chargé. Ouvre ce fichier depuis le dossier du jeu.</div>'; return; }
+const C = window.NSF_POSES = window.NSF_POSES || {};
+const NAMES = N.DEFS.map(d => d.name);
+const Z = 6;   // zoom d'affichage
+const view = document.getElementById('view'), vx = view.getContext('2d'), ov = document.getElementById('ov');
+view.width = N.SPR.width * Z; view.height = N.SPR.height * Z; vx.imageSmoothingEnabled = false;
+ov.setAttribute('viewBox', `0 0 ${view.width} ${view.height}`); ov.setAttribute('width', view.width); ov.setAttribute('height', view.height);
+const onionC = document.createElement('canvas'); onionC.width = N.SPR.width; onionC.height = N.SPR.height;
+
+const S = { rigid: true, ci: 0, act: null, pi: 0, dir: 1, alt: false, onion: true, bones: true, scope: 'char', sel: -1, playing: false, dirty: false };
+const undo = [], redo = [];
+let fileHandle = null;
+
+// ---------- données ----------
+const actsOf = ci => META[NAMES[ci]] || [];
+const curAct = () => actsOf(S.ci).find(a => a.s === S.act) || actsOf(S.ci)[0];
+const curItem = () => { const a = curAct(); return a && a.q[Math.min(S.pi, a.q.length - 1)]; };
+const curPose = () => curItem() && curItem().p;
+const def = () => N.fighterDef(S.ci, S.alt);
+const name = () => NAMES[S.ci];
+function poseArr(pn) { return (C[name()] && C[name()][pn]) || (C.tous && C.tous[pn]) || N.POSES[pn]; }
+function origin(pn) { return C[name()] && C[name()][pn] ? 'char' : C.tous && C.tous[pn] ? 'tous' : null; }
+function isModified(ci, pn) { const n = NAMES[ci]; return !!((C[n] && C[n][pn]) || (C.tous && C.tous[pn])); }
+
+function fighterFor(item, dir) {
+  const d = def(), f = N.makeFighter(d, 0, 0, dir, false);
+  Object.assign(f, { state: item.s0, t: item.t, air: item.air, vy: item.vy, roll: item.roll, apexT: item.apexT, throwType: item.tt, ghostDraw: !!item.g, flash: 0, tint: null, vx: 0 });
+  return f;
+}
+function itemWithState(item) { const a = curAct(); return Object.assign({ s0: a.s.split('#')[0] }, item); }
+
+// ---------- rendu ----------
+function renderSprite(item) {
+  const f = fighterFor(item, S.dir);
+  N.setForcePose(item.p);
+  try { N.drawFighter(f, -9999, -9999); } finally { N.setForcePose(null); }
+}
+function jointsPx(arr, item) {
+  const d = def(), f = fighterFor(item, S.dir), mir = d.kit === 'grog' && S.dir < 0, dir = mir ? 1 : S.dir;
+  const Q = N.poseQ(f, d, arr, item.p);
+  const out = []; for (let i = 0; i < 11; i++) out.push([N.OX + dir * Q[i * 2] * N.K, N.OY + Q[i * 2 + 1] * N.K]);
+  return out;
+}
+function draw() {
+  const item = curItem();
+  vx.clearRect(0, 0, view.width, view.height);
+  // damier
+  for (let y = 0; y < view.height; y += 24) for (let x = 0; x < view.width; x += 24) { vx.fillStyle = ((x + y) / 24) % 2 ? '#1f1c28' : '#1a1722'; vx.fillRect(x, y, 24, 24); }
+  vx.fillStyle = '#2c2838'; vx.fillRect(0, N.OY * Z, view.width, 1);
+  ov.innerHTML = '';
+  if (!item) return;
+  const a = curAct(), it = itemWithState(item);
+  if (S.onion && !S.playing && a.q.length > 1) {
+    const prev = itemWithState(a.q[(S.pi - 1 + a.q.length) % a.q.length]);
+    renderSprite(prev);
+    const ox = onionC.getContext('2d'); ox.clearRect(0, 0, onionC.width, onionC.height); ox.drawImage(N.SPR, 0, 0);
+    vx.globalAlpha = .28; vx.drawImage(onionC, 0, 0, view.width, view.height); vx.globalAlpha = 1;
+  }
+  renderSprite(it);
+  vx.drawImage(N.SPR, 0, 0, view.width, view.height);
+  if (S.bones && !S.playing) drawOverlay(it);
+}
+function drawOverlay(it) {
+  const J = jointsPx(poseArr(it.p), it), ns = 'http://www.w3.org/2000/svg';
+  const mk = (tag, at) => { const e = document.createElementNS(ns, tag); for (const k in at) e.setAttribute(k, at[k]); ov.appendChild(e); return e; };
+  for (const [a, b] of BONES) mk('line', { x1: J[a][0] * Z, y1: J[a][1] * Z, x2: J[b][0] * Z, y2: J[b][1] * Z, stroke: 'rgba(255,255,255,.35)', 'stroke-width': 2 });
+  J.forEach(([x, y], i) => {
+    const back = [5, 6, 9, 10].includes(i);
+    const c = mk('circle', { cx: x * Z, cy: y * Z, r: i === S.sel ? 8 : 6.5, fill: i === S.sel ? '#5ab8ff' : back ? '#8a7aa8' : '#ffb02e', stroke: '#120f18', 'stroke-width': 2, style: 'cursor:grab' });
+    c.dataset.j = i;
+    const t = mk('title', {}); t.textContent = JN[i]; c.appendChild(t);
+  });
+}
+
+// ---------- édition ----------
+function setPose(pn, arr, scope) {   // arr = null : supprime la modification
+  const key = scope === 'tous' ? 'tous' : name();
+  const before = C[key] && C[key][pn] ? C[key][pn].slice() : null;
+  undo.push({ key, pn, before }); redo.length = 0;
+  apply(key, pn, arr);
+}
+const changed = new Set();
+function apply(key, pn, arr) {
+  changed.add((key === 'tous' ? 'tous' : key.charAt(0) + key.slice(1).toLowerCase()) + ' › ' + pn);
+  if (arr) { C[key] = C[key] || {}; C[key][pn] = arr.map(v => Math.round(v * 2) / 2); }
+  else if (C[key]) { delete C[key][pn]; if (!Object.keys(C[key]).length) delete C[key]; }
+  S.dirty = true; refreshAll();
+}
+function editKey() { return S.scope === 'tous' ? 'tous' : name(); }
+function moveJoint(i, tx, ty, item, start) {   // cherche les coordonnées de pose qui placent l'articulation sous le curseur
+  const arr = start.slice();
+  for (let k = 0; k < 8; k++) {
+    const J = jointsPx(arr, item), ex = tx - J[i][0], ey = ty - J[i][1];
+    if (Math.abs(ex) < .05 && Math.abs(ey) < .05) break;
+    const h = .5, a1 = arr.slice(); a1[i * 2] += h; const Jx = jointsPx(a1, item)[i];
+    const a2 = arr.slice(); a2[i * 2 + 1] += h; const Jy = jointsPx(a2, item)[i];
+    const m = [[(Jx[0] - J[i][0]) / h, (Jy[0] - J[i][0]) / h], [(Jx[1] - J[i][1]) / h, (Jy[1] - J[i][1]) / h]];
+    const det = m[0][0] * m[1][1] - m[0][1] * m[1][0]; if (Math.abs(det) < 1e-6) break;
+    arr[i * 2] += (m[1][1] * ex - m[0][1] * ey) / det; arr[i * 2 + 1] += (-m[1][0] * ex + m[0][0] * ey) / det;
+  }
+  return arr.map(v => Math.round(v * 2) / 2);
+}
+// chaînes : articulation -> [racine, milieu, bout]
+const CHAINS = { 3: [1, 3, 4], 4: [1, 3, 4], 5: [1, 5, 6], 6: [1, 5, 6], 7: [2, 7, 8], 8: [2, 7, 8], 9: [2, 9, 10], 10: [2, 9, 10] };
+function constrain(j, T, A) {   // A = pose de départ, T = position voulue (unités de pose) pour l'articulation j
+  const out = A.slice(), g = i => [A[i * 2], A[i * 2 + 1]], set = (i, p) => { out[i * 2] = p[0]; out[i * 2 + 1] = p[1]; };
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  if (j === 0) {   // tête : tourne autour du cou
+    const n = g(1), L = dist(g(0), n), a = Math.atan2(T[1] - n[1], T[0] - n[0]); set(0, [n[0] + Math.cos(a) * L, n[1] + Math.sin(a) * L]); return out;
+  }
+  const ch = CHAINS[j]; if (!ch) { set(j, T); return out; }
+  const [r, m, e] = ch, R = g(r), M = g(m), E = g(e), L1 = dist(R, M), L2 = dist(M, E);
+  if (j === m) {   // coude / genou : tourne autour de l'épaule / la hanche, l'avant-bras suit
+    const a = Math.atan2(T[1] - R[1], T[0] - R[0]), M2 = [R[0] + Math.cos(a) * L1, R[1] + Math.sin(a) * L1];
+    set(m, M2); set(e, [E[0] + M2[0] - M[0], E[1] + M2[1] - M[1]]); return out;
+  }
+  // main / pied : cinématique inverse à 2 segments, le coude garde son sens de pliure
+  let dx = T[0] - R[0], dy = T[1] - R[1], d = Math.hypot(dx, dy) || 1e-6;
+  const dm = Math.max(Math.abs(L1 - L2) + 1e-3, Math.min(L1 + L2 - 1e-3, d));
+  const tx = R[0] + dx / d * dm, ty = R[1] + dy / d * dm;
+  const side = Math.sign((M[0] - R[0]) * (E[1] - R[1]) - (M[1] - R[1]) * (E[0] - R[0])) || 1;
+  const a = (L1 * L1 - L2 * L2 + dm * dm) / (2 * dm), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+  const ux = (tx - R[0]) / dm, uy = (ty - R[1]) / dm, px = R[0] + ux * a, py = R[1] + uy * a;
+  let M2 = [px - uy * h, py + ux * h];
+  const s2 = Math.sign((M2[0] - R[0]) * (ty - R[1]) - (M2[1] - R[1]) * (tx - R[0])) || 1;
+  if (s2 !== side) M2 = [px + uy * h, py - ux * h];
+  set(m, M2); set(e, [tx, ty]); return out;
+}
+let drag = null;
+ov.addEventListener('pointerdown', e => {
+  const j = e.target.dataset && e.target.dataset.j; if (j == null) { S.sel = -1; draw(); renderJoints(); return; }
+  const it = itemWithState(curItem()); S.sel = +j;
+  drag = { j: +j, it, start: poseArr(it.p).slice(), moved: false };
+  ov.setPointerCapture(e.pointerId); e.preventDefault(); renderJoints(); draw();
+});
+ov.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const r = view.getBoundingClientRect(), tx = (e.clientX - r.left) / r.width * N.SPR.width, ty = (e.clientY - r.top) / r.height * N.SPR.height;
+  let arr = moveJoint(drag.j, tx, ty, drag.it, drag.start);
+  if (S.rigid) arr = constrain(drag.j, [arr[drag.j * 2], arr[drag.j * 2 + 1]], drag.start).map(v => Math.round(v * 2) / 2);
+  if (!drag.moved) { const key = editKey(); undo.push({ key, pn: drag.it.p, before: C[key] && C[key][drag.it.p] ? C[key][drag.it.p].slice() : null }); redo.length = 0; drag.moved = true; }
+  apply(editKey(), drag.it.p, arr);
+});
+ov.addEventListener('pointerup', () => { drag = null; });
+function nudge(dx, dy) {
+  if (S.sel < 0 || !curItem()) return;
+  const pn = curPose(), A = poseArr(pn); let arr = A.slice(); arr[S.sel * 2] += dx * (S.dir < 0 && def().kit !== 'grog' ? -1 : 1); arr[S.sel * 2 + 1] += dy;
+  if (S.rigid) arr = constrain(S.sel, [arr[S.sel * 2], arr[S.sel * 2 + 1]], A).map(v => Math.round(v * 2) / 2);
+  setPose(pn, arr, S.scope);
+}
+function doUndo(from, to) {
+  const u = from.pop(); if (!u) return;
+  to.push({ key: u.key, pn: u.pn, before: C[u.key] && C[u.key][u.pn] ? C[u.key][u.pn].slice() : null });
+  apply(u.key, u.pn, u.before);
+}
+
+// ---------- interface ----------
+const $ = id => document.getElementById(id);
+function renderChars() {
+  $('char').innerHTML = NAMES.map((n, i) => `<option value="${i}">${n.charAt(0) + n.slice(1).toLowerCase()}</option>`).join('');
+  $('char').value = S.ci;
+}
+function actModified(a) { return a.q.some(it => isModified(S.ci, it.p)); }
+function renderActs() {
+  const q = $('search').value.trim().toLowerCase();
+  const acts = actsOf(S.ci).filter(a => !q || (LABELS[a.s.split('#')[0]] || a.s).toLowerCase().includes(q) || a.s.includes(q));
+  $('acts').innerHTML = acts.map(a => {
+    const [s, dbl] = a.s.split('#'), lab = (LABELS[s] || s) + (dbl ? ' (double)' : '');
+    return `<div class="act ${a.s === S.act ? 'on' : ''}" data-a="${a.s}"><span>${lab} <small>${s}</small></span>${actModified(a) ? '<span class="dot" title="Pose modifiée"></span>' : `<small>${a.q.length}</small>`}</div>`;
+  }).join('') || '<div class="empty">Aucune action</div>';
+}
+function renderPoses() {
+  const a = curAct(); if (!a) { $('poses').innerHTML = ''; return; }
+  $('poses').innerHTML = a.q.map((it, i) => `<span class="chip ${i === S.pi ? 'on' : ''}" data-i="${i}">${isModified(S.ci, it.p) ? '<span class="dot"></span>' : ''}${it.p}</span>`).join('');
+}
+function renderJoints() {
+  const pn = curPose(); if (!pn) { $('joints').innerHTML = ''; return; }
+  const arr = poseArr(pn), o = N.POSES[pn];
+  $('joints').innerHTML = JN.map((n, i) => {
+    const ch = o && (arr[i * 2] !== o[i * 2] || arr[i * 2 + 1] !== o[i * 2 + 1]);
+    return `<div data-j="${i}" class="${i === S.sel ? 'on' : ''}">${ch ? '<b>' + n + '</b>' : n}</div><div class="num">${arr[i * 2]}</div><div class="num">${arr[i * 2 + 1]}</div>`;
+  }).join('');
+}
+function usedIn(pn) {
+  const out = [];
+  NAMES.forEach((n, ci) => (META[n] || []).forEach(a => { if (a.q.some(it => it.p === pn)) out.push({ ci, s: a.s }); }));
+  return out;
+}
+function renderNotes() {
+  const pn = curPose(); if (!pn) return;
+  const o = origin(pn), nm = name().charAt(0) + name().slice(1).toLowerCase();
+  $('scopeChar').textContent = 'Seulement ' + nm;
+  let t = '';
+  if (S.scope === 'char') t = `La pose <b>${pn}</b> ne changera que pour <b>${nm}</b>.`;
+  else t = `La pose <b>${pn}</b> changera pour <b>tous les personnages</b> qui l'utilisent.`;
+  if (o === 'char' && S.scope === 'tous') t += ` <br>Attention : ${nm} a déjà sa propre version de cette pose, qui reste prioritaire pour lui.`;
+  if (o) t += `<br>État : modifiée (${o === 'char' ? 'version ' + nm : 'version commune'}).`; else t += '<br>État : pose d\'origine du jeu.';
+  $('scopeNote').innerHTML = t;
+  const P = N.SPR_PATCH[name()], hasPatch = P && Object.keys(P).some(k => k.split('|')[0] === pn);
+  $('patchNote').style.display = hasPatch ? '' : 'none';
+  $('patchNote').innerHTML = `Cette pose a une <b>retouche Piskel</b> pour ${nm}. Si tu modifies la pose, la retouche est désactivée automatiquement (ses pixels ne tomberaient plus au bon endroit). « Revenir à l'original » la réactive.`;
+  const u = usedIn(pn), chars = [...new Set(u.map(x => NAMES[x.ci]))];
+  const here = u.filter(x => x.ci === S.ci).map(x => LABELS[x.s.split('#')[0]] || x.s);
+  $('usedNote').innerHTML = `Chez ${nm}, cette pose sert à : <b>${[...new Set(here)].join(', ') || '—'}</b>.<br>Personnages qui l'utilisent : ${chars.map(c => c.charAt(0) + c.slice(1).toLowerCase()).join(', ')}.`;
+}
+function renderStatus() {
+  const st = $('status');
+  st.className = 'status' + (S.dirty ? ' dirty' : fileHandle ? ' saved' : '');
+  st.textContent = S.dirty ? 'Modifications non enregistrées' : fileHandle ? 'Enregistré' : 'Aucune modification';
+  $('undo').disabled = !undo.length; $('redo').disabled = !redo.length;
+  $('reset').disabled = !curPose() || !(C[editKey()] && C[editKey()][curPose()]);
+}
+function refreshAll() { renderActs(); renderPoses(); renderJoints(); renderNotes(); renderStatus(); draw(); }
+
+$('char').addEventListener('change', e => { S.ci = +e.target.value; S.act = (actsOf(S.ci).find(a => a.s === S.act) || actsOf(S.ci).find(a => a.s === 'idle') || actsOf(S.ci)[0]).s; S.pi = 0; S.sel = -1; refreshAll(); });
+$('search').addEventListener('input', renderActs);
+$('acts').addEventListener('click', e => { const el = e.target.closest('.act'); if (!el) return; S.act = el.dataset.a; S.pi = 0; S.sel = -1; refreshAll(); });
+$('poses').addEventListener('click', e => { const el = e.target.closest('.chip'); if (!el) return; S.pi = +el.dataset.i; refreshAll(); });
+$('joints').addEventListener('click', e => { const el = e.target.closest('[data-j]'); if (!el) return; S.sel = +el.dataset.j; renderJoints(); draw(); });
+for (const [id, k, conv] of [['view-dir', 'dir', Number], ['view-skin', 'alt', v => v === '1'], ['scope', 'scope', String]]) {
+  $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S[k] = conv(b.dataset.v); $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); refreshAll(); });
+}
+$('onion').addEventListener('click', () => { S.onion = !S.onion; $('onion').classList.toggle('on', S.onion); draw(); });
+$('rigid').addEventListener('click', () => { S.rigid = !S.rigid; $('rigid').classList.toggle('on', S.rigid); });
+$('bones').addEventListener('click', () => { S.bones = !S.bones; $('bones').classList.toggle('on', S.bones); draw(); });
+$('undo').addEventListener('click', () => doUndo(undo, redo));
+$('redo').addEventListener('click', () => doUndo(redo, undo));
+$('reset').addEventListener('click', () => { const pn = curPose(); if (pn) setPose(pn, null, S.scope); });
+
+let playT = null;
+function setPlay(on) {
+  S.playing = on; clearInterval(playT);
+  $('play').querySelector('span').textContent = on ? 'Pause' : 'Lecture';
+  $('playIco').innerHTML = on ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>' : '<polygon points="6 4 20 12 6 20 6 4"/>';
+  if (on) playT = setInterval(() => { const a = curAct(); if (!a) return; S.pi = (S.pi + 1) % a.q.length; renderPoses(); draw(); }, 140);
+  else refreshAll();
+}
+$('play').addEventListener('click', () => setPlay(!S.playing));
+
+// ---------- enregistrement ----------
+function fileText() {
+  const clean = {}; for (const k of Object.keys(C).sort()) { if (!C[k] || !Object.keys(C[k]).length) continue; clean[k] = {}; for (const p of Object.keys(C[k]).sort()) clean[k][p] = C[k][p]; }
+  const body = Object.keys(clean).length ? '{\n' + Object.entries(clean).map(([k, v]) => `  ${JSON.stringify(k)}: {\n` + Object.entries(v).map(([p, a]) => `    ${JSON.stringify(p)}: [${a.join(', ')}]`).join(',\n') + '\n  }').join(',\n') + '\n}' : '{}';
+  return "// Poses modifiées avec l'éditeur de poses (editeur-poses.html).\n// Ce fichier est écrit par l'éditeur : ne pas le modifier à la main.\nwindow.NSF_POSES = " + body + ';\n';
+}
+function cleanPoses() { const o = {}; for (const k of Object.keys(C)) if (C[k] && Object.keys(C[k]).length) o[k] = C[k]; return o; }
+async function publish() {
+  if (!S.dirty) { $('saveNote').innerHTML = 'Rien à publier : aucune modification depuis la dernière publication.'; return; }
+  $('save').disabled = true; $('status').textContent = 'Publication…';
+  try {
+    const summary = [...changed].slice(0, 12).join(', ') + (changed.size > 12 ? '…' : '');
+    const r = await A.call('save', { poses: cleanPoses(), summary: summary || 'Modification des poses' });
+    changed.clear(); S.dirty = false; renderStatus();
+    $('status').className = 'status saved'; $('status').textContent = 'Publié sur GitHub';
+    $('saveNote').innerHTML = 'Publié. Le jeu en ligne sera à jour d\'ici 1 à 2 minutes.' + (r.commit_url ? ' <a href="' + r.commit_url + '" target="_blank" style="color:var(--acc)">Voir sur GitHub</a>' : '') + '<br>Pense à <b>Télécharger</b> pour garder ton Mac à jour.';
+  } catch (e) { $('status').className = 'status dirty'; $('status').textContent = 'Échec de la publication'; $('saveNote').innerHTML = '<span style="color:var(--bad)">' + A.esc(e.message) + '</span>'; }
+  $('save').disabled = false;
+}
+function download() {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([fileText()], { type: 'text/javascript' })); a.download = 'poses-custom.js'; a.click();
+}
+async function save() {
+  if (ONLINE) return publish();
+  const text = fileText();
+  if (window.showSaveFilePicker) {
+    try {
+      if (!fileHandle) fileHandle = await window.showSaveFilePicker({ suggestedName: 'poses-custom.js', types: [{ description: 'Poses du jeu', accept: { 'text/javascript': ['.js'] } }] });
+      const w = await fileHandle.createWritable(); await w.write(text); await w.close();
+      S.dirty = false; renderStatus();
+      $('saveNote').innerHTML = 'Enregistré dans <b>' + fileHandle.name + '</b>. Recharge le jeu (index.html) pour voir le résultat.';
+      return;
+    } catch (e) { if (e && e.name === 'AbortError') return; fileHandle = null; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/javascript' })); a.download = 'poses-custom.js'; a.click();
+  S.dirty = false; renderStatus();
+  $('saveNote').innerHTML = 'Le fichier <b>poses-custom.js</b> a été téléchargé. Remplace celui du dossier du jeu par ce fichier.';
+}
+$('save').addEventListener('click', save);
+$('download').addEventListener('click', download);
+$('saveNote').innerHTML = 'Au premier enregistrement, choisis le fichier <b>poses-custom.js</b> du dossier du jeu et accepte de le remplacer. Les enregistrements suivants l\'écrasent directement.';
+addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const mod = e.metaKey || e.ctrlKey, st = e.shiftKey ? 2 : .5;
+  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? doUndo(redo, undo) : doUndo(undo, redo); }
+  else if (e.key === ' ') { e.preventDefault(); setPlay(!S.playing); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-st, 0); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); nudge(st, 0); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); nudge(0, -st); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); nudge(0, st); }
+});
+
+function boot() {
+  renderChars();
+  S.act = (actsOf(0).find(a => a.s === 'idle') || actsOf(0)[0]).s;
+  refreshAll();
+}
+const A = window.NSFAuth, ONLINE = !!(A && A.ONLINE);
+if (ONLINE) {
+  document.body.style.visibility = 'hidden';
+  A.require().then(async user => {
+    document.body.style.visibility = '';
+    A.profileButton($('pslot'), user, { beforeLogout: () => !S.dirty || confirm('Des modifications ne sont pas publiées. Se déconnecter quand même ?') });
+    $('download').style.display = '';
+    $('save').lastChild.textContent = ' Publier';
+    $('save').title = 'Publier sur GitHub (Cmd + S)';
+    $('saveNote').innerHTML = '<b>Publier</b> met à jour poses-custom.js sur GitHub : le jeu en ligne change d\'ici 1 à 2 minutes. <b>Télécharger</b> te donne une copie pour le dossier du jeu sur ton Mac.';
+    boot();
+    try {
+      const r = await A.call('get');
+      for (const k of Object.keys(C)) delete C[k];
+      Object.assign(C, r.poses || {});
+      S.dirty = false; refreshAll();
+    } catch (e) { $('saveNote').innerHTML = '<span style="color:var(--warn)">' + A.esc(e.message) + '</span>'; }
+  }).catch(e => { document.body.style.visibility = ''; alert(e.message); });
+} else boot();
+window.__EDITOR = { constrain, S, C, refreshAll, moveJoint, jointsPx, itemWithState, curItem, poseArr, fileText };
+})();
+</script>
+</body>
+</html>
