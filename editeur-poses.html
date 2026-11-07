@@ -90,7 +90,7 @@ main { position: relative; display: flex; flex-direction: column; min-width: 0; 
   <label class="h">Personnage</label>
   <select id="char"></select>
   <label class="h">Action</label>
-  <input type="search" id="search" placeholder="Filtrer les actions">
+  <input type="search" id="search" placeholder="Filtrer (idle, punch…)">
   <div class="list" id="acts" style="margin-top:8px"></div>
 </aside>
 
@@ -327,10 +327,10 @@ function renderChars() {
 function actModified(a) { return a.q.some(it => isModified(S.ci, it.p)); }
 function renderActs() {
   const q = $('search').value.trim().toLowerCase();
-  const acts = actsOf(S.ci).filter(a => !q || (LABELS[a.s.split('#')[0]] || a.s).toLowerCase().includes(q) || a.s.includes(q));
+  const acts = actsOf(S.ci).filter(a => !q || a.s.toLowerCase().includes(q));
   $('acts').innerHTML = acts.map(a => {
-    const [s, dbl] = a.s.split('#'), lab = (LABELS[s] || s) + (dbl ? ' (double)' : '');
-    return `<div class="act ${a.s === S.act ? 'on' : ''}" data-a="${a.s}"><span>${lab} <small>${s}</small></span>${actModified(a) ? '<span class="dot" title="Pose modifiée"></span>' : `<small>${a.q.length}</small>`}</div>`;
+    const [s, dbl] = a.s.split('#'), lab = s + (dbl ? ' <small>double</small>' : '');
+    return `<div class="act ${a.s === S.act ? 'on' : ''}" data-a="${a.s}"><span>${lab}</span>${actModified(a) ? '<span class="dot" title="Pose modifiée"></span>' : `<small>${a.q.length}</small>`}</div>`;
   }).join('') || '<div class="empty">Aucune action</div>';
 }
 function renderPoses() {
@@ -364,7 +364,7 @@ function renderNotes() {
   $('patchNote').style.display = hasPatch ? '' : 'none';
   $('patchNote').innerHTML = `Cette pose a une <b>retouche Piskel</b> pour ${nm}. Si tu modifies la pose, la retouche est désactivée automatiquement (ses pixels ne tomberaient plus au bon endroit). « Revenir à l'original » la réactive.`;
   const u = usedIn(pn), chars = [...new Set(u.map(x => NAMES[x.ci]))];
-  const here = u.filter(x => x.ci === S.ci).map(x => LABELS[x.s.split('#')[0]] || x.s);
+  const here = u.filter(x => x.ci === S.ci).map(x => x.s.replace('#', ' '));
   $('usedNote').innerHTML = `Chez ${nm}, cette pose sert à : <b>${[...new Set(here)].join(', ') || '—'}</b>.<br>Personnages qui l'utilisent : ${chars.map(c => c.charAt(0) + c.slice(1).toLowerCase()).join(', ')}.`;
 }
 function renderStatus() {
