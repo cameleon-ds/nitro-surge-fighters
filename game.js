@@ -2456,9 +2456,9 @@ function spawnFireball(f, big) {
 /* ---------------- NITRO / SURGE ----------------
    NITRO (X X Y) : jauge pleine quand on a infligé ou reçu la moitié de l'énergie ; 8 s plus rapide, écho vert, NITRO COMBO (10 coups)
    SURGE (X X A) : pendant le Nitro, jauge pleine après un quart de plus ; 5 s, écho mauve et double mauve qui répète chaque coup */
-/* RAGE (X X B) : 3e jauge (rouge → orange), se remplit après la mauve ; 5 s, peau rouge-orangé, particules de feu,
+/* RAGE (X X X B) : 3e jauge (rouge → orange), se remplit après la mauve ; 5 s, peau rouge-orangé, particules de feu,
    écho rouge-orangé ; RAGE COMBO de 20 coups rapides (sans le double mauve du Surge) ; Y Y Y : si le 2e Y touche → 5 coups.
-   Round 2 perdu au round 1 : jauge RAGE offerte pendant les 5 premières secondes. */
+   Activation : X X X B. Round 2 perdu au round 1 : jauge RAGE offerte pendant les 5 premières secondes. */
 const NITRO_T = 480, SURGE_T = 300, NITRO_NEED = 50, SURGE_NEED = 25, RAGE_T = 300, RAGE_NEED = 25, RAGE_N = 20;
 const nitroFull = f => ((f.nDeal || 0) + (f.nTake || 0)) >= NITRO_NEED;
 const surgeFull = f => ((f.sDeal || 0) + (f.sTake || 0)) >= SURGE_NEED;
@@ -2475,10 +2475,10 @@ function powerUp(f, o, surge, rage) {   // activation : pose de puissance, écra
   G.powerMsg = { txt: rage ? 'RAGE' : surge ? 'SURGE' : 'NITRO', name: f.def.name, col: rage ? '#ff5a1a' : surge ? '#d070ff' : '#5aff8a', t: 0 };   // grand texte au centre en dézoom, nom du combattant dessous
   sfx('counter'); sfx('fb'); if (AC) playSample('fight', 1.25, VOX, true);
 }
-function nitroInput(f, o) {   // X X Y : Nitro ; X X A : Surge ; X X B : RAGE
+function nitroInput(f, o) {   // X X Y : Nitro ; X X A : Surge ; X X X B : RAGE
   if (!G.fighting || f.ko) return;
   for (const b of ['x', 'p', 'k', 's']) if (edge(f.ctl, b)) {
-    (f.pseq = f.pseq || []).push([b, G.frame]); if (f.pseq.length > 3) f.pseq.shift();
+    (f.pseq = f.pseq || []).push([b, G.frame]); if (f.pseq.length > 4) f.pseq.shift();
     (f.rvq = f.rvq || []).push([b, G.frame]); if (f.rvq.length > 7) f.rvq.shift();
     if (f.state === 'nrush' && b !== 'x') f.rushSeq = ((f.rushSeq || '') + b).slice(-4);   // 2e enchaînement tapé pendant le combo
   }
@@ -2490,11 +2490,15 @@ function nitroInput(f, o) {   // X X Y : Nitro ; X X A : Surge ; X X B : RAGE
     }
     return;
   }
-  const q = f.pseq || []; if (q.length < 3 || G.frame - q[0][1] > 40) return;
-  const k = q.map(e => e[0]).join('');
+  const q = f.pseq || [];
+  if (q.length >= 4 && G.frame - q[q.length - 4][1] <= 50 && q.slice(-4).map(e => e[0]).join('') === 'xxxk') {   // RAGE : X X X B
+    if (!(f.rageT > 0) && rageFull(f)) { f.pseq = []; powerUp(f, o, false, true); }
+    return;
+  }
+  if (q.length < 3 || G.frame - q[q.length - 3][1] > 40) return;
+  const k = q.slice(-3).map(e => e[0]).join('');
   if (k === 'xxp' && !(f.nitroT > 0) && nitroFull(f)) { f.pseq = []; powerUp(f, o, false); }
   else if (k === 'xxs' && !(f.surgeT > 0) && !(f.rageT > 0) && surgeFull(f)) { f.pseq = []; powerUp(f, o, true); }
-  else if (k === 'xxk' && !(f.rageT > 0) && rageFull(f)) { f.pseq = []; powerUp(f, o, false, true); }
 }
 function rageAuto(f, o) {   // RAGE : enchaîne tout seul Y, B, Y après Y Y
   if (!f.autoQ) return;
@@ -4322,7 +4326,7 @@ function drawNitroGauge(f, x, w, left) {   // petite jauge sous l'énergie : ver
     R(left ? gx : gx + gw - tw, y + 3, tw, 1, f.rageT > 0 ? '#ff8a3a' : f.surgeT > 0 ? '#ff80ff' : '#80ffa0');
   }
   if ((rFull || sFull || nFull) && (G.frame >> 4) % 4 !== 3)
-    glowText(rFull ? 'RAGE XXB' : sFull ? 'SURGE XXA' : 'NITRO XXY', left ? gx + gw + 4 : gx - 4, y - 1, rFull ? '#ff8a3a' : sFull ? '#e080ff' : '#6aff9a', left ? 'left' : 'right');
+    glowText(rFull ? 'RAGE XXXB' : sFull ? 'SURGE XXA' : 'NITRO XXY', left ? gx + gw + 4 : gx - 4, y - 1, rFull ? '#ff8a3a' : sFull ? '#e080ff' : '#6aff9a', left ? 'left' : 'right');
 }
 function glowText(str, x, y, col, align) {   // texte pixel qui brille
   ctx.save(); ctx.globalAlpha *= .35; ctx.shadowColor = col; ctx.shadowBlur = 2; text(str, x, y, 8, col, align); ctx.restore();   // léger halo lumineux
@@ -6939,7 +6943,7 @@ const MOVES = [
   { title: 'NITRO, SURGE & RAGE', lines: [
     ['X X Y', 'NITRO (GREEN GAUGE FULL): FASTER 8 S'], ['NITRO + YYBB', 'NITRO COMBO: 8 HITS'], ['X X A', 'SURGE (PURPLE GAUGE FULL): DOUBLE 5 S'], ['SURGE + YYBA', '8 HITS + CHARGED SUPER SHOT'],
     ['DURING THE 8 HITS', 'ANOTHER YYBB/BBYY/YYBA: 2ND COMBO'], ['HIT BY A COMBO', 'X X Y OR X X A + YYBB...: REVERSAL'],
-    ['X X B', 'RAGE (RED GAUGE FULL): 5 S'], ['RAGE + YYBB', 'RAGE COMBO: 20 FAST HITS'], ['RAGE + Y Y Y', '2ND Y HITS: 5-HIT CHAIN'], ['ROUND 1 LOST', 'FREE RAGE: FIRST 5 S OF ROUND 2'] ] },
+    ['X X X B', 'RAGE (RED GAUGE FULL): 5 S'], ['RAGE + YYBB', 'RAGE COMBO: 20 FAST HITS'], ['RAGE + Y Y Y', '2ND Y HITS: 5-HIT CHAIN'], ['ROUND 1 LOST', 'FREE RAGE: FIRST 5 S OF ROUND 2'] ] },
   { title: 'HIRO SPECIALS', lines: [
     ['A', 'FIREBALL'], ['HOLD A', 'MAX FIREBALL (1.2 S)'], ['', '(HALF TIME AT 80% HP OR LESS)'], ['UP + A', 'LOW SLIDE + MINI UPPER'], ['UP + A, UP + A', 'SHORYUKEN'],
     ['BACK + A x3', 'FLIP KICKS (3 HITS = FIRE FLIP)'], ['AIR + A', 'DIAGONAL FIREBALL (x2)'] ] },
