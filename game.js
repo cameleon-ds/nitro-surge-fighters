@@ -258,7 +258,7 @@ let BG = null;
 const BGS = {};
 // Décors dessinés à partir des images (fidèles aux illustrations) : mis à l'échelle sur la largeur de la scène,
 // la ligne du sol de l'image est calée sur le sol du jeu
-const STAGE_IMG = { dojo: ['stage_dojo.jpg', 650], city: ['stage_city.jpg', 652], temple: ['stage_temple.jpg', 668], hall: ['stage_hall.jpg', 668], terrace: ['stage_terrace.jpg', 660], alley: ['stage_alley.jpg', 630], ring: ['stage_ring.jpg', 722], lab: ['stage_lab.jpg', 676] };
+const STAGE_IMG = { dojo: ['stage_dojo.jpg', 650], city: ['stage_city.jpg', 652], temple: ['stage_temple.jpg', 668], hall: ['stage_hall.jpg', 668], terrace: ['stage_terrace.jpg', 660], alley: ['stage_alley.jpg', 630], ring: ['stage_ring.jpg', 722], lab: ['stage_lab.jpg', 676], cyber: ['cab_bg.jpg', 641] };   // cyber : la rue du CYBER CAB SMASH (combat contre Kael)
 const URBAN = ['city', 'terrace', 'alley', 'ring', 'lab'];   // décors urbains : poubelles, cônes, bouteilles
 const STAGE_PIC = {};
 // Chargement différé : seuls les logos, l'image titre et la musique du titre bloquent le démarrage ;
@@ -1560,6 +1560,12 @@ function sfx(n) {
         const g2 = tone('triangle', 1568, 1568, .6, .18, 2 * .075, SFXBUS); g2.connect(VERB);
         break;
       }
+      case 'metal': if (!playSample('obj', .7, 1.3)) { noise(.12, .6, 3200, 'bandpass', 1800, 4); tone('square', 900, 420, .08, .12); } tone('triangle', 2400 + Math.random() * 600, 1900, .18, .1); break;   // tôle frappée (taxi)
+      case 'glass': noise(.22, .5, 6000, 'highpass'); [3100, 4200, 5300].forEach((fq, i) => tone('sine', fq, fq * .9, .12, .09, i * .03)); break;   // vitre qui éclate
+      case 'explode': tone('sine', 120, 30, .9, .7); noise(.9, .8, 900, 'lowpass', 80); noise(.15, .6, 2400, 'bandpass'); break;   // réacteur ou taxi qui explose
+      case 'cabWhine': tone('sawtooth', 120, 1500, 2, .07); tone('sine', 240, 3000, 2, .06); noise(2, .18, 600, 'bandpass', 4000, 3); break;   // réacteurs qui s'allument : sifflement qui monte
+      case 'cabHum': tone('sine', 1350 + Math.random() * 120, 1450, 1.4, .025); break;   // sifflement continu des réacteurs
+      case 'cabDown': tone('sawtooth', 1400, 90, 1.1, .1); tone('sine', 900, 60, 1.1, .08); break;   // réacteurs coupés : la voiture chute
       case 'parry': playSample('clash', 1); break;   // deux projectiles qui se touchent / parade : tele4
     }
   } catch (e) {}
@@ -1625,7 +1631,7 @@ function keyAction(code) {
 }
 let bindWait = null;   // { dev: 'kb' | 'pad', act } : attente d'une touche / d'un bouton à associer
 addEventListener('keydown', e => {
-  if (EDITOR) return;   // éditeur de poses : le clavier sert aux champs de saisie
+  if (EDITOR || G.modal) return;   // éditeur de poses / fenêtre du pseudo : le clavier sert aux champs de saisie
   initAudio();
   if (bindWait && bindWait.dev === 'kb') {   // capture de la nouvelle touche
     e.preventDefault();
@@ -1640,7 +1646,7 @@ addEventListener('keydown', e => {
   if (m) { keys.add(m); latched.add(m); e.preventDefault(); }
   if ((m === 's' || m === 'start') && G.showOpts && !G.showKeys && G.ocur === 0) { OPT.full = !OPT.full; saveOpt(); sfx('select'); G.fsDone = G.frame; if (OPT.full) enterFS(); else exitFS(); }   // option PLEIN ÉCRAN (validée pendant l'appui : autorisé par le navigateur)
 });
-addEventListener('keyup', e => { if (EDITOR) return; const m = keyAction(e.code); if (m) keys.delete(m); });
+addEventListener('keyup', e => { if (EDITOR || G.modal) return; const m = keyAction(e.code); if (m) keys.delete(m); });
 function bindKey(dev, act, val) {   // associe et échange si la touche était déjà utilisée
   const M = dev === 'kb' ? KEYS : PADB;
   for (const a in M) if (M[a] === val && a !== act) M[a] = M[act];
@@ -1848,7 +1854,7 @@ function netStateFor(p) {
   const fi = p - 1, fightSc = ['intro', 'fight', 'ko', 'timeup', 'score', 'over'].includes(G.scene);
   if (fightSc && G.f && G.f[fi]) {
     const f = G.f[fi];
-    return { t: 'st', ch: f.def.idx, name: f.def.name, hp: Math.round(f.hp), res: G.scene === 'over' ? (f.wins >= 2 ? 'win' : 'lose') : null };
+    return { t: 'st', ch: f.def.idx, name: f.def.name, hp: Math.round(f.hp), res: G.scene === 'over' ? (f.wins >= winsNeed() ? 'win' : 'lose') : null };
   }
   let ch = null;
   if (G.scene === 'select' || G.scene === 'stage') ch = p === 1 ? (G.selPhase || G.scene === 'stage' ? G.p1 : null) : (G.scene === 'stage' ? G.p2 : null);
@@ -2535,7 +2541,7 @@ function nitroGain(att, def, dmg) {   // les jauges se remplissent avec les dég
 // NITRO COMBO : 10 coups très rapides (visage, ventre, pied au visage, tibia), le dernier fait tomber
 const RUSH_POSE = ['punch1', 'fpunch1', 'kick1', 'ckick'], RUSH_Y = [-74, -50, -76, -14];
 const RUSH_N = 8;
-function comboHit(att) { att.cmbN = G.frame - (att.cmbLast || -999) < 90 ? (att.cmbN || 1) + 1 : 1; att.cmbLast = G.frame; feedCombo(att); }
+function comboHit(att) { att.cmbN = G.frame - (att.cmbLast || -999) < 90 ? (att.cmbN || 1) + 1 : 1; att.cmbLast = G.frame; feedCombo(att); if (G.arc && att === G.f[0] && !att.cpu) G.arc.bestCombo = Math.max(G.arc.bestCombo || 0, att.cmbN); }
 function updRush(f, o) {
   const MAX = f.rushMax || RUSH_N, IV = f.rageT > 0 ? 3 : 5;   // RAGE : 20 coups, plus rapides
   f.vx = 0; f.invuln = 6; face(f, o);
@@ -3602,8 +3608,10 @@ function updFighter(f, o) {
   // Physique
   if (f.air) {
     f.vy += GRAV; f.x += f.vx; f.y += f.vy;
-    if (f.y >= GROUND) {
-      f.y = GROUND; f.vy = 0; f.air = false; f.airFb = 0;
+    const flY = G.cab ? cabFloor(f) : GROUND;   // CYBER CAB SMASH : on peut atterrir sur le toit du taxi
+    if (f.y >= flY) {
+      if (flY < GROUND) f.landRoof = true;
+      f.y = flY; f.vy = 0; f.air = false; f.airFb = 0;
       if (f.state === 'fall') { setState(f, 'down'); G.shake = Math.max(G.shake, 3); sfx('thud'); }
       else if (f.state === 'uppercut') { setState(f, 'land'); f.landT = 14; }
       else if (f.state === 'vdive') { f.bounced = false; setState(f, 'land'); f.landT = 8; }
@@ -3648,6 +3656,7 @@ function updFighter(f, o) {
 }
 
 function hurtbox(f) {
+  if (f.phantom) return G.cab && !G.cab.kael ? cabHurt() : null;   // CYBER CAB SMASH : l'adversaire invisible prend la forme du taxi
   if (f.state === 'crush') return null;   // Grog : la montée en roulade esquive tous les coups
   if (f.invuln > 0 || ['fall', 'down', 'getup', 'held'].includes(f.state)) return null;
   if (f.air) return [f.x - 13, f.y - 81, f.x + 13, f.y - 17];
@@ -3724,6 +3733,7 @@ function tryCombo(f, o, c, fwd) {
   setState(f, fwd ? 'fkick' : 'kick'); f.vx = 0; sfx('whoosh'); markFire(f, o, 'k'); return true;
 }
 function doThrow(f, o, type) {
+  if (o.phantom || f.phantom) return;   // on ne saisit pas un taxi
   setState(f, 'throw'); f.throwType = type; f.vx = 0; f.vy = 0; f.counterT = 0; f.victim = o;
   f.gx = f.x; f.gy = f.y;
   setState(o, 'held'); o.air = false; o.vx = o.vy = 0; o.slowT = 0; o.flash = 3; o.invuln = 0;
@@ -5203,6 +5213,8 @@ function stepClash() {
 }
 const VSHIELD_LOW = ['ckick', 'nslide', 'hslide', 'grogroll', 'rupper'];   // coups au ras du sol : passent sous le bouclier de Vane
 function applyHit(att, def, data, sx, sy, fromX, projectile) {
+  if (def.phantom) { if (G.cab) cabHit(att, data, sx, sy, projectile); return; }   // coup sur le taxi
+  if (att.phantom) return;
   if (def.state === 'voidcast' && (G.voids || []).some(q => q.owner === def && q.charging && q.ch >= 45) && !data.low && !VSHIELD_LOW.includes(att.state)) {   // sphère de Vane à mi-charge ou plus : bouclier
     const q = G.voids.find(v => v.owner === def && v.charging);
     addSpark(q.x - def.dir * q.r * .6, q.y, 'parry'); G.flashT = Math.max(G.flashT, 3); G.freeze = Math.max(G.freeze || 0, 4); sfx('parry');
@@ -5492,7 +5504,9 @@ const ALT = [
 ];
 const fighterDef = (i, alt) => alt ? Object.assign({}, DEFS[i], ALT[i], { idx: i, alt: true }) : Object.assign(DEFS[i], { idx: i });
 const PRE_T = 110, NYX_TOP = 74;   // NYX_TOP : hauteur max du vol plané de Nyx (barre d'énergie au niveau du buste)
+const winsNeed = () => G.oneRound ? 1 : 2;   // combat de boss contre Kael (après le CYBER CAB SMASH) : 1 seul round
 function startMatch(p1, p2, stage) {
+  G.cab = null; G.oneRound = false; G.cabWreck = false;
   G.sc = [{ pts: 0, taken: 0 }, { pts: 0, taken: 0 }]; G.mTime = 0; G.score = null;   // score du combat
   G.hurt = [false, false];   // « PERFECT » : aucun coup encaissé de tout le combat
   if (p2 == null) p2 = G.p2 != null ? G.p2 : 1 - p1;
@@ -5544,7 +5558,6 @@ const saveOpt = () => { try { localStorage.setItem('sf2opt2', JSON.stringify(OPT
 const DIFFS = ['EASY', 'NORMAL', 'HARD', 'TRAINING', 'EXTREME'];
 const DIFF_ORDER = [0, 1, 2, 4, 3];   // EASY > NORMAL > HARD > EXTREME > TRAINING
 const dmgK = d => Math.max(1, Math.round(d * [.6, .42, .3][OPT.energy - 1] * 10) / 10);   // énergie plus résistante (1 étoile = déjà plus long qu'avant)
-const TITLE_ITEMS = ['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL', 'VIEW COMMANDS', 'OPTIONS'];
 /* ---------------- TUTORIAL ---------------- */
 // contre son double (2e couleur), dans le dojo, sans musique : 1) les boutons 2) les coups spéciaux 3) le contre et le bras de fer 4) combat libre
 const TUT_BTN = [['p', 'PRESS Y TO PUNCH'], ['k', 'PRESS B TO KICK'], ['s', 'PRESS A FOR A SPECIAL MOVE'], ['x', 'PRESS X TO COUNTER']];
@@ -5648,7 +5661,7 @@ function addScore(f, n) { if (!G.sc || G.demo || (G.tut && G.tut.phase !== 4) ||
 function startScore() {
   const secs = (G.mTime || 0) / 60;
   const rows = G.f.map((f, i) => {
-    const won = f.wins >= 2, sc = G.sc[i];
+    const won = f.wins >= winsNeed(), sc = G.sc[i];
     const time = won ? Math.max(0, Math.round(120 - secs)) * 200 : 0;
     const vit = won ? Math.max(0, 300 - Math.round(sc.taken)) * 50 : 0;
     return { pts: sc.pts, time, vit, total: sc.pts + time + vit };
@@ -5681,14 +5694,546 @@ function drawScore() {
   }
   ctx.restore();
 }
+/* =====================================================================
+   CYBER CAB SMASH : stage bonus (Arcade, après la 4e victoire) et SPECIAL MODES
+   Phase 1 : le taxi volant s'élève, viser ses 2 réacteurs (sauts, uppercuts, projectiles)
+   Phase 2 : il s'écrase ; le démolir au sol (dégâts côté gauche L1-L3, côté droit R1-R2)
+   Phase 3 : en Arcade (ou option KAEL AMBUSH), la portière saute et Kael en sort : 1 round
+   Chrono de 00:00 à 01:30 maximum. Le joueur peut monter sur le toit.
+   ===================================================================== */
+const CAB_DS = .5;   // images à 2x : affichage à 50 %
+const CAB_META = { off: [0, 0, 400, 164], on: [-7.3, -0.9, 428, 205], L1: [0, 0, 400, 164], L2: [2.7, -0.9, 398, 169], L3: [0, -0.9, 401, 169], R1: [0, -0.9, 401, 169], R2: [0, -0.9, 401, 169],
+  fin: [2.7, -1.8, 398, 169], open: [2.7, -0.9, 398, 169], door: [217.2, 33.6, 93, 95], shadow: [0, 0, 408, 89], refl: [0, 0, 422, 114] };
+const CAB_IMG = {}; let cabLoaded = false;
+const CAB_FLOOR = .835;   // sol du jeu sur l'image du décor : roues et pieds au milieu de la route
+function cabLoad() {
+  if (cabLoaded) return; cabLoaded = true;
+  for (const k in CAB_META) { const im = new Image(); im.src = 'cab_' + k + '.png?v=1'; CAB_IMG[k] = im; }
+}
+const CAB_W = 200, CAB_H = 82;        // taille de la voiture à l'écran
+const CAB_REACT = [[102, 75], [185, 67]];   // réacteurs (avant, arrière) dans la voiture
+const CAB_HP = 500, REACT_HP = 36, CAB_LIMIT = 90 * 60;
+const CAB_LV_L = [40, 100, 170], CAB_LV_R = [50, 130];   // dégâts d'un côté pour passer à L1/L2/L3, R1/R2
+const cabRec = () => { try { return JSON.parse(localStorage.getItem('nsfCab') || '{}'); } catch (e) { return {}; } };
+const cabSaveRec = r => { try { localStorage.setItem('nsfCab', JSON.stringify(r)); } catch (e) {} };
+const fmtTime = f => { const ms = Math.round(f * 1000 / 60), m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100; return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') + '.' + String(c).padStart(2, '0'); };
+
+// kind : 'arcade' (Kael surgit toujours), 'classic' (score pur), 'ambush' (option KAEL AMBUSH)
+function startCab(kind) {
+  cabLoad();
+  const p1 = G.p1, ph = DEFS.findIndex(d => d.kit === 'kael');
+  startMatch(p1, ph, 'cyber');   // l'adversaire (invisible) est Kael : il sortira du taxi
+  const [a, b] = G.f, cx = SW / 2;
+  Object.assign(b, { phantom: true, cpu: false, ctl: makeCtl(), x: cx, y: GROUND, hp: 999 });
+  Object.assign(a, { x: cx - 140, dir: 1 });   // le joueur commence à gauche du taxi
+  G.preT = 0; G.oneRound = false;
+  G.cab = { kind, phase: 'intro', t: 0, cx, top: GROUND - CAB_H, vy: 0, ang: 0, angV: 0, shk: 0, dip: 0, dipV: 0, hov: 0,
+    react: CAB_REACT.map(([x, y]) => ({ x, y, hp: REACT_HP, dead: false, hitT: 0 })), hp: CAB_HP, dmgL: 0, dmgR: 0, score: 0, timeF: 0, img: 'off',
+    debris: [], smoke: [], pops: [], door: null, kael: null, endT: 0, destroyed: false, timeUp: false, ambushIdx: ph, flame: 0 };
+}
+const cabOn = () => !!(G.cab && G.f && G.f[1] && G.f[1].phantom);
+function cabLeft() { return G.cab.cx - CAB_W / 2; }
+function cabGrounded() { return ['intro', 'ground', 'destroyed', 'ambush', 'results'].includes(G.cab.phase) || (G.cab.phase === 'rise' && G.cab.t < 40); }
+function cabRoofY() { return G.cab.top + 25 + G.cab.dip; }
+function cabOverRoof(f) { const L = cabLeft(); return cabGrounded() && f.x > L + 66 && f.x < L + 170; }
+function cabFloor(f) {   // le toit est un sol quand la voiture est posée
+  if (!cabOn() || f.phantom || !cabOverRoof(f)) return GROUND;
+  const ry = cabRoofY();
+  return f.y - (f.vy || 0) <= ry + 2 ? ry : GROUND;
+}
+// zone touchable du taxi (sert de « hurtbox » à l'adversaire fantôme)
+function cabHurt() {
+  const C = G.cab, L = cabLeft();
+  if (C.phase === 'hover' || C.phase === 'rise') {
+    const live = C.react.filter(r => !r.dead); if (!live.length || C.phase === 'rise' && C.t < 40) return null;
+    const xs = live.map(r => L + r.x), ys = live.map(r => C.top + r.y);
+    return [Math.min(...xs) - 20, Math.min(...ys) - 10, Math.max(...xs) + 20, Math.max(...ys) + 24];
+  }
+  if (C.phase === 'ground') return [L + 6, C.top + 20, L + CAB_W - 6, GROUND];
+  return null;
+}
+function cabDebris(x, y, side, n, big) {
+  const C = G.cab;
+  for (let i = 0; i < n; i++) {
+    const glass = Math.random() < .3, sz = big && Math.random() < .4 ? 3 : Math.random() < .5 ? 2 : 1;
+    C.debris.push({ x, y, vx: side * (1 + Math.random() * 3.2) + (Math.random() - .5) * 1.2, vy: -1.5 - Math.random() * 3.5, t: 0, life: 50 + Math.random() * 40,
+      s: sz, col: glass ? (Math.random() < .5 ? '#8af0ff' : '#c8f8ff') : ['#5a6070', '#8a92a6', '#3a3e4c', '#b0b8c8', '#2a2c36'][Math.random() * 5 | 0], spin: Math.random() < .5 });
+  }
+}
+function cabSmoke(x, y, n, dark) { for (let i = 0; i < n; i++) G.cab.smoke.push({ x: x + (Math.random() - .5) * 10, y: y + (Math.random() - .5) * 6, vx: (Math.random() - .5) * .6, vy: -.3 - Math.random() * .6, t: 0, life: 40 + Math.random() * 40, r: 3 + Math.random() * 4, dark }); }
+function cabPop(x, y, txt, col, big) { G.cab.pops.push({ x, y, txt, col, t: 0, big }); }
+function cabPts(n, x, y, col) { G.cab.score += n; cabPop(x, y, n + ' PTS', col || '#ffd23a'); }
+// un coup (corps à corps ou projectile) touche le taxi
+function cabHit(att, data, sx, sy, projectile) {
+  const C = G.cab; if (!C || att.phantom) return;
+  const dmg = Math.max(1, (data && data.dmg) || 4), L = cabLeft(), side = sx < C.cx ? -1 : 1;
+  att.hasHit = true; G.freeze = Math.max(G.freeze || 0, dmg >= 10 ? 6 : 3);
+  if (C.phase === 'hover' || C.phase === 'rise') {
+    let r = null, bd = 1e9; for (const q of C.react) if (!q.dead) { const d = Math.abs(L + q.x - sx); if (d < bd) { bd = d; r = q; } }
+    if (!r) return;
+    r.hp -= dmg; r.hitT = 10; C.angV += side * dmg * .0016; C.shk = Math.min(10, C.shk + dmg * .6);
+    addSpark(sx, sy, dmg >= 10 ? 'big' : 'hit'); cabDebris(sx, sy, side, 3 + (dmg >> 2), false); sfx('metal');
+    cabPts(Math.round(dmg * 20), sx, sy - 18, '#7ae0ff');
+    if (r.hp <= 0) {
+      r.dead = true; G.shake = Math.max(G.shake, 6); G.flashT = Math.max(G.flashT, 6); G.boltX = L + r.x; G.boltY = C.top + r.y;
+      cabSmoke(L + r.x, C.top + r.y + 6, 12, true); cabDebris(L + r.x, C.top + r.y, side, 14, true); sfx('explode');
+      cabPts(1000, L + r.x, C.top + r.y - 30, '#ff8a3a'); cabPop(L + r.x, C.top + r.y - 44, 'REACTOR DOWN!', '#ff5a3a');
+      C.angV += (r === C.react[0] ? -1 : 1) * .02;
+      if (C.react.every(q => q.dead)) { C.phase = 'fall'; C.t = 0; C.vy = -1; sfx('cabDown'); }
+    }
+    return;
+  }
+  if (C.phase !== 'ground') return;
+  const real = Math.round(dmg * 1.2);
+  C.hp = Math.max(0, C.hp - real); if (side < 0) C.dmgL += real; else C.dmgR += real;
+  C.shk = Math.min(8, C.shk + dmg * .5); G.shake = Math.max(G.shake, dmg >= 10 ? 4 : 1.5);
+  addSpark(sx, sy, dmg >= 10 ? 'big' : 'hit'); cabDebris(sx, sy, side, 4 + (dmg >> 1), dmg >= 10);
+  sfx(Math.random() < .35 ? 'glass' : 'metal'); if (dmg >= 10) sfx('heavy');
+  const crit = dmg >= 10;
+  cabPts(Math.round(dmg * 25) + (crit ? 500 : 0), sx, sy - 18);
+  if (crit) cabPop(sx, sy - 34, 'CRITICAL!', '#ff4a6a');
+  if (C.hp <= 0) cabDestroy();
+}
+function cabImgKey() {
+  const C = G.cab;
+  if (C.door) return 'open';
+  if (C.destroyed) return 'fin';
+  if ((C.phase === 'rise' && C.t >= 40) || C.phase === 'hover') return 'on';
+  const l = CAB_LV_L.filter(v => C.dmgL >= v).length, r = CAB_LV_R.filter(v => C.dmgR >= v).length;
+  if (!l && !r) return 'off';
+  if (!r) return 'L' + l;
+  if (!l) return 'R' + r;
+  return 'L' + l + '|R' + r;
+}
+const cabMix = {};
+function cabSprite(key) {   // dégâts des deux côtés : moitié gauche de L, moitié droite de R, fondu au milieu
+  if (!key.includes('|')) return CAB_IMG[key];
+  if (cabMix[key]) return cabMix[key];
+  const [lk, rk] = key.split('|'), A = CAB_IMG[lk], B = CAB_IMG[rk];
+  if (!A || !B || !A.complete || !B.complete || !A.naturalWidth || !B.naturalWidth) return CAB_IMG[lk];
+  const c = document.createElement('canvas'); c.width = 412; c.height = 172; const g = c.getContext('2d');
+  const mB = CAB_META[rk], mA = CAB_META[lk];
+  g.drawImage(B, mB[0] + 4, mB[1] + 3);
+  const t = document.createElement('canvas'); t.width = 412; t.height = 172; const tg = t.getContext('2d');
+  tg.drawImage(A, mA[0] + 4, mA[1] + 3);
+  const gr = tg.createLinearGradient(190, 0, 222, 0); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  tg.globalCompositeOperation = 'destination-in'; tg.fillStyle = gr; tg.fillRect(0, 0, 412, 172);
+  g.drawImage(t, 0, 0);
+  c.mixOff = [-4, -3];
+  return (cabMix[key] = c);
+}
+function cabDestroy() {
+  const C = G.cab, L = cabLeft();
+  if (C.destroyed) return;
+  C.destroyed = true; C.phase = 'destroyed'; C.t = 0;
+  G.flashT = Math.max(G.flashT, 12); G.boltX = C.cx; G.boltY = C.top + 40; G.shake = Math.max(G.shake, 12); G.darkT = 20; G.freeze = 18;
+  cabSmoke(C.cx, C.top + 30, 30, true); cabDebris(C.cx - 40, C.top + 30, -1, 24, true); cabDebris(C.cx + 40, C.top + 30, 1, 24, true);
+  sfx('explode'); sfx('heavy');
+  const bonus = Math.max(0, Math.round((CAB_LIMIT - C.timeF) / 60)) * 100;
+  cabPts(5000, C.cx, C.top - 10, '#ff8a3a'); if (bonus) cabPts(bonus, C.cx, C.top - 26, '#5aff8a');
+  G.bigPop = { txt: 'DESTROYED!', col: '#ff8a3a', t: 0 };
+}
+function cabTimeUp() {
+  const C = G.cab; C.timeUp = true;
+  G.bigPop = { txt: 'TIME UP!', col: '#ff5a5a', t: 0 }; sfx('ko');
+  if (C.phase === 'hover' || C.phase === 'rise') { C.phase = 'fall'; C.vy = -1; } else { C.phase = 'destroyed'; C.t = 0; }
+}
+// avant les mises à jour du combat : l'adversaire fantôme reste au centre du taxi, immobile et intouchable
+function cabPre() {
+  const b = G.f[1], C = G.cab, a = G.f[0]; if (C.kael) return;
+  if (C.side == null || (C.side > 0 && a.x > C.cx + 24) || (C.side < 0 && a.x < C.cx - 24)) C.side = a.x < C.cx ? 1 : -1;   // demi-tour seulement après avoir franchi le milieu (pas de va-et-vient)
+  Object.assign(b, { x: C.cx + C.side * 260, y: GROUND, vx: 0, vy: 0, air: false, hp: 999, ko: false, slowT: 0, burn: 0, stun: 0, paraT: 0 });
+  if (b.state !== 'idle') setState(b, 'idle');
+}
+// toit, murs du taxi, phases, chrono
+function cabStep() {
+  const C = G.cab, a = G.f[0], L = cabLeft(); C.t++;
+  // chrono : de 00:00, 01:30 au maximum
+  if (G.fighting && !C.timeUp && ['rise', 'hover', 'fall', 'ground'].includes(C.phase)) { C.timeF++; if (C.timeF >= CAB_LIMIT) cabTimeUp(); }
+  // le joueur reste à l'écran
+  const vl = (G.camL || 0) + 14, vr = (G.camL || 0) + W - 14; a.x = Math.max(vl, Math.min(vr, a.x));
+  // ressort de la rotation et vibrations
+  C.angV += -C.ang * .02; C.angV *= .92; C.ang += C.angV; C.shk *= .82;
+  C.dipV += -C.dip * .25; C.dipV *= .7; C.dip += C.dipV;
+  if (C.phase === 'rise') {   // allumage des réacteurs, puis montée
+    if (C.t === 2) sfx('cabWhine');
+    if (C.t >= 40) { const k = Math.min(1, (C.t - 40) / 80); C.hov = 66 * k * k * (3 - 2 * k); C.top = GROUND - CAB_H - C.hov; }
+    if (C.t >= 120) { C.phase = 'hover'; C.t = 0; }
+  } else if (C.phase === 'hover') {   // lévitation douce et aléatoire
+    const tt = C.timeF;
+    C.hov = 66 + Math.sin(tt * .021) * 10 + Math.sin(tt * .047 + 1.3) * 6;
+    C.top += ((GROUND - CAB_H - C.hov) - C.top) * .2;
+    C.ang += Math.sin(tt * .03) * .0006;
+    if (C.t % 90 === 0) sfx('cabHum');
+  } else if (C.phase === 'fall') {   // chute lourde
+    C.vy += .42; C.top += C.vy; C.ang *= .9;
+    if (C.top >= GROUND - CAB_H) {
+      C.top = GROUND - CAB_H; C.vy = 0; C.phase = 'ground'; C.t = 0; C.ang = 0; C.angV = 0;
+      G.shake = Math.max(G.shake, 14); G.quakeT = 20; G.flashT = Math.max(G.flashT, 4); G.boltX = C.cx; G.boltY = GROUND - 10;
+      cabSmoke(L + 30, GROUND - 4, 10, false); cabSmoke(L + CAB_W - 30, GROUND - 4, 10, false); cabDebris(L + 20, GROUND - 10, -1, 10, false); cabDebris(L + CAB_W - 20, GROUND - 10, 1, 10, false);
+      sfx('crash'); sfx('heavy'); cabPop(C.cx, GROUND - CAB_H - 20, 'CRASH!', '#ff5a3a'); cabPts(1000, C.cx, GROUND - CAB_H - 36, '#ff8a3a');
+      C.dipV = 3;
+      if (C.timeUp) { C.phase = 'destroyed'; C.t = 0; }
+    }
+  } else if (C.phase === 'ground') {
+    if (C.react.some(r => r.dead) && C.t % 6 === 0) C.react.forEach(r => cabSmoke(L + r.x, C.top + r.y, 1, true));
+  } else if (C.phase === 'destroyed') {
+    if (C.t % 3 === 0) cabSmoke(C.cx + (Math.random() - .5) * 120, C.top + 20 + Math.random() * 30, 1, true);
+    if (C.t % 18 === 0 && C.t < 60) { addSpark(C.cx + (Math.random() - .5) * 140, C.top + 30 + Math.random() * 30, 'big'); sfx('explode'); }
+    const ambush = C.kind === 'arcade' || (C.kind === 'ambush' && !C.timeUp);   // en ARCADE, Kael sort même si le temps est écoulé
+    if (ambush && C.t === 70) cabAmbush();
+    if (!ambush && C.t === 110) cabResults();
+  } else if (C.phase === 'ambush') cabAmbushStep();
+  else if (C.phase === 'results') cabResultsStep();
+  if (G.cab !== C) return;   // on est passé au combat contre Kael (ou retour au menu)
+  // le joueur : toit et murs
+  if (cabGrounded() && C.phase !== 'ambush' && C.phase !== 'results') {
+    const onRoof = !a.air && a.y < GROUND - 2 && cabOverRoof(a);
+    if (onRoof) { a.y = cabRoofY(); }
+    else if (!a.air && a.y < GROUND - 1) {   // marche dans le vide au bord du toit : il tombe
+      a.air = true; a.vy = .5; if ([...NEUTRAL, 'land', 'walk', 'idle', 'crouch', 'block'].includes(a.state)) { setState(a, 'jump'); a.t = 4; a.vx = a.dir * .8; }
+    }
+    if (a.y > cabRoofY() + 6) {   // murs du taxi
+      const l = L + 8, r = L + CAB_W - 8;
+      if (a.x > l - 12 && a.x < r + 12) { if (a.x < C.cx) a.x = l - 12; else a.x = r + 12; a.vx = 0; }
+    }
+    if (a.landRoof) { a.landRoof = false; C.dipV += 2.2; sfx('thud'); }
+  }
+  // particules
+  for (const d of C.debris) { d.t++; d.vy += .22; d.x += d.vx; d.y += d.vy; if (d.y > GROUND - 1) { d.y = GROUND - 1; d.vy *= -.35; d.vx *= .6; } }
+  C.debris = C.debris.filter(d => d.t < d.life);
+  for (const s of C.smoke) { s.t++; s.x += s.vx; s.y += s.vy; s.r += .08; }
+  C.smoke = C.smoke.filter(s => s.t < s.life);
+  C.pops.forEach(p => p.t++); C.pops = C.pops.filter(p => p.t < 60);
+  if (C.door) { const d = C.door; d.t++; d.vy += .3; d.x += d.vx; d.y += d.vy; d.rot += d.vr; if (d.y > GROUND - 20) { d.y = GROUND - 20; d.vy *= -.3; d.vx *= .7; d.vr *= .6; if (Math.abs(d.vy) > 1) sfx('metal'); } }
+}
+// Kael sort du taxi : la portière saute, il bondit hors de l'habitacle
+function cabAmbush() {
+  const C = G.cab, L = cabLeft(), k = G.f[1], a = G.f[0];
+  C.phase = 'ambush'; C.t = 0; G.fighting = false;
+  C.door = { x: L + (CAB_META.door[0] + CAB_META.door[2] / 2) * CAB_DS, y: C.top + (CAB_META.door[1] + CAB_META.door[3] / 2) * CAB_DS, vx: a.x < C.cx ? 3.2 : -3.2, vy: -6.5, rot: 0, vr: .22, t: 0 };
+  G.shake = Math.max(G.shake, 8); G.flashT = Math.max(G.flashT, 6); G.boltX = C.door.x; G.boltY = C.door.y;
+  cabSmoke(C.door.x, C.door.y, 26, false); sfx('explode'); sfx('crash');
+  const side = a.x < C.cx ? -1 : 1;   // il saute du côté du joueur
+  Object.assign(k, { x: C.door.x, y: C.top + 46, air: true, vy: -6.8, vx: side * 1.6, dir: side, hp: 100 });
+  setState(k, 'jump'); k.t = 6; C.kael = k;
+  if (!a.air && a.y < GROUND - 1) { a.air = true; a.vy = .5; setState(a, 'jump'); a.t = 6; }   // le joueur descend du toit
+}
+function cabAmbushStep() {
+  const C = G.cab, k = C.kael, a = G.f[0]; if (!k) return;
+  if (!k.air && k.state === 'jump') { setState(k, 'land'); G.shake = Math.max(G.shake, 5); sfx('thud'); }
+  if (!k.air) { k.vx = 0; if (k.state === 'land' && k.t > 12) { setState(k, 'win'); } }
+  if (!a.air) { a.vx = 0; a.dir = k.x > a.x ? 1 : -1; }
+  if (C.t === 40) cabPop(k.x, GROUND - 110, 'KAEL!', '#7ad0ff', true);
+  if (C.t === 100) { C.vs = 0; sfx('select'); }
+  if (C.vs != null) C.vs++;
+  if (C.t >= 190) cabToKael();
+}
+function cabRecord() {   // résultat du bonus : score, temps, record local
+  const C = G.cab, rec = cabRec(), tm = C.destroyed && !C.timeUp ? C.timeF : null;
+  const nb = !rec.score || C.score > rec.score, nt = tm != null && (!rec.time || tm < rec.time);
+  if (nb) rec.score = C.score; if (nt) rec.time = tm; cabSaveRec(rec);
+  return { score: C.score, timeF: C.timeF, destroyed: C.destroyed && !C.timeUp, newScore: nb, newTime: nt, fighter: G.f[0].def.name };
+}
+function cabToKael() {   // combat de boss en 1 round contre Kael
+  const C = G.cab, res = cabRecord();
+  G.cabRes = res;
+  submitRun({ mode: 'cab', score: res.score, timeMs: res.destroyed ? Math.round(res.timeF * 1000 / 60) : null, destroyed: res.destroyed, fighter: res.fighter });   // le stage bonus de l'ARCADE compte aussi au classement CYBER CAB
+  if (G.arc) { G.arc.bonus = res.score; G.arc.total = (G.arc.total || 0) + res.score; G.arc.ambush = true; G.arc.cabDone = true; }
+  G.cab = null;
+  startKaelFight();
+}
+function startKaelFight() {
+  const k = DEFS.findIndex(d => d.kit === 'kael');
+  startMatch(G.p1, k, 'cyber'); G.oneRound = true; G.preT = 40; G.cabWreck = true;
+}
+function drawCabWreck() {   // le taxi détruit (portière arrachée) reste dans la rue pendant le combat contre Kael
+  const im = CAB_IMG.open, m = CAB_META.open, x = SW / 2 - CAB_W / 2, y = GROUND - CAB_H;
+  const sh = CAB_IMG.shadow; if (sh && sh.complete && sh.naturalWidth) { ctx.save(); ctx.globalAlpha = .7; const w = CAB_META.shadow[2] * CAB_DS; ctx.drawImage(sh, SW / 2 - w / 2, GROUND - 26, w, CAB_META.shadow[3] * CAB_DS * .7); ctx.restore(); }
+  if (im && im.complete && im.naturalWidth) ctx.drawImage(im, x + m[0] * CAB_DS, y + m[1] * CAB_DS, m[2] * CAB_DS, m[3] * CAB_DS);
+  const d = CAB_IMG.door; if (d && d.complete && d.naturalWidth) { ctx.save(); ctx.translate(x + CAB_W + 30, GROUND - 8); ctx.rotate(1.45); ctx.drawImage(d, -CAB_META.door[2] * CAB_DS / 2, -CAB_META.door[3] * CAB_DS / 2, CAB_META.door[2] * CAB_DS, CAB_META.door[3] * CAB_DS); ctx.restore(); }
+}
+function cabResults() {   // fin du mode CLASSIC : tableau des résultats
+  const C = G.cab; C.phase = 'results'; C.t = 0; C.res = cabRecord(); G.fighting = false;
+  const run = { mode: 'cab', score: C.res.score, timeMs: C.res.destroyed ? Math.round(C.res.timeF * 1000 / 60) : null, destroyed: C.res.destroyed, fighter: C.res.fighter };
+  const got = r => { if (r && r.rank && G.cab) G.cab.res.rank = r.rank; };
+  if (PLR.pseudo) submitRun(run).then(got);
+  else setTimeout(() => nameEntry(Object.assign({ onResult: got }, run)), 900);   // pas encore de pseudo : on le propose
+}
+function cabResultsStep() {
+  const C = G.cab; if (!C || C.phase !== 'results' || G.modal) return;
+  if (C.t > 60 && (okPress(pctl) || tap)) { sfx('select'); G.cab = null; G.oneRound = false; G.scene = 'special'; G.t = 0; G.spSub = 0; specialFetch(); }
+}
+
+// ---------- Rendu ----------
+function drawCabBG() {   // décor vertical (cyber-cab-stage-big) : travelling du haut vers le bas au début du stage
+  const im = STAGE_PIC.cyber;
+  if (!im || !im.complete || !im.naturalWidth) { R(0, 0, SW, H, '#0a0a18'); return; }
+  const sc = SW / im.naturalWidth, h = im.naturalHeight * sc, end = Math.max(H - h, GROUND - CAB_FLOOR * h);   // fin du travelling : le sol du jeu tombe au milieu de la route
+  const C = G.cab, k = C && C.phase === 'intro' ? Math.min(1, C.t / 170) : 1, e = k * k * (3 - 2 * k);
+  ctx.drawImage(im, 0, Math.round(end * e), SW, h);
+  G.cabShift = Math.round(end * e) - Math.round(end);   // pendant le travelling, la rue (taxi, joueur) descend avec le décor
+}
+function drawCabBack() {
+  const C = G.cab; if (!C) return; const L = cabLeft();
+  const air = GROUND - CAB_H - C.top;   // hauteur en vol
+  // reflet sur la route mouillée et ombre
+  const rf = CAB_IMG.refl, sh = CAB_IMG.shadow;
+  if (rf && rf.complete && rf.naturalWidth) { ctx.save(); ctx.globalAlpha = Math.max(.08, .32 - air * .003); ctx.drawImage(rf, L - 6, GROUND - 6 + air * .4, CAB_META.refl[2] * CAB_DS, CAB_META.refl[3] * CAB_DS * .8); ctx.restore(); }
+  if (sh && sh.complete && sh.naturalWidth) { const k = Math.max(.35, 1 - air / 160); ctx.save(); ctx.globalAlpha = .75 * k; const w = CAB_META.shadow[2] * CAB_DS * (.7 + .3 * k); ctx.drawImage(sh, C.cx - w / 2, GROUND - 26, w, CAB_META.shadow[3] * CAB_DS * .7); ctx.restore(); }
+  // voiture
+  const key = cabImgKey(), im = cabSprite(key), m = CAB_META[key.split('|')[0]] || CAB_META.off;
+  const jx = (Math.random() - .5) * C.shk, jy = (Math.random() - .5) * C.shk * .6;
+  ctx.save(); ctx.translate(C.cx + jx, C.top + CAB_H / 2 + jy); ctx.rotate(C.ang); ctx.translate(-CAB_W / 2, -CAB_H / 2);
+  if (im && (im.naturalWidth || im.width)) {
+    if (im.mixOff) ctx.drawImage(im, im.mixOff[0] * CAB_DS, im.mixOff[1] * CAB_DS, im.width * CAB_DS, im.height * CAB_DS);
+    else ctx.drawImage(im, m[0] * CAB_DS, m[1] * CAB_DS, m[2] * CAB_DS, m[3] * CAB_DS);
+  }
+  // réacteurs : flammes plasma bleues animées, viseurs et mini-barres de vie
+  if (key === 'on') {
+    for (const r of C.react) {
+      if (r.dead) continue;
+      const fl = 1 + Math.sin(G.frame * .7 + r.x) * .15 + Math.random() * .12, len = (18 + (r.hp < REACT_HP * .4 ? -6 : 0)) * fl;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(r.x, r.y + 4, 1, r.x, r.y + 4, 14 * fl);
+      g.addColorStop(0, 'rgba(200,240,255,.85)'); g.addColorStop(.4, 'rgba(60,160,255,.5)'); g.addColorStop(1, 'rgba(20,60,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(r.x - 16, r.y - 10, 32, 30);
+      for (const [w, c] of [[7, 'rgba(40,110,255,.75)'], [4.5, 'rgba(90,200,255,.85)'], [2, 'rgba(235,250,255,.95)']]) {   // langue de plasma vers le bas
+        ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(r.x - w, r.y + 3);
+        ctx.quadraticCurveTo(r.x - w * .6 + Math.sin(G.frame * .9 + w) * 1.5, r.y + 3 + len * (w / 7) * .6, r.x + Math.sin(G.frame * .5 + r.x) * 1.5, r.y + 3 + len * (.55 + w / 14));
+        ctx.quadraticCurveTo(r.x + w * .6 + Math.sin(G.frame * .8 + w) * 1.5, r.y + 3 + len * (w / 7) * .6, r.x + w, r.y + 3); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  if (C.phase === 'hover' || C.phase === 'rise' && C.t >= 40) for (const r of C.react) {
+    const x = L + r.x, y = C.top + r.y; if (r.dead) { if (G.frame % 4 === 0) cabSmoke(x, y + 4, 1, true); continue; }
+    const bl = (G.frame >> 3) % 2;
+    ctx.strokeStyle = r.hitT > 0 ? '#ffffff' : bl ? '#ff4a4a' : '#ffd23a'; ctx.lineWidth = 1;
+    ctx.strokeRect(x - 9 + .5, y - 5 + .5, 18, 14);
+    R(x - 1, y - 9, 2, 3, ctx.strokeStyle); R(x - 1, y + 10, 2, 3, ctx.strokeStyle);
+    R(x - 12, y + 16, 24, 3, '#200810'); R(x - 11, y + 17, Math.round(22 * r.hp / REACT_HP), 1, r.hp / REACT_HP > .4 ? '#5aff8a' : '#ff5a3a');
+    if (r.hitT > 0) r.hitT--;
+  }
+}
+function drawCabFront() {
+  const C = G.cab; if (!C) return;
+  for (const s of C.smoke) { const k = s.t / s.life; ctx.fillStyle = s.dark ? `rgba(30,28,34,${.55 * (1 - k)})` : `rgba(170,170,180,${.4 * (1 - k)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); }
+  for (const d of C.debris) { const a = Math.min(1, (d.life - d.t) / 15); ctx.globalAlpha = a; R(d.x, d.y, d.s + (d.spin && G.frame % 4 < 2 ? 1 : 0), d.s, d.col); }
+  ctx.globalAlpha = 1;
+  if (C.door) { const d = C.door, im = CAB_IMG.door, m = CAB_META.door; if (im && im.complete) { ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.drawImage(im, -m[2] * CAB_DS / 2, -m[3] * CAB_DS / 2, m[2] * CAB_DS, m[3] * CAB_DS); ctx.restore(); } }
+  for (const p of C.pops) {   // points qui s'envolent
+    const k = p.t / 60, y = p.y - p.t * .5; ctx.save(); ctx.globalAlpha = Math.min(1, (60 - p.t) / 12);
+    text(p.txt, p.x, y, p.big ? 16 : 8, (G.frame >> 2) % 2 ? p.col : '#ffffff', 'center', '#100418'); ctx.restore();
+  }
+}
+function drawCabHUD() {
+  const C = G.cab; if (!C) return;
+  const tm = fmtTime(C.timeF), low = C.timeF > CAB_LIMIT - 600 && (G.frame >> 3) % 2;
+  R(CX - 46, 4, 92, 22, 'rgba(6,4,18,.7)');
+  text(tm, CX, 9, 16, low ? '#ff5a5a' : '#ffffff', 'center');
+  text('CYBER CAB SMASH', 6, 6, 8, '#ff8a3a', 'left');
+  text('SCORE ' + fmtSc(C.score), 6, 17, 8, '#ffd23a', 'left');
+  // énergie du taxi
+  const bw = 110, bx = W - bw - 8;
+  text('NEO-T TAXI', W - 8, 6, 8, '#8ad8ff', 'right');
+  R(bx - 1, 16, bw + 2, 7, '#000'); R(bx, 17, bw, 5, '#301018');
+  const k = C.hp / CAB_HP; R(bx, 17, Math.round(bw * k), 5, k > .5 ? '#ffd23a' : k > .2 ? '#ff8a3a' : '#ff3a3a'); R(bx, 17, Math.round(bw * k), 1, '#fff6c0');
+  if ((C.phase === 'hover' || C.phase === 'rise') && (G.frame >> 4) % 3) text('HIT THE 2 REACTORS!', CX, 32, 8, '#7ae0ff', 'center');
+  if (C.phase === 'ground' && C.t < 120 && (G.frame >> 4) % 3) text('SMASH IT!', CX, 32, 8, '#ff8a3a', 'center');
+  const rec = cabRec(); if (rec.time || rec.score) text('BEST ' + (rec.time ? fmtTime(rec.time) : '--:--.--') + '  ' + fmtSc(rec.score || 0), W - 8, 28, 8, '#9a93aa', 'right');
+  if (C.phase === 'ambush' && C.vs != null) {   // « VS KAEL » à la volée
+    const k2 = Math.min(1, C.vs / 10); ctx.save(); ctx.globalAlpha = k2; R(0, H / 2 - 26, W, 52, 'rgba(0,0,0,.75)');
+    text('VS', CX, H / 2 - 18, 16, '#ff5a3a', 'center'); text('KAEL', CX, H / 2 + 2, 16, '#7ad0ff', 'center'); text('1 ROUND - BOSS FIGHT', CX, H / 2 + 20, 8, '#ffffff', 'center'); ctx.restore();
+  }
+  if (C.phase === 'results' && C.res) {
+    const r = C.res, y = 56; ctx.save(); ctx.globalAlpha = Math.min(1, C.t / 15);
+    R(CX - 120, y - 8, 240, 112, 'rgba(6,4,18,.85)');
+    text(r.destroyed ? 'TAXI DESTROYED!' : 'TIME UP', CX, y, 16, r.destroyed ? '#ff8a3a' : '#ff5a5a', 'center');
+    text('TIME', CX - 100, y + 30, 8, '#9a93aa', 'left'); text(r.destroyed ? fmtTime(r.timeF) : '--:--.--', CX + 100, y + 30, 8, '#ffffff', 'right');
+    text('SCORE', CX - 100, y + 44, 8, '#9a93aa', 'left'); text(fmtSc(r.score), CX + 100, y + 44, 8, '#ffd23a', 'right');
+    if (r.newTime || r.newScore) text('NEW RECORD!', CX, y + 62, 8, (G.frame >> 3) % 2 ? '#5aff8a' : '#ffffff', 'center');
+    if (r.rank) text('WORLD RANK #' + r.rank, CX, y + 72, 8, '#7ae0ff', 'center');
+    if (C.t > 60 && !G.modal) text('PRESS ' + btnLabel('A'), CX, y + 84, 8, '#ffffff', 'center');
+    ctx.restore();
+  }
+}
+// intro du stage : travelling, puis GO, la voiture s'allume
+function cabIntroStep() {
+  const C = G.cab; C.t++;
+  if (C.t === 150) { if (!(AC && playSample('fight', 1.4, VOX, true))) sfx('go'); }
+  if (C.t >= 190) { G.scene = 'fight'; G.fighting = true; G.t = 0; C.phase = 'rise'; C.t = 0; }
+}
+function drawCabIntro() {
+  const C = G.cab; if (!C || C.phase !== 'intro') return;
+  if (C.t < 140) { const al = Math.min(1, C.t / 20, (140 - C.t) / 20); ctx.save(); ctx.globalAlpha = al; text('BONUS STAGE', CX, 40, 8, '#ffd23a', 'center'); text('CYBER CAB SMASH', CX, 54, 16, '#ff8a3a', 'center'); ctx.restore(); }
+  else text('GO!', CX, 70, 16, '#5aff8a', 'center');
+}
+
+/* ---------------- Joueur en ligne : identifiant NSF-anonyme-0001, pseudo, scores (base Supabase) ---------------- */
+const SB_URL = 'https://wjuqigklzbulqyewkdwe.supabase.co', SB_KEY = 'sb_publishable_YBogVNeEglj0LY0B4QxrnQ_E6VT9GNW';
+function sbRpc(fn, args) {
+  return fetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) })
+    .then(r => r.json()).catch(() => null);
+}
+const PLR = (() => { try { return JSON.parse(localStorage.getItem('nsfPlayer')) || {}; } catch (e) { return {}; } })();
+const plrSave = () => { try { localStorage.setItem('nsfPlayer', JSON.stringify(PLR)); } catch (e) {} };
+let plrWait = null;
+function plrEnsure() {   // crée l'identifiant du joueur dans la base (une seule fois par navigateur)
+  if (PLR.id && PLR.secret) return Promise.resolve(PLR);
+  if (plrWait) return plrWait;
+  plrWait = sbRpc('nsf_new_player').then(r => { plrWait = null; if (r && r.id) { Object.assign(PLR, { id: r.id, secret: r.secret, name: r.name }); plrSave(); } return PLR; });
+  return plrWait;
+}
+function submitRun(o) {
+  return plrEnsure().then(() => !PLR.id ? null : sbRpc('nsf_submit_run', { p_id: PLR.id, p_secret: PLR.secret, p_mode: o.mode, p_score: Math.round(o.score || 0),
+    p_best_combo: o.combo ?? null, p_perfects: o.perfects ?? null, p_bonus_score: o.bonus ?? null, p_cab_time_ms: o.timeMs ?? null, p_cab_destroyed: o.destroyed ?? null,
+    p_fighter: o.fighter || null, p_difficulty: OPT.diff }));
+}
+const fetchTop = (mode, n) => sbRpc('nsf_top', { p_mode: mode, p_limit: n || 5 }).then(r => Array.isArray(r) ? r : null);
+const fetchBestTime = () => sbRpc('nsf_cab_best_time', {}).then(r => Array.isArray(r) && r[0] ? r[0] : null);
+
+// Fenêtre « pseudo » (12 caractères maximum) : avant le mode ARCADE, ou à la fin pour enregistrer son score
+function nameEntry(o) {
+  o = o || {};
+  if (document.getElementById('nsfName')) return;
+  G.modal = true; keys.clear && keys.clear();
+  plrEnsure();
+  const ov = document.createElement('div'); ov.id = 'nsfName';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(4,2,12,.72);font-family:"Press Start 2P",monospace';
+  const ic = (d, c) => `<svg width="12" height="12" viewBox="0 0 12 12" style="vertical-align:-2px;margin-right:8px" shape-rendering="crispEdges"><path d="${d}" fill="${c}"/></svg>`;
+  const OK = 'M1 6h2v2H1zM3 8h2v2H3zM5 6h2v2H5zM7 4h2v2H7zM9 2h2v2H9z', SKIP = 'M2 2h2v2H2zM4 4h2v2H4zM6 6h2v2H6zM8 8h2v2H8zM8 2h2v2H8zM2 8h2v2H2z';
+  const title = o.score != null ? 'SAVE YOUR SCORE' : 'CREATE YOUR NAME';
+  ov.innerHTML = `<div style="background:#120a24;border:4px solid #ffd23a;box-shadow:0 0 0 4px #000,0 0 40px #ff8a3a66;padding:22px 20px;width:min(92vw,380px);color:#fff;text-align:center;image-rendering:pixelated">
+    <div style="color:#ffd23a;font-size:14px;margin-bottom:14px">${title}</div>
+    ${o.score != null ? `<div style="font-size:10px;margin-bottom:12px;color:#7ae0ff">${o.label || 'SCORE'} ${fmtSc(o.score)}</div>` : ''}
+    <div style="font-size:8px;line-height:14px;color:#b8b0cc;margin-bottom:12px">${PLR.pseudo ? 'YOUR NAME: ' + PLR.pseudo : 'NO NAME YET: YOUR SCORES ARE SAVED AS<br><span id="nsfAnon" style="color:#fff">' + (PLR.name || 'NSF-anonyme') + '</span>'}</div>
+    <input id="nsfNameIn" maxlength="12" autocomplete="off" spellcheck="false" placeholder="NAME" value="${PLR.pseudo || ''}"
+      style="width:100%;box-sizing:border-box;font:14px 'Press Start 2P',monospace;padding:10px;background:#000;color:#ffd23a;border:2px solid #7ae0ff;outline:none;text-align:center;text-transform:uppercase">
+    <div id="nsfNameErr" style="min-height:12px;font-size:7px;line-height:11px;color:#ff5a5a;margin:8px 0"></div>
+    <div style="display:flex;gap:10px">
+      <button id="nsfNameOk" style="flex:1;font:10px 'Press Start 2P',monospace;padding:12px 6px;background:#ffd23a;color:#120a24;border:0;cursor:pointer">${ic(OK, '#120a24')}OK</button>
+      <button id="nsfNameSkip" style="flex:1;font:10px 'Press Start 2P',monospace;padding:12px 6px;background:#2a2040;color:#fff;border:0;cursor:pointer">${ic(SKIP, '#ffffff')}SKIP</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const inp = ov.querySelector('#nsfNameIn'), err = ov.querySelector('#nsfNameErr'), okB = ov.querySelector('#nsfNameOk');
+  setTimeout(() => inp.focus(), 50);
+  plrEnsure().then(() => { const s = ov.querySelector('#nsfAnon'); if (s) s.textContent = PLR.name || 'NSF-anonyme'; });
+  let busy = false;
+  const close = named => {
+    ov.remove(); G.modal = false; keys.clear && keys.clear(); sfx(named ? 'select' : 'beep');
+    if (o.score != null && !o.noSubmit) submitRun(o).then(r => { if (o.onResult) o.onResult(r); });
+    if (o.onDone) o.onDone(named);
+  };
+  const save = () => {
+    if (busy) return; const v = inp.value.trim();
+    if (!v) { err.textContent = 'TYPE A NAME OR PRESS SKIP'; return; }
+    if (v.length < 2 || !/^[A-Za-z0-9 _.\-]+$/.test(v)) { err.textContent = '2 TO 12 CHARACTERS: LETTERS, NUMBERS, SPACE _ . -'; return; }
+    if (v === PLR.pseudo) return close(true);
+    busy = true; okB.style.opacity = .5; err.textContent = '';
+    plrEnsure().then(() => !PLR.id ? { error: 'NO CONNECTION, TRY AGAIN' } : sbRpc('nsf_set_pseudo', { p_id: PLR.id, p_secret: PLR.secret, p_pseudo: v })).then(r => {
+      busy = false; okB.style.opacity = 1;
+      if (!r || r.error) { err.textContent = !r ? 'NO CONNECTION, TRY AGAIN' : /pris/.test(r.error) ? 'THIS NAME IS ALREADY TAKEN' : /caract/.test(r.error) ? '2 TO 12 CHARACTERS: LETTERS, NUMBERS, SPACE _ . -' : String(r.error).toUpperCase(); return; }
+      PLR.pseudo = v; PLR.name = r.name; plrSave(); close(true);
+    });
+  };
+  okB.onclick = save; ov.querySelector('#nsfNameSkip').onclick = () => close(false);
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') save(); else if (e.key === 'Escape') close(false); });
+}
+
+/* ---------------- SPECIAL MODES : débloqué en finissant l'ARCADE en NORMAL ou plus ---------------- */
+const spUnlocked = () => { try { return localStorage.getItem('nsfSpecial') === '1' || /[?&]unlock\b/.test(location.search); } catch (e) { return false; } };
+function spUnlock() { try { localStorage.setItem('nsfSpecial', '1'); } catch (e) {} }
+const titleItems = () => spUnlocked() ? ['ARCADE MODE', 'V.S. BATTLE', 'SPECIAL MODES', 'TUTORIAL', 'VIEW COMMANDS', 'OPTIONS'] : ['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL', 'VIEW COMMANDS', 'OPTIONS'];
+const SP_MODES = [{ name: 'CYBER CAB SMASH', open: true }, { name: '???' }, { name: '???' }, { name: '???' }];
+function specialFetch() {   // records du monde du CYBER CAB SMASH
+  G.spTop = G.spTop || null;
+  fetchTop('cab', 3).then(r => { if (r) G.spTop = r; });
+  fetchBestTime().then(r => { if (r) G.spBest = r; });
+}
+function goSpecial() { G.scene = 'special'; G.t = 0; G.spCur = G.spCur || 0; G.spRow = 0; cabLoad(); specialFetch(); }
+function stepSpecial() {
+  G.t++;
+  if (edge(pctl, 'l') || edge(pctl, 'r')) {
+    if (G.spRow === 1) { G.spKael = !G.spKael; sfx('beep'); }
+    else { G.spCur = (G.spCur + (edge(pctl, 'l') ? 3 : 1)) % 4; sfx('beep'); }
+  }
+  if (edge(pctl, 'u') || edge(pctl, 'd')) { if (G.spCur === 0) { G.spRow = 1 - (G.spRow || 0); sfx('beep'); } }
+  if (tap) {
+    const tw = 80, gap = 8, x0 = CX - (4 * tw + 3 * gap) / 2;
+    for (let i = 0; i < 4; i++) if (tap.x >= x0 + i * (tw + gap) && tap.x < x0 + i * (tw + gap) + tw && tap.y >= 36 && tap.y < 112) { if (G.spCur === i && i === 0) { spGo(); return; } G.spCur = i; G.spRow = 0; sfx('beep'); return; }
+    if (tap.y >= 116 && tap.y < 130) { G.spKael = !G.spKael; sfx('beep'); return; }
+    if (tap.y > 190) { goTitle(); sfx('beep'); return; }
+  }
+  if (G.t > 8 && backPress(pctl)) { goTitle(); sfx('beep'); return; }
+  if (G.t > 8 && okPress(pctl)) { if (G.spRow === 1) { G.spKael = !G.spKael; sfx('beep'); } else if (G.spCur === 0) spGo(); else sfx('block'); }
+}
+function spGo() { sfx('select'); G.mode = 'cab'; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }
+function drawPadlock(x, y, s) {   // cadenas en pixels
+  R(x + 2 * s, y, 4 * s, s, '#c8c0d8'); R(x + s, y + s, s, 3 * s, '#c8c0d8'); R(x + 6 * s, y + s, s, 3 * s, '#c8c0d8');
+  R(x, y + 4 * s, 8 * s, 6 * s, '#ffd23a'); R(x, y + 4 * s, 8 * s, s, '#fff2a0'); R(x + 3 * s, y + 6 * s, 2 * s, 2 * s, '#5a3a00'); R(x + 3.5 * s, y + 8 * s, s, s, '#5a3a00');
+}
+function drawSpecial() {
+  const im = STAGE_PIC.cyber;
+  if (im && im.complete && im.naturalWidth) { const sc = W / im.naturalWidth; ctx.drawImage(im, 0, -im.naturalHeight * sc * .35 + Math.sin(G.frame * .01) * 4, W, im.naturalHeight * sc); }
+  R(0, 0, W, H, 'rgba(6,4,18,.72)');
+  text('SPECIAL MODES', CX, 10, 16, '#ffd23a', 'center');
+  const tw = 80, th = 76, gap = 8, x0 = Math.round(CX - (4 * tw + 3 * gap) / 2), y0 = 36;
+  SP_MODES.forEach((m, i) => {
+    const x = x0 + i * (tw + gap), sel = G.spCur === i;
+    R(x - 2, y0 - 2, tw + 4, th + 4, sel ? ((G.frame >> 3) % 2 ? '#ffd23a' : '#ff8a3a') : '#2a2040');
+    R(x, y0, tw, th, m.open ? '#160c2c' : '#0c0816');
+    if (m.open) {
+      const c = CAB_IMG.off; if (c && c.complete && c.naturalWidth) ctx.drawImage(c, x + 4, y0 + 18, tw - 8, (tw - 8) * 164 / 400);
+      text('CYBER CAB', x + tw / 2, y0 + 52, 8, '#ff8a3a', 'center'); text('SMASH', x + tw / 2, y0 + 62, 8, '#ff8a3a', 'center');
+    } else { drawPadlock(x + tw / 2 - 12, y0 + 16, 3); text('LOCKED', x + tw / 2, y0 + 58, 8, '#6a6080', 'center'); }
+  });
+  const m = SP_MODES[G.spCur || 0];
+  if (m.open) {
+    const sel = G.spRow === 1, op = G.spKael ? 'KAEL AMBUSH' : 'CLASSIC';
+    text((sel ? '< ' : '') + 'MODE: ' + op + (sel ? ' >' : ''), CX, 118, 8, sel ? '#ffd23a' : '#ffffff', 'center');
+    text(G.spKael ? 'DESTROY THE TAXI... THEN SURVIVE KAEL' : 'PURE SCORE AND TIME ATTACK', CX, 130, 8, '#9a93aa', 'center');
+    const rec = cabRec();
+    text('MY BEST  ' + (rec.time ? fmtTime(rec.time) : '--:--.--') + '  ' + fmtSc(rec.score || 0), CX, 146, 8, '#7ae0ff', 'center');
+    const B = G.spBest, T = G.spTop;
+    text('WORLD TIME  ' + (B ? B.name + '  ' + fmtTime(B.cab_time_ms * 60 / 1000) : '...'), CX, 160, 8, '#5aff8a', 'center');
+    if (T && T.length) T.slice(0, 2).forEach((q, i) => text((i + 1) + '. ' + q.name + '  ' + fmtSc(q.score), CX, 172 + i * 10, 8, i ? '#c8c0d8' : '#ffd23a', 'center'));
+    else text('WORLD SCORE  ...', CX, 172, 8, '#ffd23a', 'center');
+  } else text('COMING SOON', CX, 124, 8, '#9a93aa', 'center');
+  if ((G.frame >> 5) % 2 === 0) text(btnLabel('A') + ' START   ' + btnLabel('B') + ' BACK', CX, 200, 8, '#ffffff', 'center');
+}
+
+// Fin de l'ARCADE : enregistrement du score global (somme des combats), meilleur combo, perfects, score du stage bonus ; record du monde
+function arcadeFinish(E) {
+  const A = E.arcInfo || {};
+  if (OPT.diff !== 0 && OPT.diff !== 3) { if (!spUnlocked()) E.unlocked = true; spUnlock(); }   // NORMAL ou plus : SPECIAL MODES débloqué
+  let lb = 0; try { lb = +localStorage.getItem('nsfArcBest') || 0; } catch (e) {}
+  if (E.total > lb) { E.myBest = true; try { localStorage.setItem('nsfArcBest', String(E.total)); } catch (e) {} }
+  fetchTop('arcade', 1).then(r => {
+    E.rec = r && r[0] ? r[0] : r ? { name: '-', score: 0 } : null;
+    if (E.rec) E.newRec = E.total > (E.rec.score || 0);
+    const run = { mode: 'arcade', score: E.total, combo: A.bestCombo || 0, perfects: A.perf || 0, bonus: A.bonus || 0, fighter: E.f.def.name };
+    const after = () => submitRun(run).then(q => { if (q && q.rank) E.rank = q.rank; if (E.newRec) E.rec = { name: PLR.name, score: E.total }; });
+    if (PLR.pseudo) after();
+    else E.askName = () => nameEntry(Object.assign({ label: 'TOTAL', noSubmit: true, onDone: after }, run));
+  });
+}
+
 /* ---------------- ARCADE MODE ---------------- */
 // Tous les personnages dans l'ordre (y compris son double), Lord Vane en dernier
 function arcadeStart() {
   if (OPT.diff === 3) { OPT.diff = 1; saveOpt(); }   // pas d'entraînement en ARCADE
-  const L = DEFS.map((d, i) => i).filter(i => DEFS[i].kit !== 'vane'); L.push(DEFS.findIndex(d => d.kit === 'vane'));
-  G.arc = { list: L, i: 0 }; arcadeFight();
+  const kael = DEFS.findIndex(d => d.kit === 'kael');
+  const L = DEFS.map((d, i) => i).filter(i => DEFS[i].kit !== 'vane' && i !== kael); L.push(DEFS.findIndex(d => d.kit === 'vane'));
+  L.splice(4, 0, kael);   // après la 4e victoire : stage bonus CYBER CAB SMASH, puis Kael surgit du taxi
+  G.arc = { list: L, i: 0, cabAt: 4, bestCombo: 0, perf: 0, bonus: 0 }; arcadeFight();
 }
-function arcadeFight() { const i = G.arc.i; startMatch(G.p1, G.arc.list[i], STAGES[i % STAGES.length][0]); }
+function arcadeFight() {
+  const i = G.arc.i;
+  if (i === G.arc.cabAt) { if (!G.arc.cabDone) startCab('arcade'); else startKaelFight(); return; }   // CONTINUE : on rejoue seulement le combat contre Kael
+  startMatch(G.p1, G.arc.list[i], STAGES[i % STAGES.length][0]);
+}
 const arcLast = () => G.arc && G.arc.i >= G.arc.list.length - 1;
 function overItems(won) {
   if (G.mode === 'arcade' && G.arc) return won ? (arcLast() ? [] : ['NEXT FIGHT (' + btnLabel('A') + ')']) : ['CONTINUE', 'TITLE SCREEN'];
@@ -5699,7 +6244,8 @@ const CONF_COL = ['#ffd23a', '#ff4a8a', '#5ac8ff', '#5ae06a', '#c88aff', '#ff8a3
 function startEnding() {
   const f = makeFighter(fighterDef(G.p1), 0, CX, 1, false); f.state = 'idle'; f.t = 0;
   const conf = []; for (let i = 0; i < 140; i++) conf.push({ x: Math.random() * (W + 80), y: -Math.random() * H * 1.2, vy: .25 + Math.random() * .4, ph: Math.random() * 6.28, c: CONF_COL[i % CONF_COL.length], s: 1 + (Math.random() < .35) });
-  G.end = { f, conf, out: 0, total: G.arc ? G.arc.total || 0 : 0 }; G.scene = 'ending'; G.t = 0; G.arc = null;
+  G.end = { f, conf, out: 0, total: G.arc ? G.arc.total || 0 : 0, arcInfo: G.arc }; G.scene = 'ending'; G.t = 0; G.arc = null;
+  arcadeFinish(G.end);   // score en ligne, record du monde, SPECIAL MODES débloqué
 }
 const END_ATK = ['punch', 'kick', 'fpunch', 'fkick', 'cpunch', 'ckick'];
 function stepEnding() {
@@ -5717,7 +6263,8 @@ function stepEnding() {
     if (E.out > 45) { goTitle(); G.t = SPLASH; G.musIn = 70; BGM.currentTime = 0; }
     return;
   }
-  if (G.t > 300 && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) { E.out = 1; sfx('select'); }
+  if (G.t >= 420 && E.askName) { const f = E.askName; E.askName = null; f(); return; }   // pas encore de pseudo : on le propose pour enregistrer le score
+  if (G.t > 330 && !E.askName && (BTNS.some(b => edge(pctl, b)) || edge(pctl, 'start') || tap)) { E.out = 1; sfx('select'); }
 }
 function drawEnding() {
   const E = G.end, t = G.t;
@@ -5734,6 +6281,13 @@ function drawEnding() {
   drawConf(true);   // quelques confettis devant
   if (t > 110) { const k = Math.min(1, (t - 110) / 24), e = 1 - Math.pow(1 - k, 3), sc = 1 + (1 - e) * 7; ctx.save(); ctx.globalAlpha = a * k; ctx.translate(CX, 158); ctx.scale(sc, sc); text('CONGRATULATIONS !', 0, -8, 16, (G.frame >> 4) % 2 ? '#ffd23a' : '#ffe98a', 'center'); ctx.restore(); }
   if (t > 140 && E.total) text('FINAL SCORE ' + fmtSc(E.total), CX, 178, 8, '#ffffff', 'center');
+  if (t > 160) {   // record du monde (meilleur score global) : le joueur l'a-t-il battu ?
+    if (E.newRec) text('NEW WORLD RECORD!', CX, 8, 16, (G.frame >> 3) % 2 ? '#5aff8a' : '#ffffff', 'center');
+    else if (E.rec) { text('WORLD RECORD', CX, 8, 8, '#9a93aa', 'center'); text(E.rec.name + '  ' + fmtSc(E.rec.score), CX, 20, 8, '#ffd23a', 'center'); }
+    if (E.myBest && !E.newRec) text('NEW PERSONAL BEST!', CX, 34, 8, (G.frame >> 3) % 2 ? '#7ae0ff' : '#ffffff', 'center');
+    if (E.rank) text('WORLD RANK #' + E.rank, CX, E.newRec ? 28 : 46, 8, '#ffffff', 'center');
+    if (E.unlocked && t > 200) text('SPECIAL MODES UNLOCKED!', CX, 188, 8, (G.frame >> 4) % 2 ? '#ff8a3a' : '#ffd23a', 'center');
+  }
   if (t > 300 && (G.frame >> 5) % 2 === 0) text('PRESS ANY BUTTON', CX, 196, 8, '#ffffff', 'center');
   ctx.restore();
   if (E.out) R(0, 0, W, H, `rgba(0,0,0,${Math.min(1, E.out / 40)})`);   // fondu de sortie
@@ -5961,7 +6515,7 @@ function musicWanted() {
   if (G.demo) return 'title';   // démo : la musique du titre continue
   if (G.scene === 'ending') return G.t < 50 ? bgmKey : 'title';   // fin ARCADE : la musique s'arrête puis le thème principal
   if (G.scene === 'title') return 'title';
-  if (G.scene === 'select' || G.scene === 'stage' || G.scene === 'over') return 'select';
+  if (G.scene === 'select' || G.scene === 'stage' || G.scene === 'over' || G.scene === 'special') return 'select';
   return MUSIC[G.stage] ? G.stage : 'city';   // musique propre à chaque décor (sinon celle de la ville)
 }
 function updateMusic() {
@@ -6137,7 +6691,7 @@ function bootStart() {
 function bootToggleFS() { OPT.full = !OPT.full; saveOpt(); sfx('beep'); if (OPT.full) enterFS(); else exitFS(); }
 const bootRowY = i => { const it = bootItems()[i]; return it === 2 ? 140 : it === 1 ? 86 : 84; };   // INSTALL bien plus bas
 addEventListener('keydown', e => {
-  if (EDITOR) return;
+  if (EDITOR || G.modal) return;
   if (G.instHelp) { if (G.frame - (G.instOpen || 0) > 10 && ['Enter', 'Escape', 'Space', 'Backspace'].includes(e.code)) { G.instHelp = false; G.instClosed = G.frame; sfx('beep'); e.preventDefault(); e.stopPropagation(); } return; }
   if (!G.boot || !loadDone()) return;
   const k = e.code;
@@ -6183,6 +6737,7 @@ function step() {
   }
   updateMusic();
   G.frame++; G.st = (G.st || 0) + 1;
+  if (G.modal) { tap = null; return; }   // fenêtre du pseudo ouverte : le jeu attend
   netSendState();
   if (loadDone()) netStart();   // manettes smartphone : connexion possible dès le démarrage du jeu
   const raw1 = syncIn ? inUnpack(syncIn[0]) : readPlayer(), raw2 = syncIn ? inUnpack(syncIn[1]) : readP2();
@@ -6230,14 +6785,19 @@ function step() {
         if ((G.t > SPLASH + INTRO_LOGO || G.logoAt != null) && any) { G.demoOut = 0; G.fadeK = 0; G.tstate = 1; G.tcur = 0; G.tmenu = 0; sfx('select'); sfx('heavy'); }   // n'importe quelle touche : on atterrit sur l'écran titre
       } else {
         G.tmenu = (G.tmenu || 0) + 1;
-        const tc = Math.max(0, Math.min(TITLE_ITEMS.length - 1, (G.tcur || 0) + navStep()));
+        const TI = titleItems(), tc = Math.max(0, Math.min(TI.length - 1, (G.tcur || 0) + navStep()));
         if (tc !== (G.tcur || 0)) { G.tcur = tc; sfx('beep'); }
-        if (tap) { const i = Math.floor((tap.y - 136) / 10); if (i >= 0 && i < TITLE_ITEMS.length) G.tcur = i; else break; }
+        if (tap) { const i = Math.floor((tap.y - 136) / 10); if (i >= 0 && i < TI.length) G.tcur = i; else break; }
         if (backPress(pctl)) { G.tstate = 0; G.t = SPLASH + INTRO_T0; G.introNoPres = true; G.logoAt = null; G.tmenu = null; sfx('beep'); }   // retour : on rejoue le travelling et le logo (sans PRESENTS)
         else if (okPress(pctl) || tap) {
           sfx('select');
-          if ((G.tcur || 0) <= 2) { G.mode = ['arcade', 'vs', 'tutorial'][G.tcur || 0]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0; }   // ARCADE MODE / V.S. BATTLE / TUTORIAL
-          else if (G.tcur === 3) { G.showMoves = true; G.mscroll = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
+          const it = TI[G.tcur || 0];
+          if (it === 'SPECIAL MODES') goSpecial();
+          else if (['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL'].includes(it)) {   // ARCADE MODE / V.S. BATTLE / TUTORIAL
+            G.mode = { 'ARCADE MODE': 'arcade', 'V.S. BATTLE': 'vs', TUTORIAL: 'tutorial' }[it]; G.arc = null; G.tut = null; G.scene = 'select'; G.selPhase = 0; G.t = 0;
+            if (G.mode === 'arcade' && !PLR.pseudo && !G.askedName) { G.askedName = true; nameEntry(); }   // ARCADE : on propose de créer son pseudo
+          }
+          else if (it === 'VIEW COMMANDS') { G.showMoves = true; G.mscroll = 0; G.mlOpen = null; G.mlSel = 0; G.mlPos = 0; }
           else { G.showOpts = true; G.ocur = 0; }
         }
       }
@@ -6283,11 +6843,12 @@ function step() {
         if (c == null) sfx('block');
         else if (G.selGo) {}   // déjà validé : on attend la fin du flash
         else if (!G.selPhase && G.mode === 'arcade') { G.p1 = c; selPick(0); G.selGo = { f: G.frame + 22, go: arcadeStart }; }   // ARCADE : on enchaîne les combats
+        else if (!G.selPhase && G.mode === 'cab') { G.p1 = c; selPick(0); G.selGo = { f: G.frame + 22, go: () => startCab(G.spKael ? 'ambush' : 'classic') }; }   // SPECIAL MODES : CYBER CAB SMASH
         else if (!G.selPhase && G.mode === 'tutorial') { G.p1 = c; selPick(0); G.selGo = { f: G.frame + 22, go: tutStart }; }   // TUTORIAL : contre son double
         else if (!G.selPhase) { G.p1 = c; G.selPhase = 1; selPick(0); }                 // 1) mon personnage
         else { G.p2 = c; selPick(1); G.selGo = { f: G.frame + 22, go: () => { G.selPhase = 0; G.scene = 'stage'; G.t = 0; } }; }    // 2) le CPU
       }
-      else if (G.t > 10 && backPress(pctl)) { if (G.selPhase) { G.selPhase = 0; sfx('beep'); } else { goTitle(); sfx('beep'); } }
+      else if (G.t > 10 && backPress(pctl)) { if (G.selPhase) { G.selPhase = 0; sfx('beep'); } else if (G.mode === 'cab') { goSpecial(); sfx('beep'); } else { goTitle(); sfx('beep'); } }
       break;
     }
     case 'stage': {
@@ -6304,12 +6865,13 @@ function step() {
       stepFight();
       break;
     case 'ending': stepEnding(); break;
+    case 'special': stepSpecial(); break;
     case 'over':
       G.t++;
-      if (G.t === 20 && AC) { const [a, b] = G.f, won = a.cpu === false ? a.wins >= 2 : b.wins >= 2; playSample(won ? 'win' : 'lose', 1.4, VOX, true); }
-      if (G.t === 20) { const w = G.f[0].wins >= 2 ? 0 : G.f[1].wins >= 2 ? 1 : -1; G.perfect = w >= 0 && G.hurt && !G.hurt[w]; }   // le vainqueur (joueur ou adversaire) n'a pris aucun coup
+      if (G.t === 20 && AC) { const [a, b] = G.f, won = a.cpu === false ? a.wins >= winsNeed() : b.wins >= winsNeed(); playSample(won ? 'win' : 'lose', 1.4, VOX, true); }
+      if (G.t === 20) { const w = G.f[0].wins >= winsNeed() ? 0 : G.f[1].wins >= winsNeed() ? 1 : -1; G.perfect = w >= 0 && G.hurt && !G.hurt[w]; if (G.perfect && w === 0 && G.mode === 'arcade' && G.arc) G.arc.perf = (G.arc.perf || 0) + 1; }   // le vainqueur (joueur ou adversaire) n'a pris aucun coup
       if (G.t === 100 && G.perfect && AC) playSample('perfect', 1.5, VOX, true);   // « PERFECT » juste après « YOU WIN »   // annonceur : « YOU WIN » / « YOU LOSE »
-      { const won = G.f[0].wins >= 2, items = overItems(won);
+      { const won = G.f[0].wins >= winsNeed(), items = overItems(won);
         if (G.mode === 'arcade' && G.arc && won && arcLast()) { if (G.t >= 150) startEnding(); break; }   // Lord Vane battu : fin du mode ARCADE
         if (G.t > 30) {
           const m = navStep(), oc = Math.max(0, Math.min(items.length - 1, (G.ocurOver || 0) + m));
@@ -6335,8 +6897,9 @@ function stepFight() {
   const [a, b] = G.f;
   G.t++;
 
-  if (G.scene === 'intro' && G.preT > 0) { G.preT--; G.t = 0; }   // travelling d'ouverture avant « ROUND 1 »
-  if (G.scene === 'intro') {
+  if (G.cab && G.scene === 'intro') cabIntroStep();   // CYBER CAB SMASH : travelling vertical puis GO
+  else if (G.scene === 'intro' && G.preT > 0) { G.preT--; G.t = 0; }   // travelling d'ouverture avant « ROUND 1 »
+  if (G.scene === 'intro' && !G.cab) {
     if (G.t === 1 && !(AC && playSample('r' + Math.min(3, G.round), 1.3, VOX, true))) sfx('beep');   // annonceur : « ROUND 1/2/3 »
     if (G.t === 84 && !(AC && playSample('fight', 1.4, VOX, true))) sfx('go');                       // « FIGHT! »
     if (G.t >= 124) { G.scene = 'fight'; G.fighting = true; G.t = 0; }
@@ -6347,6 +6910,7 @@ function stepFight() {
   if (b.cpu && !G.noAI) ctlUpdate(b.ctl, confuse(aiInput(b, a), b));
 
   if (G.tut) tutStep();
+  if (G.cab) cabPre();
   if (G.hurt) G.f.forEach((f, i) => { if (f.hp < 100) G.hurt[i] = true; });
   if (G.quakeT > 0) { G.quakeT--; G.shake = Math.max(G.shake, 3 + G.quakeT * .15); }   // vibration prolongée
   if (G.shake > 0) G.shake *= .8;
@@ -6437,7 +7001,7 @@ function stepFight() {
   }
 
   // Les deux combattants restent à l'écran : écart maximal = largeur de l'écran
-  { const maxD = W - 40, d = b.x - a.x;
+  if (!G.cab) { const maxD = W - 40, d = b.x - a.x;
     if (Math.abs(d) > maxD) {
       const ex = Math.abs(d) - maxD, sg = Math.sign(d);
       const am = (a.x - (a.px ?? a.x)) * -sg > 0, bm = (b.x - (b.px ?? b.x)) * sg > 0;   // qui s'éloigne ?
@@ -6445,7 +7009,7 @@ function stepFight() {
     } }
   a.px = a.x; b.px = b.x;
   // Séparation des corps
-  if (Math.abs(a.y - b.y) < 56 && a.state !== 'held' && b.state !== 'held' && !['down'].includes(a.state) && !['down'].includes(b.state)) {
+  if (!G.cab && Math.abs(a.y - b.y) < 56 && a.state !== 'held' && b.state !== 'held' && !['down'].includes(a.state) && !['down'].includes(b.state)) {
     const dx = b.x - a.x, minD = 30;
     if (Math.abs(dx) < minD) {
       const push = (minD - Math.abs(dx)) / 2, s = dx === 0 ? (a.dir > 0 ? 1 : -1) : Math.sign(dx);
@@ -6465,6 +7029,7 @@ function stepFight() {
   G.popups = G.popups.filter(pp => pp.t < 50);
   G.sparks = G.sparks.filter(s => s.t < 12);
 
+  if (G.cab) { if (G.scene === 'fight') cabStep(); return; }   // CYBER CAB SMASH : chrono, phases du taxi, pas de K.O.
   if (G.scene === 'fight') {
     G.mTime = (G.mTime || 0) + 1;
     if (OPT.diff !== 3 && OPT.time !== false && !(G.tut && G.tut.phase !== 4) && ++G.tick >= 45) { G.tick = 0; G.timer = Math.max(0, G.timer - 1); }   // entraînement : temps infini
@@ -6492,7 +7057,7 @@ function stepFight() {
       if (w.hp >= 100 && G.rPerf == null) { G.rPerf = G.t; if (AC) playSample('perfect', 1.5, VOX, true); }   // round gagné sans prendre de coup
     }
     if (G.t > 260 + (G.scene === 'ko' ? G.koDelay || 0 : 0)) {
-      if (G.f.some(f => f.wins >= 2)) { if (G.tut || !G.sc) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; } else startScore(); }
+      if (G.f.some(f => f.wins >= winsNeed())) { if (G.tut || !G.sc) { G.scene = 'over'; G.t = 0; G.ocurOver = 0; } else startScore(); }
       else { G.round++; startRound(); }
     }
   }
@@ -6797,15 +7362,18 @@ function drawFight() {
     const P = G.photo, zmin = W / SW; P.z = Math.max(zmin, Math.min(2.6, P.z));
     const pw = W / P.z, ph = H / P.z; P.l = Math.max(0, Math.min(SW - pw, P.l)); P.t = Math.max(H - ph - 90, Math.min(H - ph, P.t));
   }
+  if (G.cab) { G.zoom = 1; lift = 0; }   // CYBER CAB SMASH : caméra fixe, le taxi au centre de l'écran
   const z = G.photo ? G.photo.z : G.zoom, vw = W / z, vh = H / z;
-  const tgtL = Math.max(0, Math.min(SW - vw, (a.x + b.x) / 2 - vw / 2)), top = H - vh - lift;
+  const tgtL = G.cab ? (SW - W) / 2 : Math.max(0, Math.min(SW - vw, (a.x + b.x) / 2 - vw / 2)), top = H - vh - lift;
   G.camS = G.camS == null || G.preT > 0 || Math.abs(tgtL - G.camS) < .5 ? tgtL : G.camS + (tgtL - G.camS) * .14;   // caméra en travelling (pas de saut d'image, ex. téléportation)
   const left = G.photo ? G.photo.l : Math.max(0, Math.min(SW - vw, G.camS));
   const top2 = G.photo ? G.photo.t : top;
   if (!G.photo) { G.camL = left; G.camW = vw; }
   ctx.save();
   ctx.scale(z, z); ctx.translate(-left, -top2);
-  if (top2 < 0) ctx.drawImage(introBG(), 0, -INTRO_TOP);   // vue dézoomée : décor prolongé vers le haut
+  G.cabShift = 0;
+  if (G.cab) { drawCabBG(); if (G.cabShift) ctx.translate(0, G.cabShift); }
+  else if (top2 < 0) ctx.drawImage(introBG(), 0, -INTRO_TOP);   // vue dézoomée : décor prolongé vers le haut
   else ctx.drawImage(BG, 0, 0);
   if (G.darkT > 0) {   // fond assombri pendant le ralenti
     const k = Math.min(1, G.darkT / 10, (60 - G.darkT) / 6 + .2);
@@ -6815,11 +7383,14 @@ function drawFight() {
   drawStains();
   drawToxics();   // flaques toxiques au sol, derrière les combattants
   drawProps();
-  drawShadow(a); drawShadow(b);
+  const hid = f => f.phantom && !(G.cab && G.cab.kael);   // l'adversaire invisible du stage bonus
+  if (G.cab) drawCabBack(); else if (G.cabWreck && G.stage === 'cyber') drawCabWreck();
+  if (!hid(a)) drawShadow(a); if (!hid(b)) drawShadow(b);
   const order = ATTACKING.includes(a.state) && !ATTACKING.includes(b.state) ? [b, a] : [a, b];
   drawPowerBehind();
   drawVaneBehind();
   order.forEach(f => {
+    if (hid(f)) return;
     if (f.sinkK > 0) {   // Zephyr à moitié sous terre : on coupe tout ce qui passe sous le sol
       ctx.save(); ctx.beginPath(); ctx.rect(-1000, -1000, SW + 2000, GROUND + 1000 + 1); ctx.clip();
       drawFighter(f, f.x, f.y + Math.round(f.sinkK * 90)); ctx.restore(); return;
@@ -6856,6 +7427,7 @@ function drawFight() {
   });
   drawShards(); drawBlood();
   G.sparks.forEach(drawSpark);
+  if (G.cab) drawCabFront();
   if (G.flashT > 0) {
     // éclat en étoile qui jaillit du point d'impact : grandit très vite en tournant puis s'efface
     const k = Math.max(0, 1 - G.flashT / 12);
@@ -6890,7 +7462,7 @@ function drawFight() {
     ctx.save(); ctx.globalAlpha = al; text(nm, CX, 22, 16, '#ffffff', 'center'); ctx.restore();
     return;
   }
-  drawHUD();
+  if (G.cab) { drawCabHUD(); drawCabIntro(); } else drawHUD();
   if (G.bigPop) {   // NITRO COMBO / NITRO SURGE COMBO
     const P = G.bigPop; P.t++; const k = Math.min(1, P.t / 8), sc = 1 + (1 - k) * 2;
     if (P.t > (P.end || 110)) G.bigPop = null;
@@ -6905,7 +7477,7 @@ function drawFight() {
   drawTut();
   if (G.scene === 'score') drawScore();
 
-  if (G.scene === 'intro') {
+  if (G.scene === 'intro' && !G.cab) {
     const zm = (s2, size, col, t) => { const k = Math.min(1, t / 10), e = 1 - Math.pow(1 - k, 3), sc = 1 + 2.2 * (1 - e); ctx.save(); ctx.globalAlpha = Math.min(1, k * 1.4); ctx.translate(W / 2, 84 + size / 2); ctx.scale(sc, sc); text(s2, 0, -size / 2, size, col, 'center', '#3a0a04'); ctx.restore(); };   // apparition en dézoom
     if (G.t < 84) zm('ROUND ' + G.round, 16, '#ffd23a', G.t);
     else zm('FIGHT!', 24, '#ff4a2a', G.t - 84);
@@ -7310,7 +7882,7 @@ function drawTitle() {
   if (G.tstate !== 1) {
     if (L > 40 && (G.frame >> 5) % 2 === 0) text('PRESS ANY BUTTON', CX, 176, 8, '#ffffff', 'center');
   } else {
-    TITLE_ITEMS.forEach((m, i) => {
+    titleItems().forEach((m, i) => {
       const sel = G.tcur === i;
       text((sel ? '> ' : '') + m + (sel ? ' <' : ''), CX, 139 + i * 10, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center');
     });
@@ -7380,7 +7952,7 @@ function drawSelect() {
   if (imgOk(TITLE_IMG)) { const k = Math.max(W / TITLE_IMG.naturalWidth, H / TITLE_IMG.naturalHeight), w = TITLE_IMG.naturalWidth * k, h = TITLE_IMG.naturalHeight * k; artDraw(TITLE_IMG, CX - w / 2, H / 2 - h / 2, w, h, false); }
   artFill('rgba(8,4,14,.66)');   // fond plus foncé
   const ph = G.selPhase || 0, sel = G.sel || 0, hov = ROSTER[sel < 8 ? sel : (G.selBack || 0)];
-  const arc = G.mode === 'arcade' || G.mode === 'tutorial', two = !arc && p2On(), L2 = two ? 'PLAYER 2' : 'CPU';
+  const arc = G.mode === 'arcade' || G.mode === 'tutorial' || G.mode === 'cab', two = !arc && p2On(), L2 = two ? 'PLAYER 2' : 'CPU';
   const p1 = ph === 0 ? hov : G.p1, p2 = ph === 1 ? hov : null;
   const e1 = ent(0), e2 = ent(1), ev = ent(3, 3, 8);
   const ka = Math.min(1, (G.frame - (G.selAnimF || -99)) / 12), ke = 1 - Math.pow(1 - ka, 3);   // nouveau personnage survolé : il glisse depuis le bord
@@ -7592,7 +8164,7 @@ function drawOver() {
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
   if (imgOk(TITLE_IMG)) { const k0 = Math.max(W / TITLE_IMG.naturalWidth, H / TITLE_IMG.naturalHeight), w0 = TITLE_IMG.naturalWidth * k0, h0 = TITLE_IMG.naturalHeight * k0; artDraw(TITLE_IMG, CX - w0 / 2, H / 2 - h0 / 2, w0, h0, false); }
   artFill('rgba(6,2,10,.78)');
-  const [a, b] = G.f, aw = a.wins >= 2, bw = b.wins >= 2;
+  const [a, b] = G.f, aw = a.wins >= winsNeed(), bw = b.wins >= winsNeed();
   const k = Math.min(1, G.t / 25), BS = Math.min(96, Math.round((W - 80) / 2 - 20)), y0 = 22;
   const lx = Math.round(CX - 18 - BS - (1 - k) * 60), rx = Math.round(CX + 18 + (1 - k) * 60);
   overFace(a.def.idx, lx, y0, BS, aw ? '#ffd23a' : '#5a4a60', 1, !aw);   // le perdant : en noir et blanc
@@ -7634,6 +8206,7 @@ function render() {
     case 'stage': drawStageSelect(); break;
     case 'over': drawOver(); break;
     case 'ending': drawEnding(); break;
+    case 'special': drawSpecial(); break;
     default: drawFight();
   }
   ctx.restore();
@@ -7694,6 +8267,6 @@ else if (document.fonts && document.fonts.load) {
 // Accès debug pour les tests
 if (JOIN && !EDITOR) guestStart();   // ouvert depuis un lien d'invitation : Player 2 en ligne
 window.__NSF = { POSES, DEFS, ALT, SPR, K, OX, OY, SPR_PATCH, drawFighter, poseQ, poseOf, fighterDef, makeFighter, customPose, setForcePose: pn => { FORCE_PN = pn; },
-  test: { step, powerUp, startRush, reversal, nitroInput, applyHit, ATK, endRound, startRound } };
+  test: { step, powerUp, startRush, reversal, nitroInput, applyHit, ATK, endRound, startRound, startCab, cabHit, cabDestroy, arcadeStart, goSpecial, startEnding, nameEntry, PLR, render } };
 window.__SF = G; window.__QR = QR; window.__ERRS = ERRS; window.__sfx = n => { initAudio(); sfx(n); }; window.__NET = NET; window.__BGM = BGM; window.__bgmGain = () => bgmGain; window.__mkqr = () => makeQRs(); window.__start = (a, b, s) => startMatch(a, b, s); window.__spr = (f, skip) => { const keep = ctx; window.__skip = skip; drawFighter(f, -999, -999); window.__skip = null; return SPR.toDataURL(); };
 })();
