@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v385';
+const VERSION = 'v386';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -8159,6 +8159,12 @@ function drawQRPopup(boot) {   // deux QR codes : joueur 1 à gauche, joueur 2 �
     else { artFill('#222', x, y, sz, sz); artText(NET.status === 'error' ? 'OFFLINE' : '...', x + sz / 2, y + sz / 2 - 4, 8, '#9a8aa0'); }
     artText(padP && p === 2 ? 'GAMEPAD' : on ? 'CONNECTED' : 'SCAN TO PLAY', x + sz / 2, y + sz + 4, 7, on ? '#5ae06a' : '#d8c8a8');
   }
+  { const y = py + 44 + 22;   // au milieu, entre les deux QR codes : rappel du même réseau Wi-Fi
+    const hi = hiReady(), g = hi ? hx : ctx, r = hi ? HI.width / W : 1, cx = CX * r, cy = (y + 5) * r;
+    g.save(); g.strokeStyle = '#7ae0ff'; g.lineWidth = Math.max(1, 1.4 * r); g.lineCap = 'round';   // icône Wi-Fi
+    for (const k of [3, 6, 9]) { g.beginPath(); g.arc(cx, cy, k * r, Math.PI * 1.25, Math.PI * 1.75); g.stroke(); }
+    g.fillStyle = '#7ae0ff'; g.beginPath(); g.arc(cx, cy, 1.2 * r, 0, Math.PI * 2); g.fill(); g.restore();
+    artText('USE SAME', CX, y + 12, 6.5, '#ffffff'); artText('WI-FI', CX, y + 21, 6.5, '#ffffff'); artText('CONNECTION', CX, y + 30, 6.5, '#ffffff'); }
   artText(isTouch || padOn() ? 'B: CLOSE' : 'ESC: CLOSE', CX, py + phh - 13, 8, '#ffffff');
 }
 
