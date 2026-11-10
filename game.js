@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v370';
+const VERSION = 'v385';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6143,7 +6143,7 @@ function nameEntry(o) {
 }
 
 /* ---------------- SPECIAL MODES : débloqué en finissant l'ARCADE en NORMAL ou plus ---------------- */
-const spUnlocked = () => { try { return localStorage.getItem('nsfSpecial') === '1' || /[?&]unlock\b/.test(location.search); } catch (e) { return false; } };
+const spUnlocked = () => { try { return !!OPT.dev || localStorage.getItem('nsfSpecial') === '1' || /[?&]unlock\b/.test(location.search); } catch (e) { return false; } };
 function spUnlock() { try { localStorage.setItem('nsfSpecial', '1'); } catch (e) {} }
 const titleItems = () => spUnlocked() ? ['ARCADE MODE', 'V.S. BATTLE', 'SPECIAL MODES', 'TUTORIAL', 'VIEW COMMANDS', 'OPTIONS'] : ['ARCADE MODE', 'V.S. BATTLE', 'TUTORIAL', 'VIEW COMMANDS', 'OPTIONS'];
 const SP_MODES = [{ name: 'CYBER CAB SMASH', open: true }, { name: '???' }, { name: '???' }, { name: '???' }];
@@ -6357,7 +6357,7 @@ function stepMoves() {
 const PAUSE_ITEMS = ['CONTINUE', 'OPTIONS', 'MOVE LIST', 'PHOTO MODE', 'CHARACTER SELECT', 'BACK TO TITLE'];
 const pauseItems = () => LS.on ? ['CONTINUE', 'CHARACTER SELECT', 'BACK TO TITLE'] : isTouch ? PAUSE_ITEMS : ['CONTINUE', 'ADD CONTROLLERS', ...PAUSE_ITEMS.slice(1)];   // en ligne SYNC : même menu sur les deux téléphones   // PC / Mac : ADD CONTROLLERS sous CONTINUE (QR codes P1 / P2)   // OPTIONS juste sous CONTINUE
 // ordre d'affichage : FULL SCREEN en premier ; sur PC : KEYBOARD et GAMEPAD ; en bas : installer l'application (9)
-const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } return fsAvail() && !isTouch ? o : o.filter(i => i !== 6); };   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
+const optOrder = () => { const o = isTouch && !padOn() ? [6, 2, 1, 11, 0, 3, 10, 4, 5] : [6, 2, 1, 11, 0, 3, 10, 4, 5, 7, 8];   /* 11 : TIME 99 / OFF */   /* DIFFICULTY puis FIGHTERS ENERGY en haut (écran titre et pause) */   /* en combat : DIFFICULTY en premier */ if (installAvail()) { if (isTouch) o.unshift(9); else o.push(9); } o.push(12); /* 12 : DEV MODE, tout en bas */ return fsAvail() ? o : o.filter(i => i !== 6); };   // mobile : FULL SCREEN dans OPTIONS (le démarrage commence directement par START)   // mobile : ADD TO HOME SCREEN toujours en premier   // mobile : pas de FULL SCREEN dans OPTIONS (choisi au premier écran)   // iPhone (navigateur) : pas de plein écran possible, option cachée
 const optL = () => optOrder()[G.ocur] != null ? optOrder()[G.ocur] : -1;
 const OPT_BACK = () => optOrder().length;
 const optPC = () => !(isTouch && !padOn());
@@ -6403,6 +6403,7 @@ function stepOptions() {
     saveOpt(); sfx('select');
   }
   if (L === 3 && ok) { OPT.blood = !OPT.blood; saveOpt(); sfx('select'); }
+  if (L === 12 && (l || r || ok)) { OPT.dev = !OPT.dev; saveOpt(); sfx('select'); }   // DEV MODE : ouvre SPECIAL MODES (test direct du CYBER CAB SMASH)
   if (L === 11 && (l || r || ok)) { OPT.time = OPT.time === false; saveOpt(); sfx('select'); }   // TIME : 99 / OFF
   if (L === 10 && (l || r || ok)) { OPT.guides = !OPT.guides; saveOpt(); sfx('select'); }   // GUIDES : SHOW / HIDE
   if (L === 2 && (l || r || ok)) {
@@ -6657,10 +6658,10 @@ function drawInstHelp() {   // mode d'emploi quand le navigateur n'a pas de fen�
   ap(70, () => { text('PRESS ' + bootKeys()[1] + ' TO CLOSE', CX, 162, 8, '#ffffff', 'center'); });   // B (mobile) / K (PC) pour fermer
 }
 // écran de démarrage en 2 temps : 1) FULL SCREEN < OFF / ON > + PRESS A  2) START + PRESS A TO CONFIRM / B TO GO BACK
-const bootStep = () => isStandalone() ? 1 : fsAvail() ? (G.bootStep || 0) : 1;   // lancé depuis l'icône : START / DOWNLOAD OFFLINE MODE
-const bootItems = () => { const o = []; if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); } else { o.push(1); if (isStandalone() && offAvail() && G.offState !== 'ready') o.push(3); else if (!fsAvail() && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
+const bootStep = () => isStandalone() || isTouch ? 1 : fsAvail() ? (G.bootStep || 0) : 1;   // mobile : directement START   // lancé depuis l'icône : START / DOWNLOAD OFFLINE MODE
+const bootItems = () => { const o = []; if (bootStep() === 2) return [5];   /* 2 : ADD CONTROLLERS (PC) */ if (bootStep() === 0) { o.push(0); if (installAvail()) o.push(2); if (!isTouch) o.push(4); } else { o.push(1); if (isStandalone() && offAvail() && G.offState !== 'ready') o.push(3); else if ((isTouch || !fsAvail()) && installAvail()) o.push(2); } return o; };   // iPhone : ADD TO HOME SCREEN pour le plein écran
 const bootKeys = () => !isTouch && !padOn() ? [keyName(KEYS.s), keyName(KEYS.k)] : ['A', 'B'];   // PC : touches du clavier ; mobile / manette : A et B
-function bootBack() { if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }
+function bootBack() { if (bootStep() === 2) { G.bootStep = 1; G.bcur = 1; sfx('beep'); return; } if (bootStep() === 1 && fsAvail()) { G.bootStep = 0; G.bcur = 0; sfx('beep'); } }   // ADD CONTROLLERS : ÉCHAP ferme et passe à START
 function bootMove(m) { const L = bootItems(); let i = L.indexOf(G.bcur); if (i < 0) i = L.length - 1; i = Math.max(0, Math.min(L.length - 1, i + m)); if (L[i] !== G.bcur) { G.bcur = L[i]; sfx('beep'); } }
 // ---- MODE HORS LIGNE (app lancée depuis l'écran d'accueil) ----
 const offAvail = () => 'serviceWorker' in navigator && 'caches' in window && (location.protocol === 'https:' || location.hostname === 'localhost');
@@ -6680,7 +6681,7 @@ function offlineDownload() {
   navigator.serviceWorker.ready.then(reg => { (reg.active || navigator.serviceWorker.controller).postMessage({ type: 'download', extra }); }).catch(() => { G.offState = 'err'; });
 }
 const offLbl = () => G.offState === 'err' ? 'DOWNLOAD FAILED: RETRY' : 'DOWNLOAD OFFLINE MODE';
-function bootOk(gesture) { if (bootStep() === 1 && G.bcur === 3) { offlineDownload(); return; } if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
+function bootOk(gesture) { if (bootStep() === 2) { G.bootStep = 1; G.bcur = 1; sfx('select'); return; } if (bootStep() === 1 && G.bcur === 3) { offlineDownload(); return; } if (bootStep() === 1 && G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); return; } if (bootStep() === 0) { if (G.bcur === 2 && installAvail()) { sfx('select'); doInstall(gesture); } else if (G.bcur === 0 && !isTouch) bootToggleFS(); else if (!isTouch) { G.bootStep = 2; G.bcur = 5; netStart(); sfx('select'); } else { G.bootStep = 1; G.bcur = 1; sfx('select'); } } else bootStart(); }
 function bootStart() {
   document.body.classList.remove('booting');
   if (!G.boot) return;
@@ -6707,7 +6708,11 @@ addEventListener('pointerup', e => {
     if (btn && btn.dataset.b === 's' && G.bcur === 2 && bootItems().includes(2)) { G.bootKey = G.frame; bootOk(true); return; }   // bouton A sur ADD TO HOME SCREEN : vrai geste
     const two = bootItems().includes(2);
     if (Math.abs(p.x - CX) < 110) {
-      if (bootStep() === 0) {
+      if (bootStep() === 2) bootOk(true);   // ADD CONTROLLERS : un clic ferme la fenêtre
+      else if (bootStep() === 0 && !isTouch) {   // PC : FULL SCREEN / INSTALL ON DESKTOP / CONTINUE (souris)
+        const L = bootItems(), i = L.findIndex((it, k) => Math.abs(p.y - (88 + k * 14)) < 7);
+        if (i >= 0) { G.bcur = L[i]; if (L[i] === 0) bootToggleFS(); else bootOk(true); }
+      } else if (bootStep() === 0) {
         if (Math.abs(p.y - 88) < 7) { G.bcur = 0; bootToggleFS(); }                          // FULL SCREEN : OFF / ON
         else if (two && Math.abs(p.y - 102) < 7) { G.bcur = 2; bootOk(true); }                // INSTALL / ADD TO HOME SCREEN
         else if (Math.abs(p.y - (two ? 130 : 118)) < 6) bootOk(true);                                      // PRESS A TO CONFIRM
@@ -7608,7 +7613,7 @@ function panel(y0, h, title, small, w = 200) {
 }
 function drawOptions() {
   if (G.showKeys) { drawKeys(); return; }
-  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 11 ? 11 : OB > 10 ? 12 : 13) : (OB > 8 ? 14 : 16);
+  const OB = OPT_BACK(), pc = optPC(), PW = 236, RH = pc ? (OB > 12 ? 10 : OB > 11 ? 11 : OB > 10 ? 12 : 13) : (OB > 10 ? 12 : OB > 8 ? 13 : 16);
   panel(8, 200, 'OPTIONS', true, PW);
   const c = G.ocur, x0 = CX - PW / 2 + 22, vx = CX + PW / 2 - 40, bx = vx - 6;
   const pos = i => optOrder().indexOf(i), col = i => c === pos(i) ? '#ffd23a' : 'rgba(255,255,255,.55)';
@@ -7630,6 +7635,7 @@ function drawOptions() {
   { const ts = c === pos(11); text('TIME', x0, Y(11), 8, col(11), 'left'); text((ts ? '< ' : '') + (OPT.time === false ? 'OFF' : '99') + (ts ? ' >' : ''), vx, Y(11), 8, ts ? '#ffd23a' : '#ffffff', 'center'); }
   { const gs = c === pos(10); text('GUIDES', x0, Y(10), 8, col(10), 'left'); text((gs ? '< ' : '') + (OPT.guides ? 'SHOW' : 'HIDE') + (gs ? ' >' : ''), vx, Y(10), 8, gs ? '#ffd23a' : '#ffffff', 'center'); }
   text('MUSIC VOLUME', x0, Y(4), 8, col(4), 'left'); bars(Y(4), OPT.music);
+  { const ds = c === pos(12); text('DEV MODE', x0, Y(12), 8, col(12), 'left'); text((ds ? '< ' : '') + (OPT.dev ? 'ON' : 'OFF') + (ds ? ' >' : ''), vx, Y(12), 8, ds ? '#ffd23a' : OPT.dev ? '#5aff8a' : '#ffffff', 'center'); }
   text('SFX VOLUME', x0, Y(5), 8, col(5), 'left'); bars(Y(5), OPT.sfx);
   if (pc) {
     text('KEYBOARD', x0, Y(7), 8, col(7), 'left'); text('SET >', vx, Y(7), 8, col(7), 'center');
@@ -7746,7 +7752,43 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
   ctx.restore();
   const [kA, kB] = bootKeys(), blink = done && ((G.frame - G.bootAt - 26) >> 5) % 2 === 0;
   const two = items.includes(2), row2 = () => { const s2 = c === 2; text((s2 ? '> ' : '') + INSTALL_LBL() + (s2 ? ' <' : ''), CX, 98, 8, s2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'); };
-  if (bootStep() === 0) {   // FULL SCREEN < OFF / ON >, puis INSTALL juste en dessous, puis PRESS ... TO CONFIRM
+  if (bootStep() === 0 && !isTouch) {   // PC : > FULL SCREEN:  < OFF >  ON  /  INSTALL ON DESKTOP  /  CONTINUE  /  [flèches] TO SELECT   L TO CONFIRM
+    const DIM = 'rgba(255,255,255,.6)';
+    items.forEach((it, k) => {
+      const y = 84 + k * 14, sel = c === it;
+      slide(k === 0 ? -90 : 60 + k * 30, () => {
+        if (it === 0) {
+          ctx.font = '8px "Press Start 2P", monospace';
+          const lab = (sel ? '> ' : '') + 'FULL SCREEN:', vOff = OPT.full ? 'OFF' : '< OFF >', vOn = OPT.full ? '< ON >' : 'ON';
+          const wL = ctx.measureText(lab).width, wOff = ctx.measureText('< OFF >').width, wOn = ctx.measureText('< ON >').width, gap = 14;
+          const x = Math.round(CX - (wL + gap + wOff + 6 + wOn) / 2);
+          text(lab, x, y, 8, sel ? '#ffd23a' : DIM, 'left');
+          const xo = x + wL + gap + wOff / 2, xn = x + wL + gap + wOff + 6 + wOn / 2;
+          text(vOff, xo, y, 8, !OPT.full ? (sel ? '#ffd23a' : '#ffffff') : DIM, 'center');
+          text(vOn, xn, y, 8, OPT.full ? (sel ? '#ffd23a' : '#ffffff') : DIM, 'center');
+        } else {
+          const lb = it === 2 ? INSTALL_LBL() : 'CONTINUE';
+          text((sel ? '> ' : '') + lb + (sel ? ' <' : ''), CX, y, 8, sel ? '#ffd23a' : DIM, 'center');
+        }
+      });
+    });
+    if (done) {   // une seule ligne : flèches + TO SELECT, puis L TO CONFIRM
+      ctx.font = '8px "Press Start 2P", monospace';
+      const t1 = 'TO SELECT', t2 = kA + ' TO CONFIRM', w1 = ctx.measureText(t1).width, w2 = ctx.measureText(t2).width, w = 11 + 5 + w1 + 18 + w2, x = Math.round(CX - w / 2), y = 84 + items.length * 14 + 14;
+      ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.beginPath();   // croix de flèches
+      const cx2 = x + 5.5, cy2 = y + 3.5;
+      ctx.moveTo(cx2 - 5, cy2); ctx.lineTo(cx2 + 5, cy2); ctx.moveTo(cx2, cy2 - 5); ctx.lineTo(cx2, cy2 + 5);
+      ctx.moveTo(cx2 - 3, cy2 - 2); ctx.lineTo(cx2 - 5, cy2); ctx.lineTo(cx2 - 3, cy2 + 2); ctx.moveTo(cx2 + 3, cy2 - 2); ctx.lineTo(cx2 + 5, cy2); ctx.lineTo(cx2 + 3, cy2 + 2);
+      ctx.moveTo(cx2 - 2, cy2 - 3); ctx.lineTo(cx2, cy2 - 5); ctx.lineTo(cx2 + 2, cy2 - 3); ctx.moveTo(cx2 - 2, cy2 + 3); ctx.lineTo(cx2, cy2 + 5); ctx.lineTo(cx2 + 2, cy2 + 3);
+      ctx.stroke(); ctx.restore();
+      text(t1, x + 16, y, 8, 'rgba(255,255,255,.75)', 'left'); text(t2, x + 16 + w1 + 18, y, 8, '#ffffff', 'left');
+    }
+  } else if (bootStep() === 2) {   // PC : ADD CONTROLLERS, connecter dès maintenant les smartphones (QR codes PLAYER 1 / PLAYER 2)
+    drawQRPopup(true);
+    if (HI.width > W) {   // la fenêtre efface l'écran : le titre du bas est redessiné en net, dessous
+      artTextA(VERSION, W - 18, 6, 8, '#6a6a6a', .5); artTextA('NITRO SURGE FIGHTERS', CX, 170, 10, '#7a7a7a', 1); artTextA('POWERED BY SUPER ROCKET GAMES', CX, 186, 8, '#5a5a5a', 1); artTextA('ALL RIGHTS RESERVED 2026', CX, 197, 8, '#4a4a4a', 1);
+    }
+  } else if (bootStep() === 0) {   // FULL SCREEN < OFF / ON >, puis INSTALL juste en dessous, puis PRESS ... TO CONFIRM
     const sel = c === 0;
     slide(-90, () => text('FULL SCREEN:  ' + (sel ? '< ' : '  ') + (OPT.full ? 'ON ' : 'OFF') + (sel ? ' >' : '  '), CX, 84, 8, sel ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center'));
     if (two) slide(120, row2);
@@ -7762,11 +7804,12 @@ function drawBoot() {   // écran de démarrage : même style que le menu du tit
         ctx.fillStyle = g; ctx.fillRect(bx, by, Math.round(bw * G.offPct), 6);
         text(Math.round(G.offPct * 100) + '%', CX, by + 12, 8, '#9a8aa0', 'center');
       } else slide(130, () => text((on2 ? '> ' : '') + lb + (on2 ? ' <' : ''), CX, 88 + (12 - sz) / 2, sz, on2 ? '#ffd23a' : 'rgba(255,255,255,.6)', 'center')); }   // ADD TO HOME SCREEN arrive du bas
-    if (blink) { iconLine(112, 'TO SELECT', '#ffffff'); text(kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center'); if (fsAvail()) text(kB + ' TO GO BACK', CX, 136, 8, '#ffffff', 'center'); }   // une seule ligne, en blanc : icônes HAUT / BAS
+    if (blink) { iconLine(112, 'TO SELECT', '#ffffff'); text(kA + ' TO CONFIRM', CX, 124, 8, '#ffffff', 'center'); if (fsAvail() && !isTouch) text(kB + ' TO GO BACK', CX, 136, 8, '#ffffff', 'center'); }   // une seule ligne, en blanc : icônes HAUT / BAS
   } else {
     const s1 = true;
     text('START', CX, 86, 16, '#ffd23a', 'center');
-    if (blink && s1) { text(kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail()) text(kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
+    if (!isTouch && fsAvail()) { if (blink) { text(kA + ' TO CONFIRM', CX - 52, 128, 8, '#ffffff', 'center'); text(kB + ' TO GO BACK', CX + 52, 128, 8, '#ffffff', 'center'); } }   // PC : une seule ligne
+    else if (blink && s1) { text(kA + ' TO CONFIRM', CX, 116, 8, '#ffffff', 'center'); if (fsAvail() && !isTouch) text(kB + ' TO GO BACK', CX, 128, 8, '#ffffff', 'center'); }
     if (isStandalone() && G.offState === 'ready') text('OFFLINE MODE READY', CX, 146, 8, '#5aff8a', 'center');   // mode hors ligne prêt : en petit, en bas
   }
 }
@@ -8099,11 +8142,11 @@ function drawInvitePopup() {
   artText(NET.guest ? 'PLAYER 2 CONNECTED!' : NET.id ? 'WAITING FOR PLAYER 2...' : 'CONNECTING...', CX, py + ph - 24, 6.5, NET.guest ? '#5aff8a' : '#c8b8d8');
   artText(isTouch || padOn() ? '< > : CHOOSE   B: CLOSE' : '< > : CHOOSE   ENTER: SHARE   ESC: CLOSE', CX, py + ph - 13, 6, '#ffffff');
 }
-function drawQRPopup() {   // deux QR codes : joueur 1 à gauche, joueur 2 à droite ; B pour fermer
-  const pw = Math.min(W - 24, 300), phh = 150, px = Math.round(CX - pw / 2), py = 30;
+function drawQRPopup(boot) {   // deux QR codes : joueur 1 à gauche, joueur 2 à droite ; B pour fermer
+  const pw = Math.min(W - 24, 300), phh = 150, px = Math.round(CX - pw / 2), py = boot ? 8 : 30;   // écran de démarrage : en haut, le titre reste visible dessous
   QR_POP[0] = px; QR_POP[1] = py; QR_POP[2] = pw; QR_POP[3] = phh;
   if (HI.width > W) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore(); }   // la fenêtre passe au-dessus de la grille
-  artFill('rgba(0,0,0,.6)');
+  if (!boot) artFill('rgba(0,0,0,.6)');
   artFill('#120a1c', px, py, pw, phh);
   ring(px, py, pw, phh, 1, '#ffd23a');
   artText('ADD CONTROLLERS', CX, py + 8, 10, '#ffd23a');
