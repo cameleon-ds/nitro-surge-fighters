@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nitro Surge Fighters — Email verification</title>
+<link rel="icon" type="image/png" href="favicon-nsf.png?v=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:'Press Start 2P',monospace}
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;box-sizing:border-box}
+  .box{background:#120a24;border:4px solid #ffd23a;box-shadow:0 0 0 4px #000,0 0 40px #ff8a3a66;padding:28px 22px;width:min(92vw,420px);text-align:center}
+  h1{font-size:16px;line-height:24px;margin:16px 0;color:#ffd23a;font-weight:normal}
+  p{font-size:9px;line-height:16px;color:#b8b0cc;margin:10px 0}
+  .name{font-size:13px;color:#fff;margin:14px 0 4px}
+  .ok h1{color:#5aff8a} .bad h1{color:#ff5a5a}
+  a{display:inline-block;margin-top:18px;padding:12px 16px;background:#ffd23a;color:#120a24;text-decoration:none;font-size:10px}
+  svg{display:block;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="box" id="box">
+  <svg width="48" height="48" viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 2h10v8H1zM2 3v6h8V3zM3 4h1v1H3zM4 5h1v1H4zM5 6h2v1H5zM7 5h1v1H7zM8 4h1v1H8z" fill="#7ae0ff"/></svg>
+  <h1>CHECKING...</h1>
+</div>
+<script>
+// Page ouverte depuis le lien de l'email : elle valide la connexion, le jeu (sur n'importe quel appareil) se met à jour tout seul.
+const FN = 'https://wjuqigklzbulqyewkdwe.supabase.co/functions/v1/nsf-login', KEY = 'sb_publishable_YBogVNeEglj0LY0B4QxrnQ_E6VT9GNW';
+const box = document.getElementById('box');
+const OKI = '<svg width="48" height="48" viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M1 6h2v2H1zM3 8h2v2H3zM5 6h2v2H5zM7 4h2v2H7zM9 2h2v2H9z" fill="#5aff8a"/></svg>';
+const BADI = '<svg width="48" height="48" viewBox="0 0 12 12" shape-rendering="crispEdges"><path d="M2 2h2v2H2zM4 4h2v2H4zM6 6h2v2H6zM8 8h2v2H8zM8 2h2v2H8zM2 8h2v2H2z" fill="#ff5a5a"/></svg>';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const show = (ok, title, text, name) => {
+  box.className = 'box ' + (ok ? 'ok' : 'bad');
+  box.innerHTML = (ok ? OKI : BADI) + '<h1>' + title + '</h1>' + (name ? '<div class="name">' + esc(name) + '</div>' : '') + '<p>' + text + '</p><a href="./">PLAY NITRO SURGE FIGHTERS</a>';
+};
+const h = new URLSearchParams(location.hash.slice(1)), q = new URLSearchParams(location.search);
+const token = h.get('access_token'), errc = h.get('error_code') || q.get('error_code');
+history.replaceState(null, '', location.pathname);   // le jeton ne reste pas dans l'adresse
+if (!token) show(false, errc === 'otp_expired' ? 'LINK EXPIRED' : 'INVALID LINK', 'This link has expired or was already used.<br>Go back to the game and ask for a new one.');
+else fetch(FN, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm', token }) })
+  .then(r => r.json()).catch(() => null).then(r => {
+    if (!r) return show(false, 'NO CONNECTION', 'Check your internet connection and open the link again.');
+    if (r.error) return show(false, 'INVALID LINK', r.error === 'NOT_FOUND' ? 'No player is linked to this email.' : 'This link has expired or was already used.<br>Go back to the game and ask for a new one.');
+    show(true, 'EMAIL VERIFIED!', r.n ? 'Your email has been verified.<br>Go back to the game: you are now connected with your player.' : 'Your email has been verified.<br>Go back to the game to continue.', r.name);
+  });
+</script>
+</body>
+</html>

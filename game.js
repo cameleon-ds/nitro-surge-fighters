@@ -4,7 +4,7 @@
    ========================================================= */
 'use strict';
 (() => {
-const VERSION = 'v386';
+const VERSION = 'v388';
 
 let W = 384; const H = 216, GROUND = 190, GRAV = 0.34;
 let CX = 192; // centre horizontal
@@ -6083,7 +6083,7 @@ let plrWait = null;
 function plrEnsure() {   // crée l'identifiant du joueur dans la base (une seule fois par navigateur)
   if (PLR.id && PLR.secret) return Promise.resolve(PLR);
   if (plrWait) return plrWait;
-  plrWait = sbRpc('nsf_new_player').then(r => { plrWait = null; if (r && r.id) { Object.assign(PLR, { id: r.id, secret: r.secret, name: r.name }); plrSave(); } return PLR; });
+  plrWait = sbRpc('nsf_new_player').then(r => { plrWait = null; if (r && r.id) { Object.assign(PLR, { id: r.id, secret: r.secret, name: r.name, uid: r.uid }); plrSave(); } return PLR; });
   return plrWait;
 }
 function submitRun(o) {
@@ -6094,52 +6094,129 @@ function submitRun(o) {
 const fetchTop = (mode, n) => sbRpc('nsf_top', { p_mode: mode, p_limit: n || 5 }).then(r => Array.isArray(r) ? r : null);
 const fetchBestTime = () => sbRpc('nsf_cab_best_time', {}).then(r => Array.isArray(r) && r[0] ? r[0] : null);
 
-// Fenêtre « pseudo » (12 caractères maximum) : avant le mode ARCADE, ou à la fin pour enregistrer son score
+// Fenêtre « pseudo + email » (avant le mode ARCADE, ou à la fin pour enregistrer son score)
+// + « I ALREADY HAVE AN ACCOUNT » : email ou identifiant unique -> lien de validation par email -> ce navigateur récupère le compte
+const plrUid = () => PLR.uid || (PLR.id ? 'NSF-anonyme-' + String(PLR.id).padStart(3, '0') : 'NSF-anonyme-...');
+function plrSyncBest() {   // compte retrouvé : on récupère ses meilleurs scores dans les records locaux
+  if (!PLR.id) return;
+  sbRpc('nsf_my_best', { p_id: PLR.id, p_secret: PLR.secret }).then(b => {
+    if (!b || b.error) return;
+    try {
+      if (b.arcade > (+localStorage.getItem('nsfArcBest') || 0)) localStorage.setItem('nsfArcBest', String(b.arcade));
+      const r = cabRec(); if (b.cab_score > (r.score || 0)) r.score = b.cab_score;
+      if (b.cab_time) { const f = Math.round(b.cab_time * 60 / 1000); if (!r.time || f < r.time) r.time = f; } cabSaveRec(r);
+    } catch (e) {}
+  });
+}
 function nameEntry(o) {
   o = o || {};
   if (document.getElementById('nsfName')) return;
   G.modal = true; keys.clear && keys.clear();
   plrEnsure();
+  const F = "font-family:'Press Start 2P',monospace";
   const ov = document.createElement('div'); ov.id = 'nsfName';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(4,2,12,.72);font-family:"Press Start 2P",monospace';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(4,2,12,.72);' + F;
   const ic = (d, c) => `<svg width="12" height="12" viewBox="0 0 12 12" style="vertical-align:-2px;margin-right:8px" shape-rendering="crispEdges"><path d="${d}" fill="${c}"/></svg>`;
-  const OK = 'M1 6h2v2H1zM3 8h2v2H3zM5 6h2v2H5zM7 4h2v2H7zM9 2h2v2H9z', SKIP = 'M2 2h2v2H2zM4 4h2v2H4zM6 6h2v2H6zM8 8h2v2H8zM8 2h2v2H8zM2 8h2v2H2z';
-  const title = o.score != null ? 'SAVE YOUR SCORE' : 'CREATE YOUR NAME';
-  ov.innerHTML = `<div style="background:#120a24;border:4px solid #ffd23a;box-shadow:0 0 0 4px #000,0 0 40px #ff8a3a66;padding:22px 20px;width:min(92vw,380px);color:#fff;text-align:center;image-rendering:pixelated">
-    <div style="color:#ffd23a;font-size:14px;margin-bottom:14px">${title}</div>
-    ${o.score != null ? `<div style="font-size:10px;margin-bottom:12px;color:#7ae0ff">${o.label || 'SCORE'} ${fmtSc(o.score)}</div>` : ''}
-    <div style="font-size:8px;line-height:14px;color:#b8b0cc;margin-bottom:12px">${PLR.pseudo ? 'YOUR NAME: ' + PLR.pseudo : 'NO NAME YET: YOUR SCORES ARE SAVED AS<br><span id="nsfAnon" style="color:#fff">' + (PLR.name || 'NSF-anonyme') + '</span>'}</div>
-    <input id="nsfNameIn" maxlength="12" autocomplete="off" spellcheck="false" placeholder="NAME" value="${PLR.pseudo || ''}"
-      style="width:100%;box-sizing:border-box;font:14px 'Press Start 2P',monospace;padding:10px;background:#000;color:#ffd23a;border:2px solid #7ae0ff;outline:none;text-align:center;text-transform:uppercase">
-    <div id="nsfNameErr" style="min-height:12px;font-size:7px;line-height:11px;color:#ff5a5a;margin:8px 0"></div>
-    <div style="display:flex;gap:10px">
-      <button id="nsfNameOk" style="flex:1;font:10px 'Press Start 2P',monospace;padding:12px 6px;background:#ffd23a;color:#120a24;border:0;cursor:pointer">${ic(OK, '#120a24')}OK</button>
-      <button id="nsfNameSkip" style="flex:1;font:10px 'Press Start 2P',monospace;padding:12px 6px;background:#2a2040;color:#fff;border:0;cursor:pointer">${ic(SKIP, '#ffffff')}SKIP</button>
-    </div></div>`;
-  document.body.appendChild(ov);
-  const inp = ov.querySelector('#nsfNameIn'), err = ov.querySelector('#nsfNameErr'), okB = ov.querySelector('#nsfNameOk');
-  setTimeout(() => inp.focus(), 50);
-  plrEnsure().then(() => { const s = ov.querySelector('#nsfAnon'); if (s) s.textContent = PLR.name || 'NSF-anonyme'; });
-  let busy = false;
+  const OK = 'M1 6h2v2H1zM3 8h2v2H3zM5 6h2v2H5zM7 4h2v2H7zM9 2h2v2H9z', SKIP = 'M2 2h2v2H2zM4 4h2v2H4zM6 6h2v2H6zM8 8h2v2H8zM8 2h2v2H8zM2 8h2v2H2z',
+    KEY = 'M1 4h4v4H1zM2 5h2v2H2zM5 5h6v2H5zM8 7h1v2H8zM10 7h1v2H10z', BACK = 'M5 2h2v2H5zM3 4h2v2H3zM1 6h2v0H1zM3 6h8v2H3zM5 8h2v2H5z', MAIL = 'M1 2h10v8H1zM2 3v6h8V3zM3 4h1v1H3zM4 5h1v1H4zM5 6h2v1H5zM7 5h1v1H7zM8 4h1v1H8z';
+  const inSt = "width:100%;box-sizing:border-box;font:12px 'Press Start 2P',monospace;padding:10px;background:#000;color:#ffd23a;border:2px solid #7ae0ff;outline:none;text-align:center;margin-bottom:8px";
+  const btn = (id, d, c, bg, fg, lab, ex) => `<button id="${id}" style="flex:1;font:10px 'Press Start 2P',monospace;padding:12px 6px;background:${bg};color:${fg};border:0;cursor:pointer;${ex || ''}">${ic(d, c)}${lab}</button>`;
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#120a24;border:4px solid #ffd23a;box-shadow:0 0 0 4px #000,0 0 40px #ff8a3a66;padding:20px 18px;width:min(92vw,400px);max-height:92vh;overflow:auto;color:#fff;text-align:center';
+  ov.appendChild(box); document.body.appendChild(ov);
+  let busy = false, pollT = null, view = 'create';
+  const $ = s => box.querySelector(s), err = t => { const e = $('.nsfErr'); if (e) e.textContent = t || ''; };
   const close = named => {
+    if (pollT) clearInterval(pollT); pollT = null;
     ov.remove(); G.modal = false; keys.clear && keys.clear(); sfx(named ? 'select' : 'beep');
     if (o.score != null && !o.noSubmit) submitRun(o).then(r => { if (o.onResult) o.onResult(r); });
     if (o.onDone) o.onDone(named);
   };
-  const save = () => {
-    if (busy) return; const v = inp.value.trim();
-    if (!v) { err.textContent = 'TYPE A NAME OR PRESS SKIP'; return; }
-    if (v.length < 2 || !/^[A-Za-z0-9 _.\-]+$/.test(v)) { err.textContent = '2 TO 12 CHARACTERS: LETTERS, NUMBERS, SPACE _ . -'; return; }
-    if (v === PLR.pseudo) return close(true);
-    busy = true; okB.style.opacity = .5; err.textContent = '';
-    plrEnsure().then(() => !PLR.id ? { error: 'NO CONNECTION, TRY AGAIN' } : sbRpc('nsf_set_pseudo', { p_id: PLR.id, p_secret: PLR.secret, p_pseudo: v })).then(r => {
-      busy = false; okB.style.opacity = 1;
-      if (!r || r.error) { err.textContent = !r ? 'NO CONNECTION, TRY AGAIN' : /pris/.test(r.error) ? 'THIS NAME IS ALREADY TAKEN' : /caract/.test(r.error) ? '2 TO 12 CHARACTERS: LETTERS, NUMBERS, SPACE _ . -' : String(r.error).toUpperCase(); return; }
-      PLR.pseudo = v; PLR.name = r.name; plrSave(); close(true);
-    });
-  };
-  okB.onclick = save; ov.querySelector('#nsfNameSkip').onclick = () => close(false);
-  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') save(); else if (e.key === 'Escape') close(false); });
+  const keyNav = (inp, enter) => inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') enter(); else if (e.key === 'Escape') close(false); });
+  function showCreate() {   // créer son pseudo + email
+    view = 'create';
+    const title = o.score != null ? 'SAVE YOUR SCORE' : 'CREATE YOUR PLAYER';
+    box.innerHTML = `<div style="color:#ffd23a;font-size:14px;margin-bottom:12px">${title}</div>
+      ${o.score != null ? `<div style="font-size:10px;margin-bottom:10px;color:#7ae0ff">${o.label || 'SCORE'} ${fmtSc(o.score)}</div>` : ''}
+      <div style="font-size:8px;line-height:13px;color:#b8b0cc;margin-bottom:12px">YOUR UNIQUE ID<br><span class="nsfUid" style="color:#fff">${plrUid()}</span></div>
+      <input id="nsfNameIn" maxlength="12" autocomplete="nickname" spellcheck="false" placeholder="NAME (12 MAX)" value="${PLR.pseudo || ''}" style="${inSt};text-transform:uppercase">
+      <input id="nsfMailIn" type="email" maxlength="120" autocomplete="email" spellcheck="false" placeholder="EMAIL" value="${PLR.email || ''}" style="${inSt};font-size:10px;color:#fff">
+      <div style="font-size:7px;line-height:11px;color:#9a93aa;margin-bottom:4px">YOUR EMAIL LETS YOU GET YOUR PLAYER BACK ON ANOTHER DEVICE</div>
+      <div class="nsfErr" style="min-height:12px;font-size:7px;line-height:11px;color:#ff5a5a;margin:6px 0"></div>
+      <div style="display:flex;gap:10px">${btn('nsfOk', OK, '#120a24', '#ffd23a', '#120a24', 'OK')}${btn('nsfSkip', SKIP, '#ffffff', '#2a2040', '#ffffff', 'SKIP')}</div>
+      <div style="margin-top:10px;display:flex">${btn('nsfHave', KEY, '#7ae0ff', 'transparent', '#7ae0ff', 'I ALREADY HAVE AN ACCOUNT', 'border:2px solid #7ae0ff;font-size:8px')}</div>`;
+    plrEnsure().then(() => { const s = $('.nsfUid'); if (s) s.textContent = plrUid(); });
+    const inp = $('#nsfNameIn'), mail = $('#nsfMailIn');
+    setTimeout(() => inp.focus(), 50);
+    const save = () => {
+      if (busy) return; const v = inp.value.trim(), m = mail.value.trim();
+      if (v.length < 2 || !/^[A-Za-z0-9 _.\-]+$/.test(v)) return err('NAME: 2 TO 12 CHARACTERS (LETTERS, NUMBERS, SPACE _ . -)');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return err('PLEASE ENTER A VALID EMAIL');
+      busy = true; $('#nsfOk').style.opacity = .5; err('');
+      plrEnsure().then(() => !PLR.id ? null : sbRpc('nsf_set_profile', { p_id: PLR.id, p_secret: PLR.secret, p_pseudo: v, p_email: m })).then(r => {
+        busy = false; const b = $('#nsfOk'); if (b) b.style.opacity = 1;
+        if (!r) return err('NO CONNECTION, TRY AGAIN');
+        if (r.error) return err({ PSEUDO: 'NAME: 2 TO 12 CHARACTERS (LETTERS, NUMBERS, SPACE _ . -)', EMAIL: 'PLEASE ENTER A VALID EMAIL', PSEUDO_TAKEN: 'THIS NAME IS ALREADY TAKEN',
+          EMAIL_TAKEN: 'THIS EMAIL IS ALREADY USED: PRESS « I ALREADY HAVE AN ACCOUNT »' }[r.error] || 'ERROR, TRY AGAIN');
+        Object.assign(PLR, { pseudo: v, email: m.toLowerCase(), name: r.name, uid: r.uid || PLR.uid }); plrSave(); close(true);
+      });
+    };
+    $('#nsfOk').onclick = save; $('#nsfSkip').onclick = () => close(false); $('#nsfHave').onclick = showLogin;
+    keyNav(inp, () => mail.focus()); keyNav(mail, save);
+  }
+  function showLogin() {   // retrouver son compte : email ou identifiant unique
+    view = 'login';
+    box.innerHTML = `<div style="color:#ffd23a;font-size:14px;margin-bottom:14px">I ALREADY HAVE AN ACCOUNT</div>
+      <div style="font-size:8px;line-height:13px;color:#b8b0cc;margin-bottom:12px">ENTER YOUR EMAIL<br>OR YOUR UNIQUE ID (NSF-anonyme-001)</div>
+      <input id="nsfIdIn" maxlength="120" autocomplete="email" spellcheck="false" placeholder="EMAIL OR UNIQUE ID" style="${inSt};font-size:10px;color:#fff">
+      <div class="nsfErr" style="min-height:12px;font-size:7px;line-height:11px;color:#ff5a5a;margin:6px 0"></div>
+      <div style="display:flex;gap:10px">${btn('nsfBack', BACK, '#ffffff', '#2a2040', '#ffffff', 'BACK')}${btn('nsfGo', OK, '#120a24', '#ffd23a', '#120a24', 'CONTINUE')}</div>`;
+    const inp = $('#nsfIdIn'); setTimeout(() => inp.focus(), 50);
+    const go = () => {
+      if (busy) return; const v = inp.value.trim(); if (!v) return err('ENTER YOUR EMAIL OR YOUR UNIQUE ID');
+      busy = true; $('#nsfGo').style.opacity = .5; err('');
+      fetch(SB_URL + '/functions/v1/nsf-login', { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'start', ident: v }) })
+        .then(r => r.json()).catch(() => null).then(r => {
+          busy = false; const b = $('#nsfGo'); if (b) b.style.opacity = 1;
+          if (!r) return err('NO CONNECTION, TRY AGAIN');
+          if (r.error) return err({ NOT_FOUND: 'NO ACCOUNT FOUND WITH THIS EMAIL OR ID', NO_EMAIL: 'THIS ACCOUNT HAS NO EMAIL: IT CANNOT BE RECOVERED', RATE: 'TOO MANY TRIES: WAIT 10 MINUTES',
+            MAIL: 'THE EMAIL COULD NOT BE SENT, TRY AGAIN LATER', EMPTY: 'ENTER YOUR EMAIL OR YOUR UNIQUE ID' }[r.error] || 'ERROR, TRY AGAIN');
+          showWait(r);
+        });
+    };
+    $('#nsfGo').onclick = go; $('#nsfBack').onclick = showCreate; keyNav(inp, go);
+  }
+  function showWait(q) {   // email envoyé : on attend que le joueur clique le lien (sur n'importe quel appareil)
+    view = 'wait';
+    box.innerHTML = `<div style="margin-bottom:12px">${ic(MAIL, '#7ae0ff').replace('width="12" height="12"', 'width="36" height="36"')}</div>
+      <div style="color:#ffd23a;font-size:13px;margin-bottom:12px">CHECK YOUR EMAIL</div>
+      <div style="font-size:8px;line-height:14px;color:#b8b0cc;margin-bottom:6px">WE SENT A LINK TO</div>
+      <div style="font-size:9px;color:#fff;margin-bottom:12px;word-break:break-all">${q.email}</div>
+      <div style="font-size:8px;line-height:14px;color:#b8b0cc;margin-bottom:12px">OPEN IT AND CLICK THE LINK<br>(ON THIS DEVICE OR YOUR PHONE)</div>
+      <div class="nsfWait" style="font-size:8px;color:#7ae0ff;margin-bottom:12px">WAITING</div>
+      <div class="nsfErr" style="min-height:12px;font-size:7px;line-height:11px;color:#ff5a5a;margin:6px 0"></div>
+      <div style="display:flex;gap:10px">${btn('nsfBack', BACK, '#ffffff', '#2a2040', '#ffffff', 'BACK')}</div>`;
+    $('#nsfBack').onclick = () => { if (pollT) clearInterval(pollT); pollT = null; showLogin(); };
+    let n = 0, t0 = Date.now();
+    pollT = setInterval(() => {
+      const w = $('.nsfWait'); if (w) w.textContent = 'WAITING' + '.'.repeat(1 + (n++ % 3));
+      if (Date.now() - t0 > 20 * 60e3) { clearInterval(pollT); pollT = null; return err('THE LINK HAS EXPIRED: PRESS BACK AND TRY AGAIN'); }
+      if (n % 3) return;   // toutes les 3 s environ
+      sbRpc('nsf_login_poll', { p_req: q.req, p_poll: q.poll }).then(r => {
+        if (!r || view !== 'wait') return;
+        if (r.error) { clearInterval(pollT); pollT = null; return err('THE LINK HAS EXPIRED: PRESS BACK AND TRY AGAIN'); }
+        if (r.pending) return;
+        clearInterval(pollT); pollT = null;
+        for (const k of Object.keys(PLR)) delete PLR[k];
+        Object.assign(PLR, { id: r.id, secret: r.secret, name: r.name, uid: r.uid, pseudo: r.pseudo || undefined, email: r.email || undefined }); plrSave(); plrSyncBest();
+        view = 'done';
+        box.innerHTML = `<div style="color:#5aff8a;font-size:13px;margin-bottom:14px">WELCOME BACK!</div>
+          <div style="font-size:12px;color:#ffd23a;margin-bottom:8px">${r.name}</div><div style="font-size:8px;color:#b8b0cc">${r.uid}</div>`;
+        sfx('select'); setTimeout(() => close(true), 1600);
+      });
+    }, 1000);
+  }
+  showCreate();
 }
 
 /* ---------------- SPECIAL MODES : débloqué en finissant l'ARCADE en NORMAL ou plus ---------------- */
