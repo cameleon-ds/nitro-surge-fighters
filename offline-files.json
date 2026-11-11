@@ -95,7 +95,7 @@
 "stage_alley.jpg",
 "stage_city.jpg",
 "stage_dojo.jpg",
-"stage_hall.jpg",
+"stage_bib.jpg",
 "stage_lab.jpg",
 "stage_ring.jpg",
 "stage_temple.jpg",
@@ -125,5 +125,12 @@
 "cab_open.png",
 "cab_door.png",
 "cab_shadow.png",
-"cab_refl.png"
+"cab_refl.png",
+"sfx/cyber-cab-flying.mp3",
+"sfx/car-finish-explosion.mp3",
+"phone-screen-controller.png",
+"sfx/dest-01.mp3",
+"sfx/dest-02.mp3",
+"sfx/dest-03.mp3",
+"sfx/dest-04.mp3"
 ]
