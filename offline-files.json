@@ -150,5 +150,8 @@
   "sfx/sound-A-button-up1.mp3",
   "sfx/sound-A-button-up2.mp3",
   "sfx/sound-A-button-up3.mp3",
-  "sfx/sound-B-button-down1.mp3"
+  "sfx/sound-B-button-down1.mp3",
+  "sfx/sound-B-button-down2.mp3",
+  "sfx/sound-B-button-up1.mp3",
+  "sfx/sound-B-button-up2.mp3"
 ]
