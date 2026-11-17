@@ -143,5 +143,12 @@
   "sfx/dest-04.mp3",
   "stage_punch.jpg",
   "punching-ball-01.png",
-  "punching-small.png"
+  "punching-small.png",
+  "sfx/sound-A-button-down1.mp3",
+  "sfx/sound-A-button-down2.mp3",
+  "sfx/sound-A-button-down3.mp3",
+  "sfx/sound-A-button-up1.mp3",
+  "sfx/sound-A-button-up2.mp3",
+  "sfx/sound-A-button-up3.mp3",
+  "sfx/sound-B-button-down1.mp3"
 ]
