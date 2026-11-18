@@ -1,0 +1,485 @@
+/* ==========================================================================
+   NSF — Motion layer (loaded after home.css, used by index-motion.html)
+   Scroll-linked transitions, parallax, marquees, tilt, magnetic buttons.
+   Everything degrades gracefully with prefers-reduced-motion.
+   ========================================================================== */
+
+:root{--scroll-p:0;--vel-skew:0deg;--cursor-x:-200px;--cursor-y:-200px}
+body{background:#08080a}
+
+/* ---------- 1. Scroll progress bar ---------- */
+.motion-progress{position:fixed;z-index:10001;top:0;left:0;right:0;height:3px;pointer-events:none;background:transparent}
+.motion-progress span{display:block;height:100%;width:100%;transform-origin:0 50%;transform:scaleX(var(--scroll-p));background:linear-gradient(90deg,var(--nitro),#c6ff5c 35%,var(--surge));box-shadow:0 0 12px #78ef3699,0 0 22px #a817ef66}
+
+/* ---------- 2. Film grain + arcade scanlines ---------- */
+.motion-grain{position:fixed;inset:-50%;z-index:9998;pointer-events:none;opacity:.055;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:grain-shift 1.2s steps(6) infinite}
+@keyframes grain-shift{0%{transform:translate(0,0)}20%{transform:translate(-4%,3%)}40%{transform:translate(3%,-2%)}60%{transform:translate(-2%,-4%)}80%{transform:translate(4%,2%)}100%{transform:translate(0,0)}}
+.hero:after,.about-section:after,.video-section:after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:repeating-linear-gradient(180deg,#ffffff06 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+.about-section,.video-section{position:relative}
+.about-section>*,.video-section>*{position:relative;z-index:1}
+
+/* ---------- 3. Hero: scroll-out + mouse depth ---------- */
+.hero{--hero-out:0;--hero-mx:0;--hero-my:0}
+.hero-media img{scale:calc(1 + var(--hero-out) * .14);translate:calc(var(--hero-mx) * -14px) calc(var(--hero-my) * -10px);transition:translate .9s var(--ease)}
+.hero-shade{opacity:calc(1 + var(--hero-out) * 1.6)}
+.hero-shade:after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,#a817ef55,transparent 60%);opacity:calc(.35 + var(--hero-out))}
+.hero-actions{opacity:calc(1 - var(--hero-out) * 1.8);translate:calc(var(--hero-mx) * 8px) calc(var(--hero-out) * -60px + var(--hero-my) * 6px);filter:blur(calc(var(--hero-out) * 8px));transition:translate .9s var(--ease)}
+.scroll-cue,.hero-index{opacity:calc(1 - var(--hero-out) * 3)}
+.hero-copy{translate:calc(var(--hero-mx) * 10px) calc(var(--hero-my) * 8px);transition:translate 1.1s var(--ease)}
+/* light streaks crossing the hero */
+.hero-streaks{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;mix-blend-mode:screen}
+.hero-streaks i{position:absolute;height:2px;width:38vw;left:-40vw;border-radius:2px;background:linear-gradient(90deg,transparent,var(--c,#78ef36),transparent);filter:blur(.4px);opacity:.75;animation:streak var(--d,3.6s) cubic-bezier(.5,0,.3,1) var(--delay,0s) infinite}
+.hero-streaks i:nth-child(1){top:22%;--d:4.2s;--delay:1.8s}
+.hero-streaks i:nth-child(2){top:64%;--d:3.4s;--delay:2.6s;--c:#a817ef}
+.hero-streaks i:nth-child(3){top:41%;--d:5s;--delay:3.4s;width:24vw;--c:#ffae45}
+.hero-streaks i:nth-child(4){top:78%;--d:4.6s;--delay:4.4s;width:30vw}
+@keyframes streak{0%{transform:translateX(0) skewX(-30deg);opacity:0}8%{opacity:.85}38%,100%{transform:translateX(150vw) skewX(-30deg);opacity:0}}
+
+/* ---------- 4. Section "curtain" transitions (desktop) ---------- */
+@media(min-width:901px){
+  [data-curtain]{--curtain:1;clip-path:inset(calc(var(--curtain) * 5.5vh) calc(var(--curtain) * 4.5vw) 0 round calc(var(--curtain) * 36px));will-change:clip-path}
+  [data-curtain]>*{translate:0 calc(var(--curtain) * 46px);transition:translate .2s linear}
+}
+
+/* ---------- 5. Marquee bands ---------- */
+.motion-marquee{position:relative;overflow:hidden;background:#08080a;color:#fff;padding:clamp(18px,2.6vw,34px) 0;border-top:1px solid #222228;border-bottom:1px solid #222228;user-select:none}
+.motion-marquee.is-light{background:var(--nitro);color:#08080a;border-color:#08080a}
+.motion-marquee-track{display:flex;width:max-content;will-change:transform;transform:translate3d(var(--mq-x,0px),0,0) skewX(var(--vel-skew))}
+.motion-marquee-track span{display:flex;align-items:center;gap:clamp(18px,2.4vw,36px);padding-right:clamp(18px,2.4vw,36px);font-size:clamp(42px,8.4vw,128px);font-weight:900;line-height:.9;letter-spacing:-.06em;text-transform:uppercase;white-space:nowrap}
+.motion-marquee-track b{font-weight:900}
+.motion-marquee-track em{font-style:normal;color:transparent;-webkit-text-stroke:1.5px currentColor}
+.motion-marquee:not(.is-light) .motion-marquee-track em:nth-of-type(2n){-webkit-text-stroke-color:var(--nitro)}
+.motion-marquee:not(.is-light) .motion-marquee-track b:nth-of-type(3n){color:var(--surge)}
+.motion-marquee-track svg{width:clamp(22px,3.4vw,48px);height:auto;flex:none;fill:currentColor}
+.motion-marquee:not(.is-light) .motion-marquee-track svg{fill:var(--nitro)}
+
+/* ---------- 6. Eyebrow line + section heading depth ---------- */
+.eyebrow{display:inline-flex;align-items:center;gap:12px}
+.eyebrow:before{content:"";width:0;height:1px;background:currentColor;transition:width .9s var(--ease) .25s}
+.is-visible .eyebrow:before,.eyebrow.is-visible:before,.special-copy .eyebrow:before{width:34px}
+.hero-copy .eyebrow:before{display:none}
+
+/* ---------- 7. Image wipe reveals (cover panel slides away — no clip-path on the observed element) ---------- */
+.special-shot.reveal:before,.video-card.reveal:before{content:"";position:absolute;inset:0;z-index:6;pointer-events:none;background:linear-gradient(90deg,var(--nitro) 0 5px,var(--wipe-bg,#0c0c0f) 5px);transform:scaleX(1);transform-origin:100% 50%;transition:transform 1.1s cubic-bezier(.77,0,.18,1);transition-delay:calc(var(--reveal-delay,0ms) + .15s)}
+.video-card.reveal:before{--wipe-bg:#141417;background:linear-gradient(90deg,var(--surge) 0 5px,var(--wipe-bg) 5px)}
+.special-shot.reveal.is-visible:before,.video-card.reveal.is-visible:before{transform:scaleX(0)}
+.wallpaper-card.reveal .wallpaper-image{clip-path:inset(0 100% 0 0);transition:clip-path 1.15s cubic-bezier(.77,0,.18,1);transition-delay:var(--reveal-delay,0ms)}
+.wallpaper-card.reveal.is-visible .wallpaper-image{clip-path:inset(0 0 0 0)}
+
+/* ---------- 8. Slider switch flash (fighters + special modes) ---------- */
+.fighter-window,.special-window{position:relative}
+.fighter-window:after,.special-window:after{content:"";position:absolute;z-index:8;top:-10%;bottom:-10%;left:-30%;width:26%;pointer-events:none;background:linear-gradient(90deg,transparent,#78ef36cc 40%,#ffffff 50%,#a817efcc 60%,transparent);transform:skewX(-18deg) translateX(0);opacity:0;mix-blend-mode:screen}
+.fighter-window.is-switching:after,.special-window.is-switching:after{animation:slash .85s cubic-bezier(.6,0,.2,1) both}
+@keyframes slash{0%{opacity:0;transform:skewX(-18deg) translateX(0)}15%{opacity:1}100%{opacity:0;transform:skewX(-18deg) translateX(620%)}}
+.fighter-window.is-switching .fighter-art{animation:fighter-enter 1s cubic-bezier(.2,.8,.2,1) both}
+.fighter-window.is-switching .fighter-copy h3{animation:name-glitch .6s steps(2) .25s both}
+@keyframes fighter-enter{0%{filter:drop-shadow(0 14px 20px #0002) brightness(2.4) saturate(0);translate:-5% 0}40%{filter:drop-shadow(0 14px 20px #0002) brightness(1.3)}100%{filter:drop-shadow(0 14px 20px #0002);translate:0 0}}
+@keyframes name-glitch{0%{text-shadow:-4px 0 var(--nitro),4px 0 var(--surge);translate:3px 0}50%{text-shadow:3px 0 var(--nitro),-3px 0 var(--surge);translate:-2px 0}100%{text-shadow:none;translate:0 0}}
+.fighter-slide:before{translate:calc(var(--mx,0) * -26px) calc(var(--sp,0) * -90px)}
+
+/* ---------- 9. 3D tilt + glare ---------- */
+.motion-tilt{position:relative;--rx:0deg;--ry:0deg;--gx:50%;--gy:50%;transform-style:preserve-3d}
+.reveal.is-visible.motion-tilt.is-tilting,.motion-tilt.is-tilting{transform:perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-6px) scale(1.01);transition:transform .14s linear,box-shadow .4s}
+.motion-glare{position:absolute;inset:0;z-index:7;pointer-events:none;opacity:0;background:radial-gradient(circle at var(--gx) var(--gy),#ffffff59,transparent 46%);mix-blend-mode:soft-light;transition:opacity .4s}
+.is-tilting>.motion-glare{opacity:1}
+.record-card{position:relative}
+
+/* ---------- 10. Magnetic buttons ---------- */
+.motion-magnetic{translate:var(--mag-x,0px) var(--mag-y,0px);transition:background .28s,color .28s,border-color .28s,box-shadow .28s,transform .28s var(--ease),translate .45s cubic-bezier(.2,.9,.25,1.4)}
+.button-primary{position:relative;overflow:hidden;isolation:isolate}
+.button-primary:after{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(90deg,transparent,#ffffffa6,transparent);transform:skewX(-20deg);animation:btn-shine 4.2s ease-in-out infinite}
+@keyframes btn-shine{0%,70%{left:-60%}100%{left:130%}}
+
+/* ---------- 11. Custom cursor ring (desktop / mouse only) ---------- */
+.motion-cursor{position:fixed;z-index:10002;top:0;left:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid var(--nitro);border-radius:0;pointer-events:none;
+  transform:translate3d(var(--cursor-x),var(--cursor-y),0) scale(var(--cursor-s,1));box-shadow:0 0 0 1px #000a,inset 0 0 0 1px #000a;
+  transition:width .25s steps(3),height .25s steps(3),margin .25s steps(3),background .2s,border-color .2s,opacity .3s;opacity:0;image-rendering:pixelated}
+.motion-cursor:before{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;background:var(--nitro)}
+.motion-cursor.is-on{opacity:1}
+.motion-cursor.is-hover{width:44px;height:44px;margin:-22px 0 0 -22px;border-color:#a817ef;background:#a817ef22}
+.motion-cursor.is-hover:before{background:#a817ef}
+.motion-cursor.is-down{--cursor-s:.82}
+.motion-cursor.is-click{animation:cursor-arcade .48s steps(1) both}
+.motion-cursor.is-click:before{animation:cursor-arcade-dot .48s steps(1) both}
+@keyframes cursor-arcade{0%{border-color:#fff;background:#78ef3666}12%{border-color:#a817ef;background:#a817ef55}25%{border-color:#78ef36;background:#78ef3655}37%{border-color:#a817ef;background:transparent}50%{border-color:#78ef36;background:#78ef3644}62%{border-color:#a817ef;background:#a817ef44}75%{border-color:#78ef36;background:transparent}87%{border-color:#a817ef}100%{}}
+@keyframes cursor-arcade-dot{0%{background:#fff}12%{background:#a817ef}25%{background:#78ef36}37%{background:#a817ef}50%{background:#78ef36}62%{background:#a817ef}75%{background:#78ef36}100%{}}
+
+/* ---------- 12. Section dots (right side, desktop) ---------- */
+.motion-dots{position:fixed;z-index:9000;right:22px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:14px;mix-blend-mode:difference;opacity:0;transition:opacity .5s}
+.motion-dots.is-on{opacity:1}
+.motion-dots a{position:relative;display:block;width:10px;height:10px}
+.motion-dots a:before{content:"";position:absolute;inset:3px;border-radius:50%;background:#fff;opacity:.45;transition:inset .35s var(--ease),opacity .35s}
+.motion-dots a.is-active:before{inset:0;opacity:1}
+.motion-dots a span{position:absolute;right:22px;top:50%;transform:translate(8px,-50%);white-space:nowrap;color:#fff;font-size:8px;font-weight:850;letter-spacing:.16em;opacity:0;transition:opacity .3s,transform .3s var(--ease)}
+.motion-dots a:hover span,.motion-dots a.is-active span{opacity:1;transform:translate(0,-50%)}
+@media(max-width:900px){.motion-dots{display:none}}
+
+/* ---------- 13. Records rows + experience float ---------- */
+.record-row{animation:row-in .7s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--row,0) * 110ms)}
+@keyframes row-in{0%{opacity:0;transform:translateX(-18px)}100%{opacity:1;transform:none}}
+.phone-controller-float img{animation:phone-float 5.5s ease-in-out infinite}
+@keyframes phone-float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(1.5deg)}}
+.about-pillar{transition:background .45s,transform .45s var(--ease)}
+.about-pillar:hover{background:#1c1c21;transform:translateY(-4px)}
+.about-pillar:after{content:"";position:absolute;inset:auto -20% -60% -20%;height:80%;background:radial-gradient(ellipse at 50% 100%,currentColor,transparent 60%);opacity:0;transition:opacity .5s}
+.about-pillar:hover:after{opacity:.18}
+
+/* ---------- 14. Fighter move previews (IDLE / HIT COMBO / SPECIAL) ---------- */
+.fighter-versions{flex-wrap:wrap;gap:8px}.fighter-versions{flex-wrap:nowrap}.fighter-versions .version-card:not(.move-card){display:none}
+.version-card.move-card{min-width:0;padding:9px 10px 8px;background:#141417;border-color:#26262c;position:relative;overflow:hidden}
+.version-card.move-card label{color:#9a9aa2;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.version-card.move-card label:before{content:"";width:5px;height:5px;background:var(--nitro);box-shadow:0 0 6px var(--nitro)}
+.move-special label:before{background:var(--surge)!important;box-shadow:0 0 6px var(--surge)!important}
+.move-card:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,#ffffff07 0 1px,transparent 1px 3px)}
+.move-canvas{display:block;height:92px;width:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+@media(max-width:1100px){.move-canvas{height:80px}}
+@media(max-width:600px){.fighter-versions{gap:6px;flex-wrap:wrap}.version-card.move-card{padding:7px 7px 6px}.move-canvas{height:78px}}
+
+/* ---------- 16. Cyber Cab hover flight (driven by home-motion.js) ---------- */
+.special-shot-main.cab-scene{container-type:inline-size;cursor:crosshair}
+.special-shot-main .cyber-cab-flyover.cab-physics,.special-shot-main:hover .cyber-cab-flyover.cab-physics,.reveal.is-visible .cyber-cab-flyover.cab-physics{
+  transform:translate3d(calc(-50% + var(--cab-x,0px)),calc(-50% + var(--parallax-y,0px) + var(--cab-y,0px)),0) rotate(var(--cab-rot,0deg)) scale(var(--cab-sx,1),var(--cab-sy,1));
+  transition:none;will-change:transform;filter:drop-shadow(0 18px 16px #050507b8) drop-shadow(0 0 10px #5ae8ff40)}
+.cab-thrusters{position:absolute;z-index:1;left:50%;top:calc(50% + 11cqw);width:56%;height:16cqw;pointer-events:none;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 30%,#bff8ff 0,#4fe0ffcc 18%,#1aa8ff55 45%,transparent 70%);filter:blur(8px);mix-blend-mode:screen;
+  opacity:var(--glow,.5);transform:translate3d(calc(-50% + var(--cab-x,0px)),calc(-50% + var(--parallax-y,0px) + var(--cab-y,0px)),0) scaleY(calc(.7 + var(--glow,.5) * .6));transform-origin:50% 0}
+.cab-ground-shadow{position:absolute;z-index:1;left:50%;bottom:7%;width:58%;height:9%;pointer-events:none;border-radius:50%;
+  background:radial-gradient(ellipse at center,#000000c0 0,#00000066 45%,transparent 72%);filter:blur(3px);
+  opacity:var(--shadow-o,.6);transform:translateX(calc(-50% + var(--cab-x,0px))) scale(var(--shadow-s,1))}
+.cab-scene.cab-boost .cyber-cab-flyover.cab-physics{animation:cab-flash .55s ease-out}
+.cab-scene.cab-boost:before{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 22px,#bff8ff55 22px 24px,transparent 24px 60px);-webkit-mask-image:linear-gradient(180deg,transparent 15%,#000 45%,#000 65%,transparent 90%);mask-image:linear-gradient(180deg,transparent 15%,#000 45%,#000 65%,transparent 90%);animation:cab-lines .55s ease-out both}
+@keyframes cab-flash{0%{filter:brightness(1.9) drop-shadow(0 0 24px #5ae8ff)}100%{filter:drop-shadow(0 18px 16px #050507b8) drop-shadow(0 0 10px #5ae8ff40)}}
+@keyframes cab-lines{0%{opacity:.9;transform:translateX(0)}100%{opacity:0;transform:translateX(-120px)}}
+
+/* Cyber Cab — TAP TO DESTROY (wreck canvas, bubble, banner) */
+.cab-wreck{position:absolute;inset:0;z-index:2;width:100%;height:100%;pointer-events:none}
+.special-shot-main.cab-scene{cursor:default;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.cab-scene.is-hover{cursor:pointer}
+.cab-scene.is-hover .cab-label{opacity:1;transform:translate(16px,-150%) skewX(-8deg) scale(1)}
+.cab-label{z-index:6}
+@media(hover:none){.cab-scene .cab-label{opacity:1;left:50%!important;top:16%!important;transform:translate(-50%,-50%) skewX(-8deg);animation:label-blink 1.4s steps(2) infinite}}
+.bta-banner.is-destroyed{color:#ff3b3b;text-shadow:3px 3px 0 #ffd23a,6px 6px 0 #000;font-size:clamp(28px,5vw,60px)}
+.bta-banner.is-destroyed.is-on{animation:bta-banner .45s cubic-bezier(.2,.9,.25,1.4) both,bta-ko-blink .17s steps(2) .45s 6}
+
+/* ---------- 17. Punching Ball: chain, swing, TAP TO PUNCH!, smoke ---------- */
+.punch-rig{position:absolute;inset:0;z-index:1;transform-origin:50% 0;will-change:transform}
+.special-shot-main .punch-rig .punching-ball-art,.special-punch-shot:hover .punch-rig .punching-ball-art{transform:translate(-50%,-57%)!important;transition:filter .3s}
+.special-punch-shot.is-over-bag .punching-ball-art{filter:drop-shadow(0 16px 22px #0009) drop-shadow(0 0 14px #ffd9a055) brightness(1.08)}
+.punch-rig.is-hit .punching-ball-art{animation:bag-hit .32s ease-out}
+@keyframes bag-hit{0%{filter:drop-shadow(0 16px 22px #0009) brightness(1.7) saturate(.6)}100%{filter:drop-shadow(0 16px 22px #0009) brightness(1)}}
+.punch-chain{position:absolute;z-index:0;left:50%;top:0;width:10px;margin-left:-5px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='18' shape-rendering='crispEdges'%3E%3Crect x='2' y='1' width='6' height='8' fill='none' stroke='%2326262c' stroke-width='2'/%3E%3Crect x='3' y='2' width='1' height='6' fill='%23a3a3ae'/%3E%3Crect x='4' y='8' width='2' height='10' fill='%23303038'/%3E%3Crect x='4' y='9' width='1' height='8' fill='%23b4b4be'/%3E%3C/svg%3E") repeat-y center top/10px 18px;
+  image-rendering:pixelated;filter:drop-shadow(2px 3px 2px #0008)}
+.punch-chain.is-broken{-webkit-mask-image:linear-gradient(180deg,#000 0 62%,transparent 62%);mask-image:linear-gradient(180deg,#000 0 62%,transparent 62%)}
+.punch-rig.is-respawn{animation:bag-drop .9s cubic-bezier(.3,1.35,.45,1) both}
+@keyframes bag-drop{0%{transform:translateY(-105%)}100%{transform:translateY(0)}}
+.punch-mount{position:absolute;z-index:2;left:50%;top:0;width:34px;height:9px;margin-left:-17px;pointer-events:none;background:linear-gradient(180deg,#4a4a54,#232329);border:1px solid #111;border-top:0;box-shadow:0 3px 6px #0009}
+.punch-mount:before,.punch-mount:after{content:"";position:absolute;top:3px;width:3px;height:3px;background:#9a9aa5}
+.punch-mount:before{left:5px}.punch-mount:after{right:5px}
+.special-punch-shot.is-over-bag{cursor:pointer}
+.punch-fx{position:absolute;inset:0;z-index:4;width:100%;height:100%;pointer-events:none;image-rendering:pixelated}
+.punch-label{position:absolute;z-index:5;left:50%;top:50%;pointer-events:none;white-space:nowrap;padding:7px 10px 6px;background:#08080a;color:var(--nitro);border:1px solid var(--nitro);
+  font-size:10px;font-weight:900;letter-spacing:.14em;box-shadow:3px 3px 0 #a817ef;transform:translate(16px,-150%) skewX(-8deg) scale(.6);opacity:0;transition:opacity .18s,transform .25s cubic-bezier(.2,.9,.25,1.4)}
+.special-punch-shot.is-over-bag .punch-label{opacity:1;transform:translate(16px,-150%) skewX(-8deg) scale(1)}
+.punch-label.is-pop{animation:label-pop .3s ease-out}
+@keyframes label-pop{0%{color:#fff;background:var(--surge);border-color:#fff}100%{}}
+@media(hover:none){.special-punch-shot .punch-label{opacity:1;transform:translate(-50%,-50%) skewX(-8deg);animation:label-blink 1.4s steps(2) infinite;top:86%}}
+@keyframes label-blink{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.special-punch-shot .punch-label{animation:none}}
+
+/* ---------- 18. Beat Them All — scripted pixel fight ---------- */
+.bta-fx{position:absolute;inset:0;z-index:2;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;image-rendering:crisp-edges}
+.special-shot-main .special-shot-label{z-index:4}
+.bta-banner.is-survival{color:var(--nitro);font-size:clamp(22px,4.2vw,46px);text-shadow:3px 3px 0 #a817ef,6px 6px 0 #000}
+.bta-banner{position:absolute;z-index:4;left:50%;top:36%;transform:translate(-50%,-50%) scale(.4);opacity:0;pointer-events:none;white-space:nowrap;
+  font-size:clamp(26px,5.4vw,58px);font-weight:900;font-style:italic;letter-spacing:.02em;color:#fff;text-shadow:3px 3px 0 #a817ef,6px 6px 0 #000}
+.bta-banner.is-on{animation:bta-banner .5s cubic-bezier(.2,.9,.25,1.4) both}
+.bta-banner.is-fight{color:#ffd23a;text-shadow:3px 3px 0 #c64812,6px 6px 0 #000}
+.bta-banner.is-ko{color:#ff3b3b;font-size:clamp(34px,7vw,78px);text-shadow:3px 3px 0 #fff,7px 7px 0 #000}
+.bta-banner.is-ko.is-on{animation:bta-banner .45s cubic-bezier(.2,.9,.25,1.4) both,bta-ko-blink .17s steps(2) .45s 5}
+@keyframes bta-banner{0%{opacity:0;transform:translate(-50%,-50%) scale(2.2)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes bta-ko-blink{50%{opacity:.15}}
+.bta-combo{position:absolute;z-index:4;right:14px;top:48px;opacity:0;pointer-events:none;font-size:11px;font-weight:900;font-style:italic;letter-spacing:.1em;color:#ffd23a;text-shadow:2px 2px 0 #000}
+.bta-combo.is-on{animation:bta-combo .9s ease-out both}
+@keyframes bta-combo{0%{opacity:0;transform:translateX(12px) scale(1.4)}15%{opacity:1;transform:none}70%{opacity:1}100%{opacity:0}}
+
+/* Street-Fighter style HUD (portraits, life bars, KO box, timer, meters, names) */
+.bta-scene{container-type:inline-size}
+.bta-hud{--px:'Press Start 2P',monospace;--ol:#000;position:absolute;z-index:4;left:1.2cqw;right:1.2cqw;top:1.1cqw;pointer-events:none;
+  display:grid;grid-template-columns:8.4cqw 1fr 8.4cqw;grid-template-rows:auto auto;column-gap:.8cqw;row-gap:.6cqw;align-items:start;font-family:var(--px);image-rendering:pixelated}
+.hud-face{display:block;width:100%;aspect-ratio:1;object-fit:cover;border:.55cqw solid #4aa8ff;outline:.35cqw solid #050508;box-shadow:.4cqw .4cqw 0 #0009}
+.hud-face.is-cpu{border-color:#ff7464}
+.hud-center{position:relative;display:flex;flex-direction:column;align-items:stretch;min-width:0}
+.hud-bars{display:grid;grid-template-columns:1fr 11cqw 1fr;align-items:stretch}
+.hud-life{position:relative;height:3.1cqw;margin-top:.8cqw;background:#c8281e;border:.45cqw solid #d9d9df;outline:.3cqw solid #050508;box-shadow:inset 0 0 0 .2cqw #0006;display:flex}
+.hud-life.is-cpu{justify-content:flex-end}
+.hud-life span{display:block;height:100%;background:linear-gradient(180deg,#fff2a8 0 18%,#f4d25a 18% 78%,#d8a92a 78%);transition:width .3s steps(5)}
+.hud-life span.is-critical{animation:hp-critical .5s steps(2) infinite}
+@keyframes hp-critical{50%{filter:brightness(1.5) saturate(1.4)}}
+.hud-ko{position:relative;z-index:1;display:grid;place-items:center;height:5.2cqw;background:#c8281e;border:.35cqw solid #7a1009;outline:.3cqw solid #050508;
+  color:#ffd23a;font-size:3cqw;text-shadow:.3cqw .3cqw 0 #6a0d06}
+.hud-meters{display:flex;justify-content:space-between;margin-top:-1.2cqw}
+.hud-meter{width:38%;height:1.05cqw;background:#1a2a1c;outline:.25cqw solid #050508;display:flex}
+.hud-meter.is-p1{background:transparent;outline:0}
+.hud-meter.is-cpu{justify-content:flex-end;background:#1a2a1c}
+.hud-meter span{display:block;height:100%;width:0;transition:width .4s steps(6)}
+.hud-meter.is-p1 span{background:linear-gradient(90deg,#d8281e,#f06a2a 60%,#ffd23a);outline:.25cqw solid #050508}
+.hud-meter.is-cpu span{background:#2c4a2e}
+.hud-timer{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:.6cqw;color:#fff;font-size:6cqw;line-height:1;
+  text-shadow:.45cqw 0 0 #000,-.45cqw 0 0 #000,0 .45cqw 0 #000,0 -.45cqw 0 #000,.45cqw .45cqw 0 #000,-.45cqw .45cqw 0 #000,.45cqw -.45cqw 0 #000,-.45cqw -.45cqw 0 #000,.7cqw .8cqw 0 #000}
+.hud-name{grid-row:2;font-size:2.5cqw;color:#fff;white-space:nowrap;line-height:1;
+  text-shadow:.3cqw 0 0 #000,-.3cqw 0 0 #000,0 .3cqw 0 #000,0 -.3cqw 0 #000,.3cqw .3cqw 0 #000,-.3cqw -.3cqw 0 #000,.3cqw -.3cqw 0 #000,-.3cqw .3cqw 0 #000}
+.hud-name.is-p1{grid-column:1/3;justify-self:start;margin-top:.4cqw}
+.hud-name.is-cpu{grid-column:2/4;justify-self:end;margin-top:.4cqw;display:flex;align-items:center;gap:.9cqw}
+.hud-name em{font-style:normal;color:#5ab4ff}
+.hud-name.is-cpu em{color:#ff7464}
+.hud-name b{font-weight:400}
+.hud-win{display:inline-block;width:2cqw;height:2cqw;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a0,#e0b030 55%,#a87810);box-shadow:0 0 0 .25cqw #000}
+/* pixel banners like the game's FIGHT! */
+.bta-banner{font-family:'Press Start 2P',monospace;font-style:normal;font-size:clamp(20px,7.4cqw,64px);letter-spacing:0;color:#f05a32;
+  text-shadow:.45cqw 0 0 #3a0e06,-.45cqw 0 0 #3a0e06,0 .45cqw 0 #3a0e06,0 -.45cqw 0 #3a0e06,.45cqw .45cqw 0 #3a0e06,-.45cqw .45cqw 0 #3a0e06,.45cqw -.45cqw 0 #3a0e06,-.45cqw -.45cqw 0 #3a0e06,.8cqw .9cqw 0 #3a0e06}
+.bta-banner.is-fight{color:#f05a32}
+.bta-banner.is-ko{color:#ffd23a;font-size:clamp(24px,9cqw,78px)}
+.bta-banner.is-survival{color:var(--nitro);font-size:clamp(14px,5cqw,44px)}
+.bta-banner.is-destroyed{color:#ffd23a;font-size:clamp(18px,6.4cqw,58px)}
+.bta-combo{font-family:'Press Start 2P',monospace;font-style:normal;left:1.4cqw;right:auto;top:20cqw;font-size:2.4cqw;color:#ffd23a;
+  text-shadow:.3cqw 0 0 #000,-.3cqw 0 0 #000,0 .3cqw 0 #000,0 -.3cqw 0 #000,.4cqw .4cqw 0 #000}
+/* TAP TO FIGHT ! bubble (reuses the punch-label look) */
+.bta-scene{cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.bta-scene.is-hover .bta-label{opacity:1;transform:translate(16px,-150%) skewX(-8deg) scale(1)}
+@media(hover:none){.bta-scene .bta-label{opacity:1;left:50%!important;top:84%!important;transform:translate(-50%,-50%) skewX(-8deg);animation:label-blink 1.4s steps(2) infinite}}
+@media(max-width:600px){.bta-hud{left:8px;right:8px;top:8px}.bta-combo{top:36px;font-size:9px}}
+
+/* ---------- 19. Special modes play gate (TAP TO … button + diagonal slash on hover) ---------- */
+.play-gate{position:absolute;inset:0;z-index:7;display:grid;place-items:center;pointer-events:none;background:radial-gradient(ellipse at center,#05050899 0,#05050833 55%,transparent 80%);transition:opacity .3s ease}
+.play-scene:not(.is-locked) .play-gate,.play-scene.is-unlocking .play-gate{opacity:0}
+.play-gate-btn{display:inline-flex;align-items:center;gap:10px;padding:13px 18px 12px;background:#08080a;color:var(--nitro);border:1px solid var(--nitro);
+  font-size:12px;font-weight:900;letter-spacing:.16em;white-space:nowrap;box-shadow:4px 4px 0 #a817ef,0 0 24px #78ef3640;transform:skewX(-8deg);animation:gate-pulse 1.6s ease-in-out infinite}
+.play-gate-btn svg{flex:none}
+.play-scene.is-unlocking .play-gate-btn{animation:none;transform:skewX(-8deg) scale(1.15);transition:transform .25s}
+@keyframes gate-pulse{0%,100%{transform:skewX(-8deg) scale(1);box-shadow:4px 4px 0 #a817ef,0 0 18px #78ef3633}50%{transform:skewX(-8deg) scale(1.06);box-shadow:4px 4px 0 #a817ef,0 0 34px #78ef3680}}
+.gate-slash{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden}
+.gate-slash:after{content:"";position:absolute;top:-20%;bottom:-20%;left:-40%;width:34%;background:linear-gradient(90deg,transparent,#78ef36cc 40%,#ffffff 50%,#a817efcc 60%,transparent);transform:skewX(-18deg);opacity:0;mix-blend-mode:screen}
+.play-scene.is-unlocking .gate-slash:after{animation:gate-slash .62s cubic-bezier(.6,0,.2,1) both}
+@keyframes gate-slash{0%{opacity:0;transform:skewX(-18deg) translateX(0)}15%{opacity:1}100%{opacity:0;transform:skewX(-18deg) translateX(560%)}}
+.play-scene.is-locked .punch-label{opacity:0!important;animation:none!important}
+.play-scene.is-locked,.play-scene.is-locked.is-hover,.play-scene.is-locked.is-over-bag{cursor:pointer}
+@media(max-width:600px){.play-gate-btn{font-size:10px;padding:10px 13px 9px;gap:7px}}
+@media(prefers-reduced-motion:reduce){.play-gate-btn{animation:none}.gate-slash{display:none}}
+
+/* ---------- 20. Punching Ball: energy bar + floor shadow ---------- */
+.special-punch-shot{container-type:inline-size}
+.punch-shadow{position:absolute;z-index:0;height:3.4cqw;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse at center,#000000d0 0,#00000080 45%,transparent 72%);filter:blur(2px)}
+.special-punch-shot .punch-rig{z-index:1}
+.punch-hud{position:absolute;z-index:4;left:50%;top:1.6cqw;width:62%;transform:translateX(-50%);pointer-events:none;font-family:'Press Start 2P',monospace;text-align:center}
+.punch-hud-bars{display:block}
+.punch-hud-name{margin-top:.9cqw;text-align:center;font-size:2.4cqw;color:#fff;white-space:nowrap;line-height:1;
+  text-shadow:.3cqw 0 0 #000,-.3cqw 0 0 #000,0 .3cqw 0 #000,0 -.3cqw 0 #000,.3cqw .3cqw 0 #000,-.3cqw -.3cqw 0 #000,.3cqw -.3cqw 0 #000,-.3cqw .3cqw 0 #000}
+.punch-hud-name em{font-style:normal;color:#ffd23a;margin-left:1.2cqw}
+
+/* ---------- 21. Wallpapers: square "+" and arcade-styled preview popup ---------- */
+.wallpaper-image:after{border-radius:0;width:46px;height:46px;border:2px solid var(--nitro);background:#08080acc;color:var(--nitro);
+  font:14px/1 'Press Start 2P',monospace;box-shadow:3px 3px 0 #a817ef;padding-left:2px}
+.wallpaper-card:hover .wallpaper-image:after,.wallpaper-card:focus-visible .wallpaper-image:after{animation:wp-plus .9s steps(2) infinite}
+@keyframes wp-plus{50%{border-color:#a817ef;color:#a817ef;box-shadow:3px 3px 0 var(--nitro)}}
+.wallpaper-modal:not([hidden]) .wallpaper-modal-backdrop{animation:wp-fade .35s ease both}
+.wallpaper-dialog{overflow:hidden;border:1px solid #2a2a31}
+.wallpaper-modal:not([hidden]) .wallpaper-dialog{animation:wp-dialog-in .55s cubic-bezier(.2,.9,.25,1.15) both}
+.wallpaper-dialog:after{content:"";position:absolute;z-index:3;top:-20%;bottom:-20%;left:-40%;width:30%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,#78ef36cc 40%,#ffffff 50%,#a817efcc 60%,transparent);transform:skewX(-18deg);opacity:0;mix-blend-mode:screen}
+.wallpaper-modal:not([hidden]) .wallpaper-dialog:after{animation:gate-slash .7s cubic-bezier(.6,0,.2,1) .12s both}
+.wallpaper-modal:not([hidden]) .wallpaper-preview{animation:wp-img-in .6s steps(8) .18s both}
+.wallpaper-modal:not([hidden]) .wallpaper-modal-actions>*{animation:wp-rise .45s cubic-bezier(.2,.9,.25,1.2) both}
+.wallpaper-modal:not([hidden]) .wallpaper-modal-actions>*:nth-child(1){animation-delay:.38s}
+.wallpaper-modal:not([hidden]) .wallpaper-modal-actions>*:nth-child(2){animation-delay:.48s}
+.wallpaper-modal:not([hidden]) .wallpaper-modal-close{animation:wp-rise .4s cubic-bezier(.2,.9,.25,1.4) .45s both}
+.wallpaper-modal-close{border-radius:0;transition:background .2s,border-color .2s,color .2s}
+.wallpaper-modal-close:hover{background:var(--surge);border-color:var(--surge)}
+.wallpaper-modal.is-closing .wallpaper-modal-backdrop{animation:wp-fade .28s ease reverse both}
+.wallpaper-modal.is-closing .wallpaper-dialog{animation:wp-dialog-out .28s cubic-bezier(.6,0,.8,.3) both}
+@keyframes wp-fade{from{opacity:0}to{opacity:1}}
+@keyframes wp-dialog-in{0%{opacity:0;transform:translateY(40px) scale(.84) skewX(-6deg);box-shadow:0 0 0 #0000}60%{opacity:1}100%{opacity:1;transform:none;box-shadow:0 28px 100px #0009,6px 6px 0 #a817ef,-1px -1px 0 #78ef36}}
+@keyframes wp-dialog-out{0%{opacity:1;transform:none}100%{opacity:0;transform:translateY(24px) scale(.9) skewX(6deg)}}
+@keyframes wp-img-in{0%{clip-path:inset(0 100% 0 0);filter:brightness(2) saturate(0)}100%{clip-path:inset(0 0 0 0);filter:none}}
+@keyframes wp-rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.wallpaper-modal .wallpaper-dialog,.wallpaper-modal .wallpaper-preview,.wallpaper-modal .wallpaper-modal-actions>*,.wallpaper-modal-close,.wallpaper-dialog:after{animation:none!important}}
+
+/* ---------- 22. Choose your fighter: depth parallax + hover power-up ---------- */
+.fighter-art-panel{perspective:900px;isolation:isolate;overflow:visible}       /* no mask: the HD fighter is fully visible */
+/* name zap on hover: shake + blink green / purple for 1 s */
+.fighter-copy h3.is-zap{animation:name-zap 1s steps(1,end) both}
+@keyframes name-zap{
+  0.0%{color:var(--nitro);transform:translate(-3px,1px);text-shadow:3px 0 0 #a817ef}
+  4.0%{color:#a817ef;transform:translate(3px,-1px);text-shadow:-3px 0 0 var(--nitro)}
+  8.0%{color:var(--nitro);transform:translate(-3px,0px);text-shadow:3px 0 0 #a817ef}
+  12.0%{color:#a817ef;transform:translate(3px,1px);text-shadow:-3px 0 0 var(--nitro)}
+  16.0%{color:var(--nitro);transform:translate(-3px,-1px);text-shadow:3px 0 0 #a817ef}
+  20.0%{color:#a817ef;transform:translate(3px,0px);text-shadow:-3px 0 0 var(--nitro)}
+  24.0%{color:var(--nitro);transform:translate(-3px,1px);text-shadow:3px 0 0 #a817ef}
+  28.0%{color:#a817ef;transform:translate(3px,-1px);text-shadow:-3px 0 0 var(--nitro)}
+  32.0%{color:var(--nitro);transform:translate(-2px,0px);text-shadow:2px 0 0 #a817ef}
+  36.0%{color:#a817ef;transform:translate(2px,1px);text-shadow:-2px 0 0 var(--nitro)}
+  40.0%{color:var(--nitro);transform:translate(-2px,-1px);text-shadow:2px 0 0 #a817ef}
+  44.0%{color:#a817ef;transform:translate(2px,0px);text-shadow:-2px 0 0 var(--nitro)}
+  48.0%{color:var(--nitro);transform:translate(-2px,1px);text-shadow:2px 0 0 #a817ef}
+  52.0%{color:#a817ef;transform:translate(2px,-1px);text-shadow:-2px 0 0 var(--nitro)}
+  56.0%{color:var(--nitro);transform:translate(-2px,0px);text-shadow:2px 0 0 #a817ef}
+  60.0%{color:#a817ef;transform:translate(2px,1px);text-shadow:-2px 0 0 var(--nitro)}
+  64.0%{color:var(--nitro);transform:translate(-1px,-1px);text-shadow:1px 0 0 #a817ef}
+  68.0%{color:#a817ef;transform:translate(1px,0px);text-shadow:-1px 0 0 var(--nitro)}
+  72.0%{color:var(--nitro);transform:translate(-1px,1px);text-shadow:1px 0 0 #a817ef}
+  76.0%{color:#a817ef;transform:translate(1px,-1px);text-shadow:-1px 0 0 var(--nitro)}
+  80.0%{color:var(--nitro);transform:translate(-1px,0px);text-shadow:1px 0 0 #a817ef}
+  84.0%{color:#a817ef;transform:translate(1px,1px);text-shadow:-1px 0 0 var(--nitro)}
+  88.0%{color:var(--nitro);transform:translate(-1px,-1px);text-shadow:1px 0 0 #a817ef}
+  92.0%{color:#a817ef;transform:translate(1px,0px);text-shadow:-1px 0 0 var(--nitro)}
+  96.0%{color:var(--nitro);transform:translate(-1px,1px);text-shadow:1px 0 0 #a817ef}
+  100%{color:#fff;transform:none;text-shadow:none}}
+@media(prefers-reduced-motion:reduce){.fighter-copy h3.is-zap{animation:none}}
+.fighter-art-panel .fighter-art{position:relative;z-index:2;transform-origin:50% 100%}
+.fighter-art-panel .fighter-art[data-parallax]{
+  transform:translate3d(calc(var(--mx,0) * 16px),calc(var(--parallax-y,0px) + var(--my,0) * 8px),0) rotateY(calc(var(--mx,0) * 9deg)) rotateX(calc(var(--my,0) * -4deg)) scale(var(--fa-scale,1.04));
+  transition:transform .25s ease-out,filter .45s ease}
+.fighter-art-panel.is-hot{--fa-scale:1.055}
+/* keep the fighter's drop shadow after the slide-change animation ends (home.css's .reveal.is-visible img rule was resetting it) */
+.fighter-art-panel.reveal.is-visible .fighter-art,.fighter-art-panel .fighter-art{filter:drop-shadow(0 14px 24px #0009)}
+.fighter-art-panel.reveal.is-visible.is-hot .fighter-art,.fighter-art-panel.is-hot .fighter-art{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 12px var(--fa-c1)) drop-shadow(0 18px 24px #000a)}
+.fighter-art-panel.fa-enter .fighter-art{animation:fa-pop .6s cubic-bezier(.2,.9,.25,1.3)}
+@keyframes fa-pop{0%{filter:brightness(2.2) saturate(.2) drop-shadow(0 0 22px var(--fa-c0))}100%{filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 12px var(--fa-c1)) drop-shadow(0 18px 24px #000a)}}
+/* aura (middle layer) */
+.fa-aura{position:absolute;z-index:0;left:50%;bottom:4%;width:86%;aspect-ratio:1;border-radius:50%;pointer-events:none;mix-blend-mode:screen;
+  background:radial-gradient(circle at 50% 60%,var(--fa-c1) 0,color-mix(in srgb,var(--fa-c2) 70%,transparent) 32%,transparent 64%);filter:blur(18px);opacity:.12;
+  transform:translateX(-50%) translate(calc(var(--mx,0) * -22px),calc(var(--sp,0) * 46px + var(--my,0) * -10px)) scale(.7);transition:opacity .5s,transform .35s ease-out}
+.is-hot .fa-aura{opacity:.6;transform:translateX(-50%) translate(calc(var(--mx,0) * -22px),calc(var(--sp,0) * 46px + var(--my,0) * -10px)) scale(1);animation:fa-breathe 1.8s ease-in-out infinite}
+@keyframes fa-breathe{50%{filter:blur(22px) brightness(1.3)}}
+.is-hot /* energy ring at the feet */
+.fa-ring{position:absolute;z-index:1;left:50%;bottom:1%;width:46%;height:7%;border-radius:50%;pointer-events:none;border:2px solid var(--fa-c1);
+  box-shadow:0 0 14px var(--fa-c1),inset 0 0 10px var(--fa-c1);opacity:0;transform:translateX(-50%) translateX(calc(var(--mx,0) * 10px)) scale(.6)}
+.is-hot .fa-ring{animation:fa-ring 1.2s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes fa-ring{0%{opacity:.95;transform:translateX(-50%) translateX(calc(var(--mx,0) * 10px)) scale(.5)}100%{opacity:0;transform:translateX(-50%) translateX(calc(var(--mx,0) * 10px)) scale(1.5)}}
+/* rising pixel sparks */
+.fa-sparks{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.fa-sparks i{position:absolute;left:var(--x);bottom:-10px;width:var(--s);height:var(--s);background:var(--fa-c0);box-shadow:0 0 8px var(--fa-c1);opacity:0}
+.fa-sparks i:nth-child(3n){background:#fff}.fa-sparks i:nth-child(4n){background:var(--fa-c1)}
+.is-hot .fa-sparks i{animation:fa-rise var(--t) linear var(--d) infinite}
+@keyframes fa-rise{0%{opacity:0;transform:translate(0,0)}10%{opacity:1}100%{opacity:0;transform:translate(calc(var(--mx,0) * -30px),-340px)}}
+.fighter-art-panel{cursor:pointer}
+@media(prefers-reduced-motion:reduce){.fa-ring,.fa-sparks{display:none}.fighter-art-panel .fighter-art[data-parallax]{transform:none}}
+
+/* ---------- 23. Gameplay videos: COMING SOON cards ---------- */
+.video-card.is-soon{cursor:default}
+.video-card.is-soon .video-poster,.video-card.is-soon:hover .video-poster{filter:grayscale(1) brightness(.38) contrast(1.1)}
+.video-soon{position:absolute;left:50%;top:50%;z-index:1;padding:11px 14px 10px;background:#08080a;color:var(--nitro);border:1px solid var(--nitro);
+  font:10px/1 'Press Start 2P',monospace;letter-spacing:.06em;white-space:nowrap;box-shadow:3px 3px 0 #a817ef;animation:soon-blink 1.6s steps(2) infinite}
+@keyframes soon-blink{50%{color:#a817ef;border-color:#a817ef;box-shadow:3px 3px 0 var(--nitro)}}
+.video-card.is-soon .video-card-title{color:#8a8a92}
+@media(prefers-reduced-motion:reduce){.video-soon{animation:none}}
+
+.video-youtube-link{display:inline-flex;align-items:center;gap:8px;margin-top:10px;color:var(--nitro);font-size:10px;font-weight:850;letter-spacing:.14em}
+.video-youtube-link:hover{color:#fff}
+
+/* ---------- 24. Gameplay video popup: arcade open/close animation (same language as the wallpaper popup) ---------- */
+.video-modal:not([hidden]) .video-modal-backdrop{animation:wp-fade .35s ease both}
+.video-dialog{overflow:hidden;border:1px solid #2a2a31}
+.video-modal:not([hidden]) .video-dialog{animation:wp-dialog-in .55s cubic-bezier(.2,.9,.25,1.15) both}
+.video-dialog:after{content:"";position:absolute;z-index:4;top:-20%;bottom:-20%;left:-40%;width:30%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,#78ef36cc 40%,#ffffff 50%,#a817efcc 60%,transparent);transform:skewX(-18deg);opacity:0;mix-blend-mode:screen}
+.video-modal:not([hidden]) .video-dialog:after{animation:gate-slash .7s cubic-bezier(.6,0,.2,1) .12s both}
+.video-modal:not([hidden]) .video-frame-wrap{animation:wp-img-in .6s steps(8) .18s both}
+.video-modal:not([hidden]) .video-close{animation:wp-rise .4s cubic-bezier(.2,.9,.25,1.4) .45s both}
+.video-modal:not([hidden]) .video-youtube-link{animation:wp-rise .45s cubic-bezier(.2,.9,.25,1.2) .5s both}
+.video-modal.is-closing .video-modal-backdrop{animation:wp-fade .28s ease reverse both}
+.video-modal.is-closing .video-dialog{animation:wp-dialog-out .28s cubic-bezier(.6,0,.8,.3) both}
+.video-close{border-radius:0}
+/* opened as a local file: YouTube refuses the embed (error 153) → show the thumbnail + a way to watch */
+.video-local{display:none;position:absolute;inset:0;z-index:1;place-items:center;align-content:center;gap:14px;text-align:center;background:#000;color:#fff;padding:20px}
+.video-local img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.35)}
+.video-local p{position:relative;margin:0;font:10px/1.9 'Press Start 2P',monospace;text-shadow:2px 2px 0 #000}
+.video-local b{color:var(--nitro);font-weight:400}
+.video-modal.is-local-file .video-local{display:grid}
+.video-modal.is-local-file iframe{visibility:hidden}
+@media(prefers-reduced-motion:reduce){.video-modal .video-dialog,.video-modal .video-frame-wrap,.video-close,.video-dialog:after,.video-youtube-link{animation:none!important}}
+
+/* ---------- 25. Video thumbnails: square play button (same style as the wallpaper "+") + true centring ---------- */
+.video-card .video-play{left:50%;top:50%;width:46px;height:46px;margin:0;border-radius:0;border:2px solid var(--nitro);background:#08080acc;color:var(--nitro);
+  box-shadow:3px 3px 0 #a817ef;display:grid;place-items:center;font-size:0;transform:translate(-50%,-50%);transition:background .2s}
+.video-card .video-play svg{display:block;margin-left:2px}
+/* home.css's reveal animation sets transform on every card child: keep the button and badge centred */
+.video-card.reveal.is-visible>.video-play,.video-card>.video-play.reveal-child{transform:translate(-50%,-50%)}
+.video-card:hover .video-play{animation:wp-plus .9s steps(2) infinite}
+.video-card .video-soon,.video-card.reveal.is-visible>.video-soon,.video-card>.video-soon.reveal-child{left:50%;top:50%;margin:0;transform:translate(-50%,-50%) skewX(-8deg)}
+
+/* ---------- 15. Full dark theme — sections alternate two greys ---------- */
+:root{--g-dark:#0c0c0f;--g-mid:#141417;--card-dark:#16161a;--card-mid:#1c1c21;--line-dark:#2a2a31;--txt-soft:#a8a8af;--txt-dim:#7c7c85}
+body{background:#050506}
+.about-section{background:var(--g-mid)}
+.fighters-section{background:var(--g-dark);color:#fff}
+.video-section{background:var(--g-mid)}
+.special-section{background:var(--g-dark)}
+.records-section{background:var(--g-mid);color:#fff}
+.experience-section{background:var(--g-dark)}
+.wallpapers-section{background:var(--g-mid);color:#fff}
+.site-footer{background:var(--g-dark)}
+.footer-contact{border-color:var(--line-dark)}
+/* shared headings */
+.section-heading h2{color:#fff}
+.dark-eyebrow{color:var(--nitro)}
+.section-lede{color:var(--txt-soft)}
+.slide-count{color:var(--txt-dim)}
+/* fighters */
+.fighter-slide{background:var(--card-dark);border:1px solid var(--line-dark)}
+.fighter-slide:before{color:#1e1e24}
+.fighter-art-panel{background:radial-gradient(ellipse at 50% 82%,#2c2c34 0,transparent 50%)}
+.fighter-art-panel:after{background:#3a3a43}
+.fighter-art{filter:drop-shadow(0 14px 24px #0009)}
+.fighter-number{color:var(--txt-dim)}
+.fighter-copy h3{color:#fff}
+.fighter-copy p{color:var(--txt-soft)}
+.fighter-tags span{border-color:#34343c;color:#c4c4ca}
+.fighter-progress{background:#26262c}
+.version-card{background:#101013;border-color:var(--line-dark)}
+.version-card.move-card{background:#0e0e11;border-color:var(--line-dark)}
+@keyframes fighter-enter{0%{filter:drop-shadow(0 14px 24px #0009) brightness(2.4) saturate(0);translate:-5% 0}40%{filter:drop-shadow(0 14px 24px #0009) brightness(1.3)}100%{filter:drop-shadow(0 14px 24px #0009);translate:0 0}}
+/* records */
+.live-pill{color:#c4c4ca;border-color:#36363c}
+.record-card{background:var(--card-mid);border-color:var(--line-dark);color:#fff}
+.record-card:hover,.record-card.is-tilting{box-shadow:0 22px 50px #0009}
+.record-kicker{color:var(--txt-dim)}
+.record-card-head img{border-color:var(--card-mid);box-shadow:0 0 0 1px #3a3a42}
+.record-column-label{border-bottom-color:#303037;color:var(--txt-dim)}
+.record-row{border-bottom-color:#26262c}
+.record-row:first-child .rank,.record-row:first-child .record-value{color:var(--nitro)}
+.rank{color:#6e6e77}
+.record-meta,.loading-row,.empty-row{color:var(--txt-dim)}
+.text-link{border-top-color:#303037;color:#fff}
+.text-link:hover{color:var(--nitro)}
+/* wallpapers */
+.wallpaper-card,.wallpaper-card .wallpaper-caption strong{color:#fff}
+.wallpaper-image{background:#1f1f24;box-shadow:0 14px 36px #0007}
+.wallpaper-card .wallpaper-caption small,.wallpaper-caption small{color:var(--txt-dim)}
+.wallpaper-card:hover .wallpaper-caption small{color:var(--nitro)}
+.button-secondary:disabled{opacity:.35}
+/* header when scrolled: dark glass instead of white */
+.site-header.is-scrolled{color:#fff;background:rgba(12,12,15,.86)!important;border-bottom:1px solid #ffffff12;backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3)}
+.site-header.is-scrolled .main-nav a{color:#e6e6ea}
+.site-header.is-scrolled .main-nav a:hover{color:var(--nitro)}
+.mobile-menu-toggle.is-scrolled{color:#fff}
+/* thin divider where two sections meet */
+main>section+section,main>.motion-marquee+section{box-shadow:inset 0 1px 0 #ffffff0d}
+
+/* ---------- Touch / small screens: lighter load ---------- */
+@media(hover:none),(pointer:coarse){.motion-cursor{display:none}.hero-streaks i:nth-child(n+3){display:none}}
+@media(max-width:700px){.motion-grain{opacity:.04}}
+
+/* ---------- Reduced motion ---------- */
+@media(prefers-reduced-motion:reduce){
+  .motion-grain,.hero-streaks,.motion-cursor{display:none}
+  [data-curtain]{clip-path:none!important}
+  [data-curtain]>*{translate:none!important}
+  .motion-marquee-track{transform:none!important}
+  .wallpaper-card.reveal .wallpaper-image{clip-path:none!important}
+  .special-shot.reveal:before,.video-card.reveal:before{display:none}
+  .phone-controller-float img,.button-primary:after{animation:none}
+  .hero-media img,.hero-actions,.hero-copy{translate:none!important;scale:none!important;filter:none!important}
+}

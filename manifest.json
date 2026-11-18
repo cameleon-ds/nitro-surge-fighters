@@ -1,8 +1,8 @@
 {
   "name": "Nitro Surge Fighters",
   "short_name": "Nitro Surge Fighters",
-  "id": "./",
-  "start_url": "./",
+  "id": "./play-nsf.html",
+  "start_url": "./play-nsf.html",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#000000",
@@ -26,5 +26,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "scope": "./"
 }
