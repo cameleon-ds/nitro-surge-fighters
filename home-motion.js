@@ -6,6 +6,7 @@
   const root = document.documentElement;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const mobileLite = matchMedia('(max-width: 700px), (hover: none) and (pointer: coarse)').matches;   // phones / tablets: lighter scroll effects
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -26,13 +27,238 @@
     const streaks = document.createElement('div');
     streaks.className = 'hero-streaks'; streaks.setAttribute('aria-hidden', 'true');
     streaks.innerHTML = '<i></i><i></i><i></i><i></i>';
-    hero.querySelector('.hero-shade')?.after(streaks);
+    (hero.querySelector('.hero-dim') || hero.querySelector('.hero-shade'))?.after(streaks);
+  }
+
+  /* ---------- Cursor tip (desktop): a small pixel message that follows the mouse ----------
+     set(owner, label): show / hide the invitation of a zone (banner: CLICK TO PIXELATE, fighters: CLICK ON THE FIGHTER),
+     retyped every 2 s. shout(): each click answers with the next message (YEEEEAH! ...), which also follows the mouse. */
+  const cursorTip = (() => {
+    const off = { set() {}, shout() {}, say() {} };
+    if (reduce) return off;
+    const touch = !matchMedia('(hover: hover) and (pointer: fine)').matches;   // phones / tablets: no invitation, the messages pop where you tap
+    const el = document.createElement('div'); el.className = 'hero-hint cursor-tip'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<span></span>'; document.body.append(el);
+    const txt = el.firstChild, SHOUTS = (Array.isArray(window.NSF_SHOUTS) && window.NSF_SHOUTS.length) ? window.NSF_SHOUTS : ['YEEEEAH!', 'WOW! DID YOU SEE THAT?!', 'SO COOOL!', "LET'S PIXEL FIGHT!", 'PIXEL FOREVER!'];   // NSF_SHOUTS: Mouse Answers from the admin panel
+    let owner = null, label = null, step = 0, shoutN = 0, shouting = false, shoutT = 0, cycleT = 0;
+    const place = (x, y) => {
+      if (!touch) { el.style.transform = `translate(${Math.round(x + 24)}px, ${Math.round(y + 18)}px)`; return; }
+      const w = el.offsetWidth || 160;                           // above the finger, kept inside the screen
+      el.style.transform = `translate(${Math.round(Math.max(8, Math.min(innerWidth - w - 8, x - w / 2)))}px, ${Math.round(Math.max(8, y - 64))}px)`;
+    };
+    if (!touch) addEventListener('pointermove', e => place(e.clientX, e.clientY), { passive: true });
+    const retype = () => { txt.style.animation = 'none'; void txt.offsetWidth; txt.style.animation = ''; };
+    function render() {
+      clearInterval(cycleT);
+      if (shouting) return;
+      if (label) {
+        const list = Array.isArray(label) ? label : [label], cur = () => list[step % list.length];
+        if (txt.textContent !== cur() || !el.classList.contains('is-on')) { txt.textContent = cur(); el.classList.add('is-on'); retype(); }
+        cycleT = setInterval(() => { step++; txt.textContent = cur(); retype(); }, 2000);   // next message (or the same one retyped) every 2 s
+      }
+      else el.classList.remove('is-on');
+    }
+    return {
+      set(who, text) {
+        if (touch) return;
+        if (!text && owner !== who) return;
+        if (owner === who && label === text) return;
+        owner = text ? who : null; label = text || null; step = 0; render();
+      },
+      say(list, x, y) {                                          // phones: a list of messages above the finger, 2 s each, then gone
+        if (!touch) return;
+        clearInterval(cycleT); clearTimeout(shoutT); shouting = true; let n = 0;
+        el.classList.remove('is-shout', 'is-alt', 'is-out'); el.classList.add('is-say', 'is-on');
+        const show = () => { txt.textContent = list[n]; place(x, y); retype(); };
+        show();
+        cycleT = setInterval(() => {
+          if (++n < list.length) return show();
+          clearInterval(cycleT); el.classList.remove('is-on');
+          shoutT = setTimeout(() => { el.classList.remove('is-say'); shouting = false; }, 260);
+        }, 2000);
+      },
+      shout(x, y) {
+        if (!touch && !label && !shouting) return;               // desktop: only where an invitation is shown
+        txt.textContent = SHOUTS[shoutN % SHOUTS.length]; el.classList.toggle('is-alt', shoutN % 2 === 1); shoutN++;
+        if (touch && x != null) { el.classList.add('is-shout'); place(x, y); }
+        if (touch) document.body.classList.add('tip-busy');   // phones: TAP TO PIXELATE steps aside while YEEEEAH! & co are shown
+        shouting = true; clearInterval(cycleT); clearTimeout(shoutT);
+        el.classList.remove('is-on', 'is-shout', 'is-out', 'is-say'); void el.offsetWidth; el.classList.add('is-on', 'is-shout');
+        shoutT = setTimeout(() => { el.classList.add('is-out'); shoutT = setTimeout(() => {
+          el.classList.remove('is-on', 'is-shout', 'is-out', 'is-alt'); shouting = false; render();
+          if (touch) {                                           // ...then it plays again from the start
+            document.body.classList.remove('tip-busy');
+            const th = document.querySelector('.hero-tap-hint span');
+            if (th) { th.style.animation = 'none'; void th.offsetWidth; th.style.animation = 'tap-hint-in .4s ease both, tap-hint-loop 3.2s infinite, hint-blink 1s steps(1) infinite'; }
+          }
+        }, 260); }, 1500);
+      }
+    };
+  })();
+
+  /* ---------- Header: the World records link zaps every 3 s (green / purple + shake) and shows a message under it ----------
+     Messages: Header Messages in the admin panel (window.NSF_NAV_TIPS), defaults below. Mobile burger: the zap only. */
+  (() => {
+    const links = [...document.querySelectorAll('.main-nav a[href="#records"], .mobile-menu-panel a[href="#records"]')];
+    if (!links.length || reduce) return;
+    const TIPS = (Array.isArray(window.NSF_NAV_TIPS) && window.NSF_NAV_TIPS.length) ? window.NSF_NAV_TIPS : ["CHECK WHO'S NUMBER ONE!", 'CAN YOU BEAT THE TOP 100?', 'YOUR NAME BELONGS HERE!'];
+    const deskLink = links.find(a => a.closest('.main-nav'));
+    const tip = document.createElement('div'); tip.className = 'nav-tip'; tip.setAttribute('aria-hidden', 'true'); tip.innerHTML = '<span></span>'; document.body.append(tip);
+    let n = 0, hideT = 0;
+    const loop = (ms) => setTimeout(tick, ms);
+    function tick() {
+      // already on the World records section: no animation, the link just stays purple (active)
+      if (document.hidden || links.some(a => a.classList.contains('is-active'))) { tip.classList.remove('is-on'); return loop(1000); }
+      const menuOpen = document.body.classList.contains('mobile-menu-open');
+      links.forEach(a => { if (a.closest('.mobile-menu-panel')) return; a.classList.remove('is-nav-zap'); void a.offsetWidth; a.classList.add('is-nav-zap'); });   // burger link: only while the menu is open
+      const r = deskLink && deskLink.getBoundingClientRect();
+      if (r && r.width && getComputedStyle(deskLink).visibility !== 'hidden' && !document.body.classList.contains('mobile-menu-open')) {
+        tip.firstChild.textContent = TIPS[n++ % TIPS.length]; tip.classList.toggle('is-alt', n % 2 === 0);
+        tip.style.left = `${Math.round(r.left + r.width / 2)}px`; tip.style.top = `${Math.round(r.bottom + 10)}px`;
+        tip.classList.remove('is-on'); void tip.offsetWidth; tip.classList.add('is-on');
+        clearTimeout(hideT); hideT = setTimeout(() => tip.classList.remove('is-on'), 2200);
+        return loop(2200 + 5000);                                // next one 5 s after the message has gone
+      }
+      loop(5000);
+    }
+    setTimeout(tick, 2500);
+    // mobile burger menu open: the World records link blinks every second (not when you are already on the section)
+    setInterval(() => {
+      if (document.hidden || !document.body.classList.contains('mobile-menu-open')) return;
+      links.forEach(a => { if (!a.closest('.mobile-menu-panel') || a.classList.contains('is-active')) return; a.classList.remove('is-nav-zap'); void a.offsetWidth; a.classList.add('is-nav-zap'); });
+    }, 1000);
+  })();
+
+  /* Special modes price: invitation next to the cursor (desktop) */
+  document.querySelectorAll('.special-price').forEach(btn => {
+    btn.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') cursorTip.set('price', 'SEE HOW TO EARN NITRO COINS'); });
+    btn.addEventListener('pointerleave', () => cursorTip.set('price', null));
+    btn.addEventListener('click', () => cursorTip.set('price', null));
+  });
+
+  /* NSF experience cards: when they appear, each one plays its hover animation for 1 s, one after the other (with its charging line) */
+  (() => {
+    const cards = [...document.querySelectorAll('.about-pillar')], wrap = document.querySelector('.about-pillars');
+    if (!cards.length || !wrap || reduce) return;
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      io.disconnect();
+      cards.forEach((card, i) => setTimeout(() => {
+        card.classList.add('is-intro');
+        setTimeout(() => card.classList.remove('is-intro'), 1000);
+      }, 150 + i * 200));                                        // same rhythm as the lines (0 / .2 / .4 / .6 s)
+    }, { threshold: .35 });
+    io.observe(wrap);
+  })();
+
+  /* ---------- NSF experience cards: power messages next to the cursor (desktop) ---------- */
+  const POWER_TIPS = {
+    'about-nitro': ['ACTIVATE NITRO POWER', 'MAKE YOUR BEST COMBO', 'TRY YYBB / YYBA'],
+    'about-surge': ['ACTIVATE SURGE POWER', 'MAKE YOUR BEST COMBO', 'TRY YYBB / YYBA'],
+    'about-rage': ['ACTIVATE RAGE POWER', 'MAKE YOUR BEST COMBO', 'TRY YYBB / YYBA'],
+    'about-more': ['COMING SOON']
+  };
+  document.querySelectorAll('.about-pillar').forEach(card => {
+    const key = Object.keys(POWER_TIPS).find(k => card.classList.contains(k)); if (!key) return;
+    card.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') cursorTip.set('power', POWER_TIPS[key]); });
+    card.addEventListener('pointerleave', () => cursorTip.set('power', null));
+    let tapT = 0;   // phones: a tap plays the hover animation for 3 s
+    card.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse') return;
+      document.querySelectorAll('.about-pillar.is-tap').forEach(c => { if (c !== card) c.classList.remove('is-tap'); });
+      const list = POWER_TIPS[key];
+      card.classList.add('is-tap'); clearTimeout(tapT); tapT = setTimeout(() => card.classList.remove('is-tap'), Math.max(3000, list.length * 2000));
+      cursorTip.say(list, e.clientX, e.clientY);
+    }, { passive: true });
+  });
+
+  /* ---------- Hero: pixel light under the cursor (desktop) ----------
+     The 20% black film is drawn on a tiny canvas (1 canvas pixel = 1 cell the size of the square cursor, scaled up pixelated).
+     Under the mouse, a circular, pixelated zone clears the film; it opens fast and closes slowly (light trail), the cells
+     at its edge glow nitro green / surge purple, and a click sends a ring of light. */
+  if (hero && !matchMedia('(hover: hover) and (pointer: fine)').matches)
+    hero.addEventListener('pointerdown', e => { if (!e.target.closest('a, button')) cursorTip.shout(e.clientX, e.clientY); }, { passive: true });
+  const heroDim = hero && hero.querySelector('.hero-dim');
+  if (hero && !reduce) {   // click / tap on the banner: the artwork punches in (zoom + quick flash) and settles back, with the pixel wave
+    const heroMedia = hero.querySelector('.hero-media');
+    hero.addEventListener('pointerdown', e => {
+      if (!heroMedia || e.target.closest('a, button')) return;
+      const r = heroMedia.getBoundingClientRect();   // zoom centred on the click / tap point
+      heroMedia.style.transformOrigin = `${Math.round(e.clientX - r.left)}px ${Math.round(e.clientY - r.top)}px`;
+      heroMedia.classList.remove('is-punch'); void heroMedia.offsetWidth; heroMedia.classList.add('is-punch');
+    }, { passive: true });
+    heroMedia?.addEventListener('animationend', e => { if (e.animationName === 'hero-punch') heroMedia.classList.remove('is-punch'); });
+  }
+  const heroFine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (heroDim && !reduce) {   // PC: light follows the mouse; phones: a tap sends the pixel wave
+    const CELL = 26, FILM = .3, RADIUS = 150;
+    const cv = document.createElement('canvas'), g = cv.getContext('2d');
+    heroDim.append(cv); heroDim.classList.add('is-pixel');
+    let cols = 0, rows = 0, light = new Float32Array(0), noise = new Float32Array(0), img = null;
+    let tapT = 0, overUi = false, mx = -1e4, my = -1e4, inside = false, reach = 0, ring = -1, raf = 0, last = 0, moved = 0, idleK = 0, nextWave = 0; const waves = [];
+    function size() {
+      const r = hero.getBoundingClientRect();
+      cols = Math.ceil(r.width / CELL) + 1; rows = Math.ceil(r.height / CELL) + 1;
+      cv.width = cols; cv.height = rows; cv.style.width = cols * CELL + 'px'; cv.style.height = rows * CELL + 'px';
+      light = new Float32Array(cols * rows); noise = new Float32Array(cols * rows).map(() => Math.random());
+      img = g.createImageData(cols, rows); paint();
+    }
+    function paint() {
+      const d = img.data;
+      for (let n = 0; n < cols * rows; n++) {
+        const L = Math.round(light[n] * 4) / 4;                // 5 steps: retro, pixelated fade
+        const edge = light[n] > .12 && light[n] < .72 ? 1 - Math.abs(light[n] - .42) / .3 : 0;   // frontier cells glow
+        const purple = noise[n] > .5, o = n * 4;
+        d[o] = purple ? 168 * edge : 120 * edge; d[o + 1] = purple ? 23 * edge : 239 * edge; d[o + 2] = purple ? 239 * edge : 54 * edge;
+        d[o + 3] = Math.round(255 * Math.max(FILM * (1 - L), edge * .16));
+      }
+      g.putImageData(img, 0, 0);
+    }
+    function tick(now) {
+      raf = 0;
+      const dt = Math.min(50, now - (last || now)); last = now;
+      reach += ((inside ? 1 : 0) - reach) * Math.min(1, dt / (inside ? 140 : 260));   // radius grows in on enter, shrinks on leave
+      if (ring >= 0) ring += dt * .9;
+      // mouse at rest: the light breathes and sends soft pixel waves around the cursor
+      const idle = inside && now - moved > 450;
+      idleK += ((idle ? 1 : 0) - idleK) * Math.min(1, dt / 400);
+      if (idle && now >= nextWave) { waves.push(now); nextWave = now + 1300; }
+      if (!idle) nextWave = now + 250;
+      while (waves.length && now - waves[0] > 1700) waves.shift();
+      const r = hero.getBoundingClientRect(), px = mx - r.left, py = my - r.top, R = RADIUS * reach * (1 + .05 * idleK * Math.sin(now / 520));
+      let busy = inside || reach > .01 || ring >= 0;
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        const n = y * cols + x, cx = x * CELL + CELL / 2, cy = y * CELL + CELL / 2;
+        const dist = Math.hypot(cx - px, cy - py) + (noise[n] - .5) * CELL * 1.4;   // ragged, pixel edge
+        let t = R > 0 ? Math.min(1, Math.max(0, (R - dist) / (R * .45))) : 0;
+        if (ring >= 0) { const rd = Math.abs(dist - ring); if (rd < CELL * 1.6) t = Math.max(t, 1 - rd / (CELL * 1.6)); }
+        for (const w0 of waves) {                                   // soft wave: leaves the edge of the light, fades as it grows
+          const age = now - w0, wr = R * .82 + age * .075, rd = Math.abs(dist - wr);
+          if (rd < CELL * 1.2) t = Math.max(t, .36 * idleK * (1 - age / 1700) * (1 - rd / (CELL * 1.2)));
+        }
+        const k = t > light[n] ? Math.min(1, dt / 45) : Math.min(1, dt / 520);      // opens fast, closes slowly
+        light[n] += (t - light[n]) * k;
+        if (light[n] > .005) busy = true; else light[n] = 0;
+      }
+      if (ring > Math.max(r.width, r.height) * 1.2) ring = -1;
+      paint();
+      if (busy) raf = requestAnimationFrame(tick); else last = 0;
+    }
+    const wake = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    if (heroFine) hero.addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; inside = true; moved = performance.now(); overUi = !!e.target.closest('a, button'); cursorTip.set('hero', overUi ? null : 'CLICK TO PIXELATE'); wake(); }, { passive: true });
+    if (heroFine) hero.addEventListener('pointerleave', () => { inside = false; cursorTip.set('hero', null); wake(); });
+    hero.addEventListener('pointerdown', e => { if (e.target.closest('a, button')) return; mx = e.clientX; my = e.clientY; ring = 0; moved = performance.now();
+      if (heroFine) cursorTip.shout(e.clientX, e.clientY);
+      else { inside = true; clearTimeout(tapT); tapT = setTimeout(() => { inside = false; wake(); }, 260); }   // tap: light flash where the finger is, then it closes slowly
+      wake(); });
+    addEventListener('scroll', () => { if (inside && hero.getBoundingClientRect().bottom < my) { inside = false; cursorTip.set('hero', null); wake(); } }, { passive: true });   // scrolled away without moving the mouse
+    addEventListener('resize', size); size();
   }
 
   /* ---------- Section dots (desktop) ---------- */
   const dotSections = [
     ['top', 'HOME'], ['about-nsf', 'ABOUT'], ['fighters', 'FIGHTERS'], ['videos', 'VIDEOS'],
-    ['special-modes', 'MODES'], ['records', 'RECORDS'], ['game-experience', 'EXPERIENCE'], ['wallpapers', 'WALLPAPERS']
+    ['special-modes', 'MODES'], ['records', 'RECORDS'], ['game-experience', 'EXPERIENCE'], ['wallpapers', 'WALLPAPERS'], ['footer-contact', 'CONTACT']
   ].filter(([id]) => document.getElementById(id));
   const dots = document.createElement('nav');
   dots.className = 'motion-dots'; dots.setAttribute('aria-label', 'Section progress');
@@ -75,7 +301,7 @@
 
     if (!reduce) {
       // hero scroll-out
-      if (hero) {
+      if (hero && !mobileLite) {                                 // no hero scroll effects on phones (smooth scrolling)
         const h = hero.offsetHeight;
         hero.style.setProperty('--hero-out', clamp(y / (h * .85)).toFixed(3));
       }
@@ -106,6 +332,7 @@
   function updateDots() {
     const mid = innerHeight * .45; let current = 0;
     dotSections.forEach(([id], i) => { const r = document.getElementById(id).getBoundingClientRect(); if (r.top <= mid) current = i; });
+    if (scrollY + innerHeight >= document.documentElement.scrollHeight - 4) current = dotSections.length - 1;   // bottom of the page: CONTACT
     dotLinks.forEach((a, i) => a.classList.toggle('is-active', i === current));
     dots.classList.toggle('is-on', scrollY > innerHeight * .5);
   }
@@ -155,7 +382,7 @@
   const MOVES = {
     hiro:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 59.5, fb: ['#ffffff','#a8f4ff','#2fb4ff','#1458c4'], tips: { punch_1:[83,48], kick_1:[87,50], fpunch_1:[84,46], special_1:[80,50] } },
     axel:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1','crouch','fjump','walk_0','walk_1','walk_2','walk_3','walk_4','walk_5','walk_6','walk_7'], cx: 62.5, special: 'fireleap', fb: ['#ffffff','#fff2a0','#ff9c2c','#c64812'], tips: { punch_1:[83,48], kick_1:[88,49], fpunch_1:[84,46], special_1:[80,50], fjump:[84,46] } },
-    zephyr: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_1','upper_0','special_0','special_1'], cx: 67.5, fb: ['#ffffff','#d8fbff','#7ae8f0','#2a9aaa'], tips: { punch_1:[101,44], kick_1:[88,50], fpunch_1:[84,46], special_1:[98,48] } },
+    zephyr: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_1','upper_0','special_0','special_1','punch_0__gust','punch_1__gust'], cx: 67.5, special: 'galeblade', fb: ['#ffffff','#d8fbff','#7ae8f0','#2a9aaa'], tips: { punch_1:[101,44], kick_1:[88,50], fpunch_1:[84,46], special_1:[98,48] } },
     nyx:    { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 61.5, fb: ['#ffffff','#ffb0e0','#c83aff','#6a0a8a'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
     kael:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 62,   fb: ['#ffffff','#c8f8ff','#5af0ff','#1a78d0'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
     vesper: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 60.5, fb: ['#ffffff','#c8f8ff','#3af0ff','#c83aff'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
@@ -202,7 +429,7 @@
     const key = (slide.querySelector('.fighter-art')?.getAttribute('src') || '').match(/sel_([a-z]+)\./)?.[1];
     const data = MOVES[key]; const versions = slide.querySelector('.fighter-versions');
     if (!data || !versions) return;
-    const sheet = new Image(); sheet.src = `fighter-moves/${key}.png?v=3`;
+    const sheet = new Image(); sheet.src = `fighter-moves/${key}.png?v=4`;
     const pxCard = versions.querySelectorAll('.version-card')[1];
     const makeCard = (mode, label, card) => {
       // Axel's special is his FIRE LEAP (game state 'fjump'): a small hop on the spot, fist forward in flames
@@ -210,6 +437,8 @@
         // 4th value = horizontal offset (number) or [from, to] travel: he leaps forward in flames, then walks backwards to his spot
         ? { w: 124, off: .26, steps: [['idle_0', 520, 0, 0], ['crouch', 170, 0, 0], ['fjump', 640, 0, [0, 34]], ['crouch', 170, 0, 34], ['idle_0', 380, 0, 34],
                                       ['walkback', 820, 0, [34, 0]], ['idle_0', 420, 0, 0]] }
+        : mode === 'special' && data.special === 'galeblade'
+        ? { w: 124, off: .3, steps: [['idle_0', 620], ['special_0', 170], ['punch_1__gust', 300], ['punch_0__gust', 280], ['idle_0', 1250]] }
         : SEQ[mode];
       card = card || document.createElement('div');
       card.className = `version-card move-card move-${mode}`; card.replaceChildren();
@@ -275,7 +504,34 @@
     // hit spark on impact frames
     if (impact && data.tips[frame] && !reduce) { const [x, y] = data.tips[frame]; drawSpark(g, ox + x + 3, y - VIEW_TOP, Math.floor((t - acc) / 16)); }
     // special: charge glow, then the projectile flies across the card
-    if (p.mode === 'special' && !reduce && data.special === 'fireleap') {
+    if (p.mode === 'special' && !reduce && data.special === 'galeblade') {
+      const launch = steps[0][1] + steps[1][1] + 30, SPEED = .15;           // ≈ game speed (5.6 world px / frame)
+      if (tLoop >= launch) {
+        const k = .7, dir = 1;                                   // world → sprite scale
+        const x = ox + 92 + (tLoop - launch) * SPEED, y = 44 - VIEW_TOP;
+        if (x < cv.width + 40) {
+          const cx = x - dir * 12 * k, R = 24 * k, a0 = -1.15, a1 = a0 + 2.3;
+          g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+          const hg = g.createRadialGradient(x, y, 1, x, y, 34 * k);
+          hg.addColorStop(0, 'rgba(200,245,255,.45)'); hg.addColorStop(.5, 'rgba(47,180,255,.25)'); hg.addColorStop(1, 'rgba(20,88,196,0)');
+          g.fillStyle = hg; g.beginPath(); g.arc(x, y, 34 * k, 0, Math.PI * 2); g.fill();
+          for (const [r2, col, lw] of [[R + 1, 'rgba(20,88,196,.8)', 8], [R, 'rgba(47,180,255,.95)', 5], [R - 1, 'rgba(168,244,255,1)', 2.5], [R - 1, '#ffffff', 1.2]]) {
+            g.strokeStyle = col; g.lineWidth = lw * k; g.beginPath(); g.arc(cx, y, r2, a0, a1); g.stroke();
+          }
+          const zig = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([px2, py2], n) => { const jx = (Math.random() - .5) * 2, jy = (Math.random() - .5) * 2; n ? g.lineTo(px2 + jx, py2 + jy) : g.moveTo(px2, py2); }); g.stroke(); };
+          const arcPts = []; for (let n = 0; n <= 12; n++) { const a = a0 + n / 12 * 2.3; arcPts.push([cx + Math.cos(a) * (R + 2), y + Math.sin(a) * (R + 2)]); }
+          zig(arcPts, 'rgba(200,245,255,.9)', .9);               // lightning along the crescent
+          for (let b = 0; b < 3; b++) { const a = a0 + Math.random() * 2.3, x0 = cx + Math.cos(a) * R, y0 = y + Math.sin(a) * R; zig([[x0, y0], [x0 - 4, y0 + (Math.random() - .5) * 6], [x0 - 9, y0 + (Math.random() - .5) * 8]], 'rgba(120,220,255,.8)', .8); }
+          g.restore();
+        }
+      }
+      if (frame === 'special_0') {                               // wind gathering on the blade before the slash
+        const k2 = (t - acc) / steps[i][1], gx = ox + 70, gy = 50 - VIEW_TOP;
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const gr = g.createRadialGradient(gx, gy, 0, gx, gy, 3 + k2 * 9); gr.addColorStop(0, 'rgba(200,245,255,.9)'); gr.addColorStop(1, 'rgba(47,180,255,0)');
+        g.fillStyle = gr; g.fillRect(gx - 14, gy - 14, 28, 28); g.restore();
+      }
+    } else if (p.mode === 'special' && !reduce && data.special === 'fireleap') {
       // flaming fist (port of the game's drawFlameHand) with a short echo trail while he is in the air
       const tick = now / 16.67;
       if (frame === 'fjump') {
@@ -342,20 +598,28 @@
         sparks.append(sp);
       }
       panel.prepend(aura, ring); panel.append(sparks);
+      panel.addEventListener('pointerenter', () => cursorTip.set('fighter', 'CLICK ON THE FIGHTER'));
+      panel.addEventListener('pointerleave', () => cursorTip.set('fighter', null));
+      panel.addEventListener('pointerdown', e => cursorTip.shout(e.clientX, e.clientY));
       art.dataset.parallax = '0.05';                               // the fighter stays grounded; depth comes from the layers behind
       const p = { slide, panel, mx: 0, my: 0, tx: 0, ty: 0, hot: false, timer: 0, zap: 0 };
       panels.push(p);
-      if (!finePointer || reduce) return;
       function zapName() {                                         // the fighter's name shakes and blinks green / purple for 1 s
-        if (!nameEl) return;
+        if (!nameEl || reduce) return;
         nameEl.classList.remove('is-zap'); void nameEl.offsetWidth; nameEl.classList.add('is-zap');
         clearTimeout(p.zap); p.zap = setTimeout(() => nameEl.classList.remove('is-zap'), 1000);
       }
       function flashArt() {                                        // white flash + pop on the HD art
+        if (reduce) return;
         panel.classList.remove('fa-enter'); void panel.offsetWidth; panel.classList.add('fa-enter');
         clearTimeout(p.timer); p.timer = setTimeout(() => panel.classList.remove('fa-enter'), 900);
       }
-      panel.addEventListener('click', () => { flashArt(); zapName(); });   // clicking the fighter replays the flash and the name blink
+      // click (PC) or tap (mobile) on the fighter replays the flash and the name blink; on touch the aura + pixels show for 1.6 s
+      panel.addEventListener('click', () => {
+        flashArt(); zapName();
+        if (!finePointer && !reduce) { panel.classList.add('is-hot'); clearTimeout(p.hotT); p.hotT = setTimeout(() => panel.classList.remove('is-hot'), 1600); }
+      });
+      if (!finePointer || reduce) return;
       panel.addEventListener('pointerenter', e => {
         if (e.pointerType !== 'mouse') return;
         p.hot = true; panel.classList.add('is-hot');
@@ -1064,6 +1328,20 @@
     closeBtn.addEventListener('click', e => { if (bypass) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
     wm.addEventListener('click', e => { if (bypass || !e.target.closest('[data-close-wallpaper]')) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
     document.addEventListener('keydown', e => { if (bypass || e.key !== 'Escape' || wm.hidden) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
+  })();
+
+  /* ---------- Install popup: animated close (CRT collapse; the opening is pure CSS) ---------- */
+  (() => {
+    const im = document.getElementById('install-modal'), closeBtn = document.getElementById('install-modal-close');
+    if (!im || !closeBtn || reduce) return;
+    let closing = false, bypass = false;
+    function animateClose(run) {
+      if (closing || im.hidden) return; closing = true; im.classList.add('is-closing');
+      setTimeout(() => { im.classList.remove('is-closing'); closing = false; bypass = true; run(); bypass = false; }, 300);
+    }
+    closeBtn.addEventListener('click', e => { if (bypass) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
+    im.addEventListener('click', e => { if (bypass || !e.target.closest('[data-close-install]')) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
+    document.addEventListener('keydown', e => { if (bypass || e.key !== 'Escape' || im.hidden) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
   })();
 
   /* ---------- Gameplay video popup: animated close (open animation is CSS) ---------- */

@@ -117,3 +117,12 @@ body.endclean #touch{display:none!important}   /* ecran de fin / bonus : pas de 
 #instTut .tt-dots{position:absolute;bottom:20px;left:0;right:0;z-index:2;padding:0}
 #instTut .tt-help{position:absolute;bottom:4px;left:0;right:0;z-index:2;padding:0;text-shadow:0 1px 2px #000}
 #instTut .tt-help span{background:rgba(14,8,22,.8);padding:3px 8px;border-radius:6px}
+
+
+/* Mobile orientation handoff: keep the game covered until the player confirms landscape. */
+body.orientation-gated #rotate{display:flex!important;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+body.orientation-gated #app{visibility:hidden}
+#rotate button:disabled{opacity:.48;filter:grayscale(.5)}
+html,body{min-height:100dvh}
+#app{height:100dvh}
+

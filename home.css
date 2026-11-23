@@ -99,7 +99,7 @@
 @media(max-width:850px){.phone-controller-float{width:clamp(180px,58%,350px);right:-2%;bottom:0}}
 @media(max-width:600px){.experience-device-scene{padding:2% 1% 15%}.phone-controller-float{width:58%;right:-2%;bottom:0}.experience-visual figcaption{margin-bottom:6px;font-size:7px}}
 
-.about-pillar h3 sub.power-command{font:900 .34em/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;vertical-align:sub;margin-left:.3em;color:currentColor;text-shadow:0 0 12px currentColor}
+.about-pillar h3 sub.power-command{font:900 .48em/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;vertical-align:sub;margin-left:.3em;color:currentColor;text-shadow:0 0 12px currentColor}
 
 .experience-copy h2 em .fight-highlight{color:var(--nitro)}
 
@@ -154,3 +154,149 @@
 .special-shot img[data-parallax]:not(.cyber-cab-flyover):not(.punching-ball-art){transform:translate3d(0,var(--parallax-y,0px),0) scale(1.12);will-change:transform;transition:transform .9s cubic-bezier(.2,.75,.25,1)}
 .special-shot:hover img[data-parallax]:not(.cyber-cab-flyover):not(.punching-ball-art){transform:translate3d(0,var(--parallax-y,0px),0) scale(1.17)}
 .macbook-mockup[data-parallax]{transform:translate3d(0,var(--parallax-y,0px),0);will-change:transform}
+/* Mobile: simple fades instead of the diagonal logo flight (smooth on iPhone) */
+@media(max-width:700px){.hero-logo.m-logo-hidden{animation-play-state:paused!important}.brand.m-logo-fade{transition:opacity .4s ease;opacity:0!important;pointer-events:none;will-change:auto}.brand.m-logo-fade.m-logo-shown{opacity:1!important;pointer-events:auto}}
+/* Hero: black film at 30% over the artwork, under the logo and buttons */
+.hero-dim{position:absolute;inset:0;z-index:1;pointer-events:none;background:rgba(0,0,0,.3)}
+.hero-dim canvas{position:absolute;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges}
+.hero-dim.is-pixel{background:none}
+.hero-copy,.scroll-cue,.hero-index{z-index:3}
+/* Install button label: phones & tablets add the app to the home screen */
+.install-label{font:inherit;white-space:nowrap}
+/* Mobile banner: narrower buttons */
+@media(max-width:600px){.hero-actions{width:min(100%,250px)}.hero-actions .hero-cta{height:44px;min-width:0;padding:0 16px;font-size:10px}}
+/* Mobile banner: taller, fills the whole screen (under Safari's bars too), image not cropped top/bottom by the parallax margin */
+@media(max-width:600px){.hero{height:max(108lvh,700px);min-height:0}.hero-media{inset:0}.hero-copy{top:46%}}
+/* Mobile header: small logo a little lower */
+@media(max-width:700px){.brand{top:calc(50% + 10px);width:150px;height:76px}.brand img{width:136px;height:72px}}
+/* World records: top 5 per card */
+.record-list{min-height:310px}
+/* Full leaderboard popup (top 100) */
+button.text-link.record-all{width:100%;background:none;border:0;padding:16px 0 0;border-top:1px solid #d9d9d7;font:inherit;font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:inherit;cursor:pointer;text-align:left}
+.records-modal[hidden]{display:none}
+.records-modal{position:fixed;z-index:80;inset:0;display:grid;place-items:center;padding:24px}
+.records-modal-backdrop{position:absolute;inset:0;border:0;background:#08080df0;backdrop-filter:blur(10px);cursor:pointer}
+.records-dialog{position:relative;z-index:1;width:min(92vw,620px);height:min(86vh,760px);display:flex;flex-direction:column;background:#f6f6f4;color:#101114;padding:clamp(18px,2.6vw,30px);border:1px solid #2a2a31;overflow:hidden;box-shadow:0 28px 100px #0009}
+.records-modal-close{position:absolute;z-index:3;right:14px;top:14px;width:42px;height:42px;border:1px solid #10111433;background:#101114;color:#fff;font-size:28px;line-height:1;cursor:pointer;transition:background .2s,border-color .2s}
+.records-modal-close:hover{background:var(--surge);border-color:var(--surge)}
+.records-modal-head{display:flex;align-items:center;gap:16px;padding-right:52px;margin-bottom:14px}
+.records-modal-head img{width:64px;height:64px;object-fit:cover;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #ddd;flex:none}
+.records-modal-head h3{font-size:clamp(24px,3.4vw,34px);line-height:1;letter-spacing:-.04em;margin:6px 0}
+.records-modal-sub{margin:0;font-size:12px;font-weight:850;letter-spacing:.16em;color:#8a0cc9}
+.records-dialog .record-column-label{padding-right:34px}
+.records-scroll-wrap{position:relative;flex:1;min-height:0;display:flex;gap:10px}
+.records-full{flex:1;min-height:0!important;overflow-y:auto;overscroll-behavior:contain;padding:0;margin:0;list-style:none;scrollbar-width:none;outline:none}
+.records-full::-webkit-scrollbar{display:none}
+.records-full .record-row{grid-template-columns:34px minmax(0,1fr) auto}
+.records-full .record-row:nth-child(-n+3) .rank,.records-full .record-row:nth-child(-n+3) .record-value{color:#3caa1e}
+.records-bar{width:22px;flex:none;display:flex;flex-direction:column;gap:4px;padding:2px 0}
+.records-bar.is-idle{opacity:.25;pointer-events:none}
+.records-bar-btn{height:22px;border:1px solid #101114;background:#101114;color:var(--nitro);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .2s,color .2s,opacity .2s}
+.records-bar-btn:hover{background:var(--surge);border-color:var(--surge);color:#fff}
+.records-bar-btn:disabled{opacity:.3;cursor:default;background:#101114}
+.records-bar-track{position:relative;flex:1;background:#e2e2df;border:1px solid #d3d3d0;cursor:pointer}
+.records-bar-thumb{position:absolute;left:2px;right:2px;top:0;min-height:28px;background:linear-gradient(180deg,var(--nitro),var(--surge));cursor:grab;touch-action:none}
+.records-bar-thumb.is-drag{cursor:grabbing}
+@media(max-width:600px){.records-modal{padding:12px}.records-dialog{width:100%;height:88vh;padding:16px}.records-modal-head img{width:48px;height:48px}}
+/* World records: bigger, easier to read text (titles unchanged) - cards and top 100 popup */
+.record-kicker{font-size:10px}
+.record-column-label{font-size:10px}
+.record-row{font-size:13px;padding:13px 0}
+.rank{font-size:12px}
+.record-meta{font-size:10px}
+.record-value{font-size:13px}
+.loading-row,.empty-row{font-size:12px}
+.record-card .text-link,button.text-link.record-all{font-size:11px}
+.record-row{grid-template-columns:30px minmax(0,1fr) auto}
+.records-full .record-row{grid-template-columns:40px minmax(0,1fr) auto}
+/* Special modes: price in Nitro Coins under the title (opens the "how to earn" popup) */
+.special-price{display:inline-flex;align-items:center;gap:9px;margin:-6px 0 22px;padding:8px 12px 8px 8px;background:#78ef3614;border:1px solid #78ef3655;color:var(--nitro);font:inherit;cursor:pointer;transition:background .25s,border-color .25s,transform .25s}
+.special-price img{width:26px;height:26px;image-rendering:pixelated}
+.special-price b{font:900 20px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.special-price small{font-size:9px;font-weight:850;letter-spacing:.16em;color:#9fe87a}
+/* Nitro Coins popup (reuses the leaderboard popup frame) */
+.coins-dialog{height:auto;max-height:90vh;overflow-y:auto}
+.coins-head img{width:56px;height:56px;border:0;box-shadow:none;border-radius:0;image-rendering:pixelated}
+.coins-steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:10px}
+.coins-steps li{display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid #2a2a31;background:#ffffff08}
+.coins-step-num{flex:none;width:34px;height:34px;display:grid;place-items:center;font:8px/1 "Press Start 2P",monospace;color:#101114;background:var(--nitro);box-shadow:3px 3px 0 #a817ef}
+.coins-steps strong{display:block;font-size:15px;letter-spacing:-.01em;text-transform:uppercase;margin-bottom:4px}
+.coins-steps p{margin:0;font-size:13px;line-height:1.55;color:#b2b2b8}
+.coins-note{margin:14px 0 0;font-size:12px;color:#8b8c90}
+.coins-monthly{margin:14px 0 0;padding:12px 14px;font:10px/1.6 "Press Start 2P",monospace;color:#fff;background:#a817ef;box-shadow:4px 4px 0 var(--nitro);text-align:center}
+.coins-cta{margin-top:18px;align-self:flex-start}
+@media(max-width:600px){.coins-cta{width:100%}.special-price b{font-size:18px}}
+/* Price link v2: small gem, same size and style as VIEW TOP 100 SCORES, no background */
+.special-price{gap:7px;margin:-4px 0 22px;padding:4px 0;background:none!important;border:0;font-size:11px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.special-price img{width:15px;height:15px}
+.special-price b{font:inherit;letter-spacing:.1em}
+.special-price small{font:inherit;color:inherit}
+.special-price-arrow{display:inline-grid;place-items:center;margin-left:2px}
+.special-price{border:1px solid #78ef36aa;padding:7px 11px}
+/* Coins popup: green kicker, value line under each step */
+.coins-dialog .coins-head .record-kicker{color:var(--nitro)}
+.coins-head{padding-left:0}
+.coins-value{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:11px;font-weight:850;letter-spacing:.1em;color:var(--nitro)}
+.coins-value img{width:14px;height:14px;image-rendering:pixelated}
+/* Phones: vertical scroll works over the wallpapers (the carousel used to block it with touch-action:pan-x) */
+.wallpaper-window{touch-action:pan-x pan-y}
+@media(hover:none),(pointer:coarse){.wallpaper-card{cursor:default}}
+/* Contact anti-spam challenge: HOLD TO CHARGE -> SURGE -> Y Y B B */
+.contact-charge{grid-column:1/-1;display:grid;justify-items:center;gap:12px;margin-top:3px}
+.charge-btn{position:relative;overflow:hidden;min-width:260px;height:50px;font-size:10px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;--charge:0}
+.charge-btn .charge-fill,.charge-btn .charge-fill-surge{position:absolute;left:0;top:0;bottom:0;z-index:0}
+.charge-btn .charge-fill{width:calc(min(1, var(--charge) * 2) * 100%);background:var(--nitro)}   /* 1st half of the hold: green NITRO fills the whole gauge */
+.charge-btn .charge-fill-surge{width:calc(max(0, var(--charge) * 2 - 1) * 100%);background:#a817ef}   /* 2nd half: purple SURGE fills over the full green */
+
+.charge-btn .charge-label{position:relative;z-index:1;mix-blend-mode:difference;color:#fff}
+.combo-msg{margin:0;font:8px/1.6 "Press Start 2P",monospace;color:#9a9aa2;text-align:center;letter-spacing:.04em}
+.combo-msg b{color:var(--nitro);font-weight:400}
+.combo-msg[data-state="error"]{color:#ff5a6a}
+.combo-msg[data-state="ready"]{color:#fff}
+.combo-msg[data-state="ok"]{color:var(--nitro)}
+.combo-pad[hidden]{display:none}
+.combo-pad{display:grid;justify-items:center;gap:12px}
+.combo-keys{position:relative;width:150px;height:150px}
+.ck{position:absolute;width:52px;height:52px;border-radius:50%;border:3px solid;background:#0008;color:#fff;font:700 20px/1 Inter,Arial,sans-serif;display:grid;place-items:center;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .08s,background .08s}
+.ck-x{left:49px;top:0;border-color:rgba(70,150,255,.75)}
+.ck-y{left:0;top:49px;border-color:rgba(255,214,60,.85)}
+.ck-a{left:98px;top:49px;border-color:rgba(90,220,110,.75)}
+.ck-b{left:49px;top:98px;border-color:rgba(255,80,80,.85)}
+.ck.is-press{transform:scale(.88);background:#ffffff4d}
+.combo-slots{display:flex;gap:6px}
+.combo-slots span{width:30px;height:30px;display:grid;place-items:center;font:9px/1 "Press Start 2P",monospace;color:#6e6e76;border:1px solid #3a3a42;background:#111114}
+.combo-slots span.is-hit{color:#101114;background:var(--nitro);border-color:var(--nitro);box-shadow:3px 3px 0 #a817ef}
+@media(max-width:600px){.charge-btn{width:100%;min-width:0}}
+.charge-btn[hidden]{display:none!important}
+/* Contact: I'M NOT A ROBOT + SEND row */
+.contact-actions{grid-column:1/-1;display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:3px}
+.contact-actions .button{height:50px;min-width:210px;font-size:10px;margin:0}
+.robot-btn{gap:10px}
+.robot-btn .robot-check{display:none;color:var(--nitro)}
+.robot-btn.is-verified{border-color:var(--nitro);color:var(--nitro);cursor:default;opacity:1}
+.robot-btn.is-verified .robot-check{display:block}
+.send-btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+/* robot popup */
+.robot-dialog{height:auto;width:min(92vw,520px);text-align:center;align-items:center}
+.robot-dialog h3{font-size:clamp(24px,3.4vw,32px);line-height:1;letter-spacing:-.04em;margin:8px 0 18px}
+.robot-kicker{color:var(--nitro)}
+.robot-play[hidden],.robot-win[hidden]{display:none}
+.robot-play,.robot-win{width:100%;display:grid;justify-items:center}
+.robot-dialog .combo-msg{white-space:nowrap}
+.robot-win{gap:12px;padding:18px 0 6px}
+.robot-win-title{margin:0;font:18px/1.3 "Press Start 2P",monospace;color:var(--nitro);text-shadow:3px 3px 0 #a817ef}
+.robot-win-text{margin:0;font-size:14px;color:#b2b2b8}
+@media(max-width:600px){.contact-actions .button{width:100%}.robot-dialog .combo-msg{font-size:7px}}
+.robot-btn .robot-label{font-size:inherit;line-height:inherit}
+.robot-btn.is-verified,.robot-btn.is-verified:disabled{opacity:1!important;filter:none!important}
+.charge-btn:disabled{opacity:1!important;cursor:default}
+.combo-msg[data-state="nitro"]{color:var(--nitro)}
+/* TRY Y Y B B: bigger, alone under the gauge */
+.combo-msg[data-state="try"]{font-size:16px;color:#fff;letter-spacing:.06em}
+.combo-msg[data-state="try"] b{color:var(--nitro)}
+/* Robot popup: 8 s countdown (top left) + step in the kicker */
+.robot-timer{position:absolute;z-index:3;left:16px;top:18px;font:14px/1 "Press Start 2P",monospace;color:var(--nitro);text-shadow:2px 2px 0 #a817ef;letter-spacing:.04em}
+.robot-timer[hidden]{display:none}
+.robot-timer.is-low{color:#ff5a6a;text-shadow:2px 2px 0 #4a0010}
+.robot-kicker #robot-step{color:#fff}
+

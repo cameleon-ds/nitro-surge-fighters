@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>NSF Admin — Nitro Surge Fighters</title>
+<link rel="icon" type="image/png" href="favicon-nsf.png?v=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#101114;--muted:#73747a;--line:#e3e4e6;--paper:#f7f7f5;--nitro:#78ef36;--surge:#a817ef;--side:#1b1c20;--side2:#26272c;--danger:#ff3d5a;--ease:cubic-bezier(.22,.72,.18,1)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:#fff;-webkit-font-smoothing:antialiased}
+button,input{font:inherit}
+.ico{width:16px;height:16px;flex:none}
+.hidden{display:none!important}
+
+/* ---------- login ---------- */
+.login{min-height:100%;display:grid;place-items:center;background:#0d0d10 url(intro_poster.webp) center/cover;position:relative;padding:20px}
+.login:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0d0d10cc,#0d0d10f2)}
+.login-box{position:relative;width:min(400px,100%);background:#fff;padding:34px 30px 30px}
+.login-box img{width:150px;display:block;margin:0 auto 22px}
+.login-box h1{font-size:12px;letter-spacing:.24em;text-transform:uppercase;text-align:center;margin:0 0 24px;color:var(--muted);font-weight:800}
+
+/* ---------- layout ---------- */
+.app{display:grid;grid-template-columns:250px 1fr;min-height:100%}
+.side{background:var(--side);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side-logo{padding:26px 24px 22px;border-bottom:1px solid #ffffff14}
+.side-logo img{width:130px;display:block}
+.side-logo small{display:block;margin-top:12px;font-family:"Press Start 2P",monospace;font-size:7px;color:var(--nitro);letter-spacing:.1em}
+.side nav{padding:16px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+.nav-btn{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:0;background:none;color:#b9bac0;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;text-align:left;border-left:3px solid transparent;transition:background .2s,color .2s}
+.nav-btn:hover{background:var(--side2);color:#fff}
+.nav-btn.active{background:var(--side2);color:#fff;border-left-color:var(--nitro)}
+.nav-btn.active .ico{color:var(--nitro)}
+.nav-btn .count{margin-left:auto;font:700 9px ui-monospace,monospace;color:#7d7e85}
+.side-foot{padding:16px 12px 20px;border-top:1px solid #ffffff14;display:flex;flex-direction:column;gap:4px}
+.side-user{padding:6px 14px 10px;font-size:10px;color:#7d7e85;word-break:break-all}
+.main{background:#fff;min-width:0}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:34px clamp(20px,4vw,52px) 24px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:9px;font-weight:850;letter-spacing:.24em;text-transform:uppercase;color:#6e7180;margin:0 0 10px}
+.top h2{margin:0;font-size:clamp(30px,4vw,46px);letter-spacing:-.06em;line-height:1;font-weight:850}
+.top p.lede{margin:10px 0 0;font-size:13px;color:var(--muted)}
+.content{padding:28px clamp(20px,4vw,52px) 80px}
+
+/* ---------- buttons / inputs ---------- */
+.button{text-decoration:none;height:42px;padding:0 18px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:10px;font-weight:850;letter-spacing:.11em;text-transform:uppercase;cursor:pointer;transition:background .25s,color .25s,border-color .25s,box-shadow .25s,transform .25s var(--ease);white-space:nowrap}
+.button:hover{transform:translateY(-1px)}
+.button:disabled{opacity:.45;cursor:default;transform:none}
+.button-primary{background:var(--nitro);color:#101114;border-color:var(--nitro)}
+.button-primary:hover:not(:disabled){background:var(--surge);border-color:var(--surge);color:#fff;box-shadow:0 0 16px #a817ef6e}
+.button-ghost{background:#fff;color:var(--ink);border-color:#d6d7d9}
+.button-ghost:hover:not(:disabled){border-color:var(--ink)}
+.button-danger{background:#fff;color:var(--danger);border-color:#ffc9d1}
+.button-danger:hover:not(:disabled){background:var(--danger);color:#fff;border-color:var(--danger)}
+.icon-btn{width:36px;height:36px;padding:0}
+.side .button-ghost{background:transparent;color:#b9bac0;border-color:#ffffff24;width:100%;justify-content:flex-start}
+.side .button-ghost:hover{color:#fff;border-color:#fff}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:8px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;color:#85868a;min-width:0}
+input[type=text],input[type=email],input[type=password],input[type=url]{height:40px;border:1px solid #d6d7d9;background:#fff;padding:0 12px;font-size:13px;color:var(--ink);outline:none;width:100%;transition:border-color .2s,box-shadow .2s}
+input:focus{border-color:var(--surge);box-shadow:0 0 0 3px #a817ef22}
+.login-box form{display:flex;flex-direction:column;gap:14px}
+.login-box .button{width:100%;height:46px;margin-top:6px}
+.err{min-height:16px;font-size:11px;color:var(--danger)}
+.hint{margin:4px 0 0;font-size:11px;line-height:1.5;color:var(--muted);text-align:center}
+.hint.ok{color:#2f9a12;font-weight:700}
+.switch{display:inline-flex;align-items:center;gap:8px;font-size:8px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;color:#85868a;cursor:pointer;user-select:none}
+.switch input{appearance:none;width:34px;height:18px;background:#d6d7d9;position:relative;cursor:pointer;transition:background .2s;margin:0}
+.switch input:before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;transition:transform .2s var(--ease)}
+.switch input:checked{background:var(--nitro)}
+.switch input:checked:before{transform:translateX(16px)}
+
+/* ---------- lists ---------- */
+.list{display:flex;flex-direction:column;gap:12px}
+.row{display:grid;grid-template-columns:28px 168px minmax(0,1fr) auto;gap:18px;align-items:center;padding:14px;border:1px solid var(--line);background:#fff;transition:box-shadow .25s,border-color .25s,opacity .2s}
+.row:hover{border-color:#cfd0d3;box-shadow:0 10px 26px #1011140d}
+.row.dragging{opacity:.35}
+.row.drop-before{box-shadow:0 -3px 0 var(--surge)}
+.row.drop-after{box-shadow:0 3px 0 var(--surge)}
+.row.dirty{border-color:var(--nitro)}
+.handle{cursor:grab;color:#a6a7ab;display:grid;place-items:center;height:100%;touch-action:none}
+.handle:active{cursor:grabbing}
+.thumb{width:168px;aspect-ratio:16/9;background:#141417 center/cover;position:relative;overflow:hidden}
+.thumb .tag{position:absolute;left:6px;top:6px;font:700 8px ui-monospace,monospace;color:#fff;background:#101114cc;padding:4px 6px}
+.thumb.soon{display:grid;place-items:center;font-family:"Press Start 2P",monospace;font-size:8px;color:var(--nitro);text-align:center;line-height:1.6}
+.fields{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);gap:12px;align-items:end}
+.fields .switch{grid-column:1/-1}
+.actions{display:flex;gap:8px;align-items:center}
+.pos{font:700 10px ui-monospace,monospace;color:#a0a0a3}
+
+.walls{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.wall{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column;transition:box-shadow .25s,border-color .25s,opacity .2s}
+.wall:hover{border-color:#cfd0d3;box-shadow:0 14px 30px #10111412}
+.wall.dragging{opacity:.35}
+.wall.drop-before{box-shadow:-4px 0 0 var(--surge)}
+.wall.drop-after{box-shadow:4px 0 0 var(--surge)}
+.wall.dirty{border-color:var(--nitro)}
+.wall-img{aspect-ratio:16/10;background:#141417 center/cover;position:relative;cursor:grab;touch-action:none}
+.wall-img .tag{position:absolute;left:8px;top:8px;font:700 8px ui-monospace,monospace;color:#fff;background:#101114cc;padding:4px 6px}
+.wall-img .hide-tag{left:auto;right:8px;background:var(--danger)}
+.wall-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+.wall-actions{display:flex;gap:8px;flex-wrap:wrap}
+.wall-actions .button{flex:1;padding:0 10px}
+.wall.add{border:1px dashed #c9cacd;align-items:center;justify-content:center;min-height:280px;cursor:pointer;color:var(--muted);gap:12px;font-size:10px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}
+.wall.add:hover{border-color:var(--surge);color:var(--surge)}
+.wall.add .plus{width:48px;height:48px;border:1px solid currentColor;display:grid;place-items:center}
+
+.arow{display:grid;grid-template-columns:28px 52px minmax(0,1fr) auto;gap:16px;align-items:center;padding:12px 14px;border:1px solid var(--line);background:#fff;transition:box-shadow .25s,border-color .25s,opacity .2s}
+.arow:hover{border-color:#cfd0d3;box-shadow:0 10px 26px #1011140d}
+.arow.dragging{opacity:.35}.arow.drop-before{box-shadow:0 -3px 0 var(--surge)}.arow.drop-after{box-shadow:0 3px 0 var(--surge)}.arow.dirty{border-color:var(--nitro)}
+.arow .num{font:700 10px ui-monospace,monospace;color:#a0a0a3}
+.arow .preview{justify-self:start;font:9px/1 "Press Start 2P",monospace;padding:8px 10px 7px;background:#08080a;color:var(--nitro);border:1px solid #78ef3699;box-shadow:3px 3px 0 var(--surge);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.arow.alt .preview{background:var(--surge);color:#fff;border-color:#d79bff;box-shadow:3px 3px 0 var(--nitro)}
+.arow .afields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;min-width:0}
+.arow .afields .preview{grid-column:1/-1}
+.answers-note{margin:14px 0 0;font-size:11px;color:var(--muted)}
+@media(max-width:900px){.arow{grid-template-columns:24px 1fr}.arow .num{display:none}.arow .afields,.arow .actions{grid-column:2}}
+.empty{padding:40px;text-align:center;color:var(--muted);border:1px dashed #d6d7d9;font-size:12px}
+.loading{padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ---------- modal / toast ---------- */
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#050507b3;backdrop-filter:blur(6px)}
+.dialog{background:#fff;width:min(460px,100%);padding:26px;display:flex;flex-direction:column;gap:14px;animation:pop .28s var(--ease)}
+.dialog h3{margin:0;font-size:22px;letter-spacing:-.04em}
+.dialog .drop{border:1px dashed #c9cacd;aspect-ratio:16/9;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;background:#fafafa center/cover;transition:border-color .2s}
+.dialog .drop:hover,.dialog .drop.over{border-color:var(--surge);color:var(--surge)}
+.dialog .row-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.toast{position:fixed;right:20px;bottom:20px;z-index:60;background:#101114;color:#fff;padding:14px 18px;font-size:11px;font-weight:700;letter-spacing:.06em;border-left:3px solid var(--nitro);box-shadow:0 14px 40px #0006;transform:translateY(calc(100% + 40px));transition:transform .35s var(--ease)}
+.toast.show{transform:none}
+.toast.bad{border-left-color:var(--danger)}
+
+.burger{display:none}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:250px;z-index:40;transform:translateX(-100%);transition:transform .3s var(--ease)}
+  .side.open{transform:none;box-shadow:0 0 0 100vmax #0007}
+  .burger{display:inline-flex}
+  .row{grid-template-columns:24px 1fr;gap:12px}
+  .row .thumb{width:100%}
+  .row .fields,.row .actions{grid-column:2}
+  .fields{grid-template-columns:1fr}
+  .top{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9v6l5-3z" fill="currentColor"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></g></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h6v16h-6M10 8l-4 4 4 4M6 12h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></symbol>
+  <symbol id="i-site" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M5 3l13 7-6 1.5L9 18z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M17 15h4v4h-4z" fill="currentColor"/></symbol>
+  <symbol id="i-header" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 13h11l-2 6H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+</svg>
+
+<!-- LOGIN -->
+<section class="login" id="login">
+  <div class="login-box">
+    <img src="logo_nsf.png" alt="Nitro Surge Fighters">
+    <h1>Admin panel</h1>
+    <form id="login-form">
+      <label class="f">Email<input type="email" id="lg-email" autocomplete="username" required></label>
+      <label class="f">Mot de passe<input type="password" id="lg-pw" autocomplete="current-password" required></label>
+      <div class="err" id="lg-err"></div>
+      <button class="button button-primary" type="submit">Se connecter</button>
+    </form>
+  </div>
+</section>
+
+<!-- APP -->
+<div class="app hidden" id="app">
+  <aside class="side" id="side">
+    <div class="side-logo"><img src="logo_nsf.png" alt="Nitro Surge Fighters"><small>ADMIN PANEL</small></div>
+    <nav>
+      <button class="nav-btn active" data-view="videos" type="button"><svg class="ico"><use href="#i-video"/></svg>Vidéos YouTube<span class="count" id="c-videos"></span></button>
+      <button class="nav-btn" data-view="walls" type="button"><svg class="ico"><use href="#i-image"/></svg>Wallpapers<span class="count" id="c-walls"></span></button>
+      <button class="nav-btn" data-view="answers" type="button"><svg class="ico"><use href="#i-cursor"/></svg>Mouse Answers<span class="count" id="c-answers"></span></button>
+      <button class="nav-btn" data-view="nav" type="button"><svg class="ico"><use href="#i-header"/></svg>Header Messages<span class="count" id="c-nav"></span></button>
+    </nav>
+    <div class="side-foot">
+      <div class="side-user" id="side-user"></div>
+      <a class="button button-ghost" href="index.html" target="_blank" rel="noopener"><svg class="ico"><use href="#i-site"/></svg>Voir le site</a>
+      <button class="button button-ghost" id="logout" type="button"><svg class="ico"><use href="#i-out"/></svg>Déconnexion</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- VIDEOS -->
+    <section id="view-videos">
+      <div class="top">
+        <div><button class="button button-ghost icon-btn burger" type="button" data-burger aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+          <p class="eyebrow">Section Gameplay videos</p><h2>Vidéos YouTube</h2><p class="lede">Glisse les lignes pour changer l'ordre. Laisse le lien vide pour une carte « COMING SOON ».</p></div>
+        <button class="button button-primary" id="add-video" type="button"><svg class="ico"><use href="#i-plus"/></svg>Ajouter une vidéo</button>
+      </div>
+      <div class="content"><div class="list" id="video-list"><div class="loading">Chargement…</div></div></div>
+    </section>
+
+    <!-- WALLPAPERS -->
+    <section id="view-walls" class="hidden">
+      <div class="top">
+        <div><button class="button button-ghost icon-btn burger" type="button" data-burger aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+          <p class="eyebrow">Section Wallpapers</p><h2>Wallpapers</h2><p class="lede">Glisse les images pour changer l'ordre. JPG, PNG ou WEBP, 15 Mo maximum.</p></div>
+        <button class="button button-primary" id="add-wall" type="button"><svg class="ico"><use href="#i-plus"/></svg>Ajouter une image</button>
+      </div>
+      <div class="content"><div class="walls" id="wall-list"><div class="loading">Chargement…</div></div></div>
+    </section>
+    <!-- MOUSE ANSWERS -->
+    <section id="view-answers" class="hidden">
+      <div class="top">
+        <div><button class="button button-ghost icon-btn burger" type="button" data-burger aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+          <p class="eyebrow">Bannière + Choose your fighter</p><h2>Mouse Answers</h2><p class="lede">Messages qui suivent la souris à chaque clic, dans cet ordre (20 maximum).</p></div>
+        <button class="button button-primary" id="add-answer" type="button"><svg class="ico"><use href="#i-plus"/></svg>Ajouter un message</button>
+      </div>
+      <div class="content"><div class="list" id="answer-list"><div class="loading">Chargement…</div></div><p class="answers-note" id="answers-note"></p></div>
+    </section>
+    <!-- HEADER MESSAGES -->
+    <section id="view-nav" class="hidden">
+      <div class="top">
+        <div><button class="button button-ghost icon-btn burger" type="button" data-burger aria-label="Menu"><svg class="ico"><use href="#i-menu"/></svg></button>
+          <p class="eyebrow">Menu du haut · lien World records</p><h2>Header Messages</h2><p class="lede">Messages affichés sous « World records » toutes les 3 secondes, dans cet ordre (3 maximum).</p></div>
+        <button class="button button-primary" id="add-nav" type="button"><svg class="ico"><use href="#i-plus"/></svg>Ajouter un message</button>
+      </div>
+      <div class="content"><div class="list" id="nav-list"><div class="loading">Chargement…</div></div><p class="answers-note" id="nav-note"></p></div>
+    </section>
+  </main>
+</div>
+
+<!-- wallpaper dialog -->
+<div class="modal hidden" id="wall-modal">
+  <form class="dialog" id="wall-form">
+    <h3 id="wm-title">Nouveau wallpaper</h3>
+    <div class="drop" id="wm-drop">Clique ou dépose une image ici</div>
+    <input type="file" id="wm-file" accept="image/jpeg,image/png,image/webp" hidden>
+    <label class="f">Nom affiché sur le site<input type="text" id="wm-name" maxlength="40" required placeholder="CYBER CAB ARENA"></label>
+    <div class="err" id="wm-err"></div>
+    <div class="row-btns"><button class="button button-ghost" type="button" id="wm-cancel">Annuler</button><button class="button button-primary" type="submit" id="wm-ok">Enregistrer</button></div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  'use strict';
+  const SB_URL = 'https://wjuqigklzbulqyewkdwe.supabase.co', SB_KEY = 'sb_publishable_YBogVNeEglj0LY0B4QxrnQ_E6VT9GNW', BUCKET = 'site-wallpapers';
+  const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'nsf-admin-auth' } });
+  const $ = s => document.querySelector(s);
+  const icon = id => `<svg class="ico"><use href="#${id}"/></svg>`;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let videos = [], walls = [];
+
+  /* ---------- toast ---------- */
+  let toastT;
+  function toast(msg, bad) { const t = $('#toast'); t.textContent = msg; t.classList.toggle('bad', !!bad); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+
+  /* ---------- auth ---------- */
+  async function enter(session) {
+    if (!session) { $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); return; }
+    const { data: ok } = await sb.rpc('nsf_is_admin');
+    if (!ok) { await sb.auth.signOut(); $('#lg-err').textContent = "Ce compte n'a pas accès à l'admin."; $('#login').classList.remove('hidden'); $('#app').classList.add('hidden'); return; }
+    $('#side-user').textContent = session.user.email;
+    $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+    loadVideos(); loadWalls(); loadAnswers(); loadNavMsgs();
+  }
+  $('#login-form').addEventListener('submit', async e => {
+    e.preventDefault(); $('#lg-err').textContent = '';
+    const btn = e.submitter, email = $('#lg-email').value.trim(); btn.disabled = true;
+    const fail = () => { btn.disabled = false; $('#lg-err').textContent = 'Email ou mot de passe incorrect.'; };
+    const { data: isAdmin } = await sb.rpc('nsf_admin_login_ok', { p_email: email });   // only the admin email may try a password
+    if (!isAdmin) return setTimeout(fail, 600);
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: $('#lg-pw').value });
+    if (error) return fail();
+    btn.disabled = false; enter(data.session);
+  });
+  sb.auth.onAuthStateChange((ev, session) => { if (ev === 'SIGNED_IN' && session && !$('#login').classList.contains('hidden')) enter(session); });
+  $('#logout').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+  sb.auth.getSession().then(({ data }) => enter(data.session));
+
+  /* ---------- navigation ---------- */
+  document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(x => x.classList.toggle('active', x === b));
+    $('#view-videos').classList.toggle('hidden', b.dataset.view !== 'videos');
+    $('#view-walls').classList.toggle('hidden', b.dataset.view !== 'walls');
+    $('#view-answers').classList.toggle('hidden', b.dataset.view !== 'answers');
+    $('#view-nav').classList.toggle('hidden', b.dataset.view !== 'nav');
+    $('#side').classList.remove('open');
+  }));
+  document.querySelectorAll('[data-burger]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); $('#side').classList.toggle('open'); }));
+  document.addEventListener('click', e => { if (!e.target.closest('#side')) $('#side').classList.remove('open'); });
+
+  /* ---------- drag & drop reorder (mouse + touch, via pointer events) ---------- */
+  function sortable(container, itemSel, handleSel, onDrop) {
+    let drag = null, target = null, after = false;
+    container.addEventListener('pointerdown', e => {
+      const h = e.target.closest(handleSel); if (!h || e.button > 0) return;
+      const item = h.closest(itemSel); if (!item) return;
+      e.preventDefault(); drag = item; item.classList.add('dragging'); h.setPointerCapture?.(e.pointerId);
+    });
+    container.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest(itemSel);
+      container.querySelectorAll('.drop-before,.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      target = null;
+      if (!el || el === drag || el.classList.contains('add')) return;
+      const r = el.getBoundingClientRect(), horiz = getComputedStyle(container).display === 'grid';
+      after = horiz ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
+      target = el; el.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    const end = () => {
+      if (!drag) return;
+      drag.classList.remove('dragging');
+      container.querySelectorAll('.drop-before,.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      if (target) { const from = +drag.dataset.i, to = +target.dataset.i; onDrop(from, after ? to + (from < to ? 0 : 1) : to - (from < to ? 1 : 0)); }
+      drag = null; target = null;
+    };
+    container.addEventListener('pointerup', end); container.addEventListener('pointercancel', end);
+  }
+  async function savePositions(table, list) {
+    list.forEach((x, i) => x.position = i + 1);
+    const res = await Promise.all(list.map(x => sb.from(table).update({ position: x.position }).eq('id', x.id)));
+    const err = res.find(r => r.error); if (err) toast('Ordre non enregistré : ' + err.error.message, true); else toast('Ordre enregistré');
+  }
+  const move = (list, from, to) => { to = Math.max(0, Math.min(list.length - 1, to)); if (from === to) return false; list.splice(to, 0, list.splice(from, 1)[0]); return true; };
+
+  /* ---------- VIDEOS ---------- */
+  const ytId = v => { v = String(v || '').trim(); if (!v) return null; const m = v.match(/(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/); return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(v) ? v : undefined); };
+  async function loadVideos() {
+    const { data, error } = await sb.from('site_videos').select('*').order('position').order('id');
+    if (error) { $('#video-list').innerHTML = `<div class="empty">Erreur : ${esc(error.message)}</div>`; return; }
+    videos = data; renderVideos();
+  }
+  function renderVideos() {
+    $('#c-videos').textContent = videos.length;
+    const L = $('#video-list');
+    if (!videos.length) { L.innerHTML = '<div class="empty">Aucune vidéo. Clique sur « Ajouter une vidéo ».</div>'; return; }
+    L.innerHTML = videos.map((v, i) => `
+      <div class="row" data-i="${i}">
+        <div class="handle" title="Glisser pour déplacer">${icon('i-grip')}</div>
+        ${v.youtube_id ? `<a class="thumb" href="https://www.youtube.com/watch?v=${esc(v.youtube_id)}" target="_blank" rel="noopener" style="background-image:url(https://img.youtube.com/vi/${esc(v.youtube_id)}/hqdefault.jpg)"><span class="tag">CLIP ${String(i + 1).padStart(2, '0')}</span></a>`
+                       : `<div class="thumb soon" style="background-image:linear-gradient(#141417cc,#141417cc),url(${esc(v.fallback || 'stage_city.jpg')})">COMING<br>SOON<span class="tag">CLIP ${String(i + 1).padStart(2, '0')}</span></div>`}
+        <div class="fields">
+          <label class="f">Lien YouTube<input type="text" data-k="url" value="${v.youtube_id ? 'https://youtu.be/' + esc(v.youtube_id) : ''}" placeholder="https://youtu.be/… (vide = COMING SOON)"></label>
+          <label class="f">Titre affiché<input type="text" data-k="title" value="${esc(v.title)}" maxlength="40"></label>
+          <label class="f">Petit texte vert<input type="text" data-k="label" value="${esc(v.label)}" maxlength="40"></label>
+          <label class="switch"><input type="checkbox" data-k="visible" ${v.visible ? 'checked' : ''}>Visible sur le site</label>
+        </div>
+        <div class="actions">
+          <button class="button button-ghost icon-btn" data-a="up" type="button" title="Monter" ${i ? '' : 'disabled'}>${icon('i-up')}</button>
+          <button class="button button-ghost icon-btn" data-a="down" type="button" title="Descendre" ${i < videos.length - 1 ? '' : 'disabled'}>${icon('i-down')}</button>
+          <button class="button button-primary" data-a="save" type="button" disabled>${icon('i-save')}Enregistrer</button>
+          <button class="button button-danger icon-btn" data-a="del" type="button" title="Supprimer">${icon('i-trash')}</button>
+        </div>
+      </div>`).join('');
+  }
+  const vl = $('#video-list');
+  vl.addEventListener('input', e => { const row = e.target.closest('.row'); if (!row) return; row.classList.add('dirty'); row.querySelector('[data-a=save]').disabled = false; });
+  vl.addEventListener('change', e => { if (e.target.dataset.k === 'visible') e.target.closest('.row').querySelector('[data-a=save]').click(); });
+  vl.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text]')) e.target.closest('.row').querySelector('[data-a=save]').click(); });
+  vl.addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const row = b.closest('.row'), i = +row.dataset.i, v = videos[i];
+    if (b.dataset.a === 'up' || b.dataset.a === 'down') { if (move(videos, i, i + (b.dataset.a === 'up' ? -1 : 1))) { renderVideos(); savePositions('site_videos', videos); } return; }
+    if (b.dataset.a === 'del') {
+      if (!confirm(`Supprimer la vidéo « ${v.title} » du site ?`)) return;
+      const { error } = await sb.from('site_videos').delete().eq('id', v.id);
+      if (error) return toast(error.message, true);
+      videos.splice(i, 1); renderVideos(); savePositions('site_videos', videos); return;
+    }
+    if (b.dataset.a === 'save') {
+      const val = k => row.querySelector(`[data-k=${k}]`);
+      const id = ytId(val('url').value);
+      if (id === undefined) return toast('Lien YouTube non reconnu', true);
+      const title = val('title').value.trim().toUpperCase() || (id ? 'GAMEPLAY VIDEO' : 'COMING SOON');
+      const label = val('label').value.trim().toUpperCase() || (id ? 'NITRO SURGE FIGHTERS' : 'NEXT GAMEPLAY VIDEO');
+      b.disabled = true;
+      const { data, error } = await sb.from('site_videos').update({ youtube_id: id, title, label, visible: val('visible').checked, updated_at: new Date().toISOString() }).eq('id', v.id).select().single();
+      if (error) { b.disabled = false; return toast(error.message, true); }
+      videos[i] = data; renderVideos(); toast('Vidéo enregistrée');
+    }
+  });
+  sortable(vl, '.row', '.handle', (from, to) => { if (move(videos, from, to)) { renderVideos(); savePositions('site_videos', videos); } });
+  $('#add-video').addEventListener('click', async () => {
+    const url = prompt('Lien de la vidéo YouTube (laisse vide pour une carte COMING SOON) :', ''); if (url === null) return;
+    const id = ytId(url); if (id === undefined) return toast('Lien YouTube non reconnu', true);
+    const title = (prompt('Titre affiché sur le site :', id ? 'GAMEPLAY VIDEO' : 'COMING SOON') || '').trim().toUpperCase() || (id ? 'GAMEPLAY VIDEO' : 'COMING SOON');
+    const { data, error } = await sb.from('site_videos').insert({ youtube_id: id, title, label: id ? 'NITRO SURGE FIGHTERS' : 'NEXT GAMEPLAY VIDEO', fallback: ['stage_city.jpg', 'stage_ring.jpg', 'stage_dojo.jpg', 'stage_terrace.jpg', 'stage_lab.jpg'][videos.length % 5], position: videos.length + 1 }).select().single();
+    if (error) return toast(error.message, true);
+    videos.push(data); renderVideos(); toast('Vidéo ajoutée en dernière position');
+  });
+
+  /* ---------- WALLPAPERS ---------- */
+  const imgUrl = u => /^https?:/.test(u) ? u : u;   // relative paths (og.jpg…) are site files; admin lives on the same site
+  async function loadWalls() {
+    const { data, error } = await sb.from('site_wallpapers').select('*').order('position').order('id');
+    if (error) { $('#wall-list').innerHTML = `<div class="empty">Erreur : ${esc(error.message)}</div>`; return; }
+    walls = data; renderWalls();
+  }
+  function renderWalls() {
+    $('#c-walls').textContent = walls.length;
+    $('#wall-list').innerHTML = walls.map((w, i) => `
+      <div class="wall" data-i="${i}">
+        <div class="wall-img" style="background-image:url('${esc(imgUrl(w.image_url))}')" title="Glisser pour déplacer"><span class="tag">${String(i + 1).padStart(2, '0')}</span>${w.visible ? '' : '<span class="tag hide-tag">MASQUÉ</span>'}</div>
+        <div class="wall-body">
+          <label class="f">Nom affiché<input type="text" data-k="title" value="${esc(w.title)}" maxlength="40"></label>
+          <label class="switch"><input type="checkbox" data-k="visible" ${w.visible ? 'checked' : ''}>Visible sur le site</label>
+          <div class="wall-actions">
+            <button class="button button-primary" data-a="save" type="button" disabled>${icon('i-save')}OK</button>
+            <button class="button button-ghost" data-a="replace" type="button" title="Remplacer l'image">${icon('i-swap')}Image</button>
+            <button class="button button-danger icon-btn" data-a="del" type="button" title="Supprimer">${icon('i-trash')}</button>
+          </div>
+        </div>
+      </div>`).join('') + `<div class="wall add" id="wall-add-card"><span class="plus">${icon('i-plus')}</span>Ajouter une image</div>`;
+  }
+  const wl = $('#wall-list');
+  wl.addEventListener('input', e => { const c = e.target.closest('.wall'); if (!c || c.classList.contains('add')) return; c.classList.add('dirty'); c.querySelector('[data-a=save]').disabled = false; });
+  wl.addEventListener('change', e => { if (e.target.dataset.k === 'visible') e.target.closest('.wall').querySelector('[data-a=save]').click(); });
+  wl.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text]')) e.target.closest('.wall').querySelector('[data-a=save]').click(); });
+  wl.addEventListener('click', async e => {
+    if (e.target.closest('#wall-add-card')) return openWall(null);
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const card = b.closest('.wall'), i = +card.dataset.i, w = walls[i];
+    if (b.dataset.a === 'replace') return openWall(i);
+    if (b.dataset.a === 'del') {
+      if (!confirm(`Supprimer le wallpaper « ${w.title} » ?`)) return;
+      const { error } = await sb.from('site_wallpapers').delete().eq('id', w.id);
+      if (error) return toast(error.message, true);
+      if (w.storage_path) await sb.storage.from(BUCKET).remove([w.storage_path]);
+      walls.splice(i, 1); renderWalls(); savePositions('site_wallpapers', walls); return;
+    }
+    if (b.dataset.a === 'save') {
+      const title = card.querySelector('[data-k=title]').value.trim().toUpperCase(); if (!title) return toast('Le nom ne peut pas être vide', true);
+      b.disabled = true;
+      const { data, error } = await sb.from('site_wallpapers').update({ title, visible: card.querySelector('[data-k=visible]').checked, updated_at: new Date().toISOString() }).eq('id', w.id).select().single();
+      if (error) { b.disabled = false; return toast(error.message, true); }
+      walls[i] = data; renderWalls(); toast('Wallpaper enregistré');
+    }
+  });
+  sortable(wl, '.wall', '.wall-img', (from, to) => { if (move(walls, from, to)) { renderWalls(); savePositions('site_wallpapers', walls); } });
+
+  /* ---------- MOUSE ANSWERS ---------- */
+  const MAX_ANSWERS = 20;
+  let answers = [];
+  async function loadAnswers() {
+    const { data, error } = await sb.from('site_mouse_answers').select('*').order('position').order('id');
+    if (error) { $('#answer-list').innerHTML = `<div class="empty">Erreur : ${esc(error.message)}</div>`; return; }
+    answers = data; renderAnswers();
+  }
+  function renderAnswers() {
+    $('#c-answers').textContent = answers.length;
+    $('#add-answer').disabled = answers.length >= MAX_ANSWERS;
+    $('#answers-note').textContent = `${answers.length} / ${MAX_ANSWERS} messages` + (answers.length >= MAX_ANSWERS ? ' — maximum atteint' : '') + ". Les messages masqués ne s'affichent pas sur le site.";
+    const L = $('#answer-list');
+    if (!answers.length) { L.innerHTML = '<div class="empty">Aucun message : le site utilisera YEEEEAH!, WOW!… par défaut.</div>'; return; }
+    L.innerHTML = answers.map((a, i) => `
+      <div class="arow${i % 2 ? ' alt' : ''}" data-i="${i}">
+        <div class="handle" title="Glisser pour déplacer">${icon('i-grip')}</div>
+        <span class="num">${String(i + 1).padStart(2, '0')}</span>
+        <div class="afields">
+          <label class="f">Message<input type="text" data-k="text" value="${esc(a.text)}" maxlength="40"></label>
+          <label class="switch"><input type="checkbox" data-k="visible" ${a.visible ? 'checked' : ''}>Visible</label>
+          <span class="preview">${esc(a.text)}</span>
+        </div>
+        <div class="actions">
+          <button class="button button-ghost icon-btn" data-a="up" type="button" title="Monter" ${i ? '' : 'disabled'}>${icon('i-up')}</button>
+          <button class="button button-ghost icon-btn" data-a="down" type="button" title="Descendre" ${i < answers.length - 1 ? '' : 'disabled'}>${icon('i-down')}</button>
+          <button class="button button-primary" data-a="save" type="button" disabled>${icon('i-save')}Enregistrer</button>
+          <button class="button button-danger icon-btn" data-a="del" type="button" title="Supprimer">${icon('i-trash')}</button>
+        </div>
+      </div>`).join('');
+  }
+  const al = $('#answer-list');
+  al.addEventListener('input', e => {
+    const row = e.target.closest('.arow'); if (!row) return;
+    row.classList.add('dirty'); row.querySelector('[data-a=save]').disabled = false;
+    if (e.target.dataset.k === 'text') row.querySelector('.preview').textContent = e.target.value.toUpperCase() || '…';
+  });
+  al.addEventListener('change', e => { if (e.target.dataset.k === 'visible') e.target.closest('.arow').querySelector('[data-a=save]').click(); });
+  al.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text]')) e.target.closest('.arow').querySelector('[data-a=save]').click(); });
+  al.addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const row = b.closest('.arow'), i = +row.dataset.i, a = answers[i];
+    if (b.dataset.a === 'up' || b.dataset.a === 'down') { if (move(answers, i, i + (b.dataset.a === 'up' ? -1 : 1))) { renderAnswers(); savePositions('site_mouse_answers', answers); } return; }
+    if (b.dataset.a === 'del') {
+      if (!confirm(`Supprimer le message « ${a.text} » ?`)) return;
+      const { error } = await sb.from('site_mouse_answers').delete().eq('id', a.id);
+      if (error) return toast(error.message, true);
+      answers.splice(i, 1); renderAnswers(); savePositions('site_mouse_answers', answers); return;
+    }
+    if (b.dataset.a === 'save') {
+      const text = row.querySelector('[data-k=text]').value.trim().toUpperCase();
+      if (!text) return toast('Le message ne peut pas être vide', true);
+      b.disabled = true;
+      const { data, error } = await sb.from('site_mouse_answers').update({ text, visible: row.querySelector('[data-k=visible]').checked, updated_at: new Date().toISOString() }).eq('id', a.id).select().single();
+      if (error) { b.disabled = false; return toast(error.message, true); }
+      answers[i] = data; renderAnswers(); toast('Message enregistré');
+    }
+  });
+  sortable(al, '.arow', '.handle', (from, to) => { if (move(answers, from, to)) { renderAnswers(); savePositions('site_mouse_answers', answers); } });
+  $('#add-answer').addEventListener('click', async () => {
+    if (answers.length >= MAX_ANSWERS) return toast('Maximum 20 messages', true);
+    const text = (prompt('Nouveau message (40 caractères max) :', '') || '').trim().toUpperCase().slice(0, 40); if (!text) return;
+    const { data, error } = await sb.from('site_mouse_answers').insert({ text, position: answers.length + 1 }).select().single();
+    if (error) return toast(/Maximum/.test(error.message) ? 'Maximum 20 messages' : error.message, true);
+    answers.push(data); renderAnswers(); toast('Message ajouté en dernière position');
+  });
+
+  /* ---------- HEADER MESSAGES ---------- */
+  const MAX_NAV = 3;
+  let navMsgs = [];
+  async function loadNavMsgs() {
+    const { data, error } = await sb.from('site_nav_messages').select('*').order('position').order('id');
+    if (error) { $('#nav-list').innerHTML = `<div class="empty">Erreur : ${esc(error.message)}</div>`; return; }
+    navMsgs = data; renderNavMsgs();
+  }
+  function renderNavMsgs() {
+    $('#c-nav').textContent = navMsgs.length;
+    $('#add-nav').disabled = navMsgs.length >= MAX_NAV;
+    $('#nav-note').textContent = `${navMsgs.length} / ${MAX_NAV} messages` + (navMsgs.length >= MAX_NAV ? ' — maximum atteint' : '') + ". Les messages masqués ne s'affichent pas sur le site.";
+    const L = $('#nav-list');
+    if (!navMsgs.length) { L.innerHTML = '<div class="empty">Aucun message : le site utilisera les messages par défaut.</div>'; return; }
+    L.innerHTML = navMsgs.map((a, i) => `
+      <div class="arow${i % 2 ? ' alt' : ''}" data-i="${i}">
+        <div class="handle" title="Glisser pour déplacer">${icon('i-grip')}</div>
+        <span class="num">${String(i + 1).padStart(2, '0')}</span>
+        <div class="afields">
+          <label class="f">Message<input type="text" data-k="text" value="${esc(a.text)}" maxlength="40"></label>
+          <label class="switch"><input type="checkbox" data-k="visible" ${a.visible ? 'checked' : ''}>Visible</label>
+          <span class="preview">${esc(a.text)}</span>
+        </div>
+        <div class="actions">
+          <button class="button button-ghost icon-btn" data-a="up" type="button" title="Monter" ${i ? '' : 'disabled'}>${icon('i-up')}</button>
+          <button class="button button-ghost icon-btn" data-a="down" type="button" title="Descendre" ${i < navMsgs.length - 1 ? '' : 'disabled'}>${icon('i-down')}</button>
+          <button class="button button-primary" data-a="save" type="button" disabled>${icon('i-save')}Enregistrer</button>
+          <button class="button button-danger icon-btn" data-a="del" type="button" title="Supprimer">${icon('i-trash')}</button>
+        </div>
+      </div>`).join('');
+  }
+  const nl = $('#nav-list');
+  nl.addEventListener('input', e => {
+    const row = e.target.closest('.arow'); if (!row) return;
+    row.classList.add('dirty'); row.querySelector('[data-a=save]').disabled = false;
+    if (e.target.dataset.k === 'text') row.querySelector('.preview').textContent = e.target.value.toUpperCase() || '…';
+  });
+  nl.addEventListener('change', e => { if (e.target.dataset.k === 'visible') e.target.closest('.arow').querySelector('[data-a=save]').click(); });
+  nl.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[type=text]')) e.target.closest('.arow').querySelector('[data-a=save]').click(); });
+  nl.addEventListener('click', async e => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    const row = b.closest('.arow'), i = +row.dataset.i, a = navMsgs[i];
+    if (b.dataset.a === 'up' || b.dataset.a === 'down') { if (move(navMsgs, i, i + (b.dataset.a === 'up' ? -1 : 1))) { renderNavMsgs(); savePositions('site_nav_messages', navMsgs); } return; }
+    if (b.dataset.a === 'del') {
+      if (!confirm(`Supprimer le message « ${a.text} » ?`)) return;
+      const { error } = await sb.from('site_nav_messages').delete().eq('id', a.id);
+      if (error) return toast(error.message, true);
+      navMsgs.splice(i, 1); renderNavMsgs(); savePositions('site_nav_messages', navMsgs); return;
+    }
+    if (b.dataset.a === 'save') {
+      const text = row.querySelector('[data-k=text]').value.trim().toUpperCase();
+      if (!text) return toast('Le message ne peut pas être vide', true);
+      b.disabled = true;
+      const { data, error } = await sb.from('site_nav_messages').update({ text, visible: row.querySelector('[data-k=visible]').checked, updated_at: new Date().toISOString() }).eq('id', a.id).select().single();
+      if (error) { b.disabled = false; return toast(error.message, true); }
+      navMsgs[i] = data; renderNavMsgs(); toast('Message enregistré');
+    }
+  });
+  sortable(nl, '.arow', '.handle', (from, to) => { if (move(navMsgs, from, to)) { renderNavMsgs(); savePositions('site_nav_messages', navMsgs); } });
+  $('#add-nav').addEventListener('click', async () => {
+    if (navMsgs.length >= MAX_NAV) return toast('Maximum 3 messages', true);
+    const text = (prompt('Nouveau message (40 caractères max) :', '') || '').trim().toUpperCase().slice(0, 40); if (!text) return;
+    const { data, error } = await sb.from('site_nav_messages').insert({ text, position: navMsgs.length + 1 }).select().single();
+    if (error) return toast(/Maximum/.test(error.message) ? 'Maximum 3 messages' : error.message, true);
+    navMsgs.push(data); renderNavMsgs(); toast('Message ajouté en dernière position');
+  });
+
+  /* wallpaper dialog (add / replace image) */
+  let editIdx = null, pickedFile = null;
+  const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'wallpaper';
+  function openWall(i) {
+    editIdx = i; pickedFile = null; $('#wm-err').textContent = '';
+    const w = i == null ? null : walls[i];
+    $('#wm-title').textContent = w ? 'Remplacer l’image' : 'Nouveau wallpaper';
+    $('#wm-name').value = w ? w.title : '';
+    const d = $('#wm-drop'); d.style.backgroundImage = w ? `url('${imgUrl(w.image_url)}')` : ''; d.textContent = w ? '' : 'Clique ou dépose une image ici';
+    $('#wall-modal').classList.remove('hidden'); setTimeout(() => (w ? $('#wm-drop') : $('#wm-name')).focus?.(), 50);
+  }
+  const closeWall = () => $('#wall-modal').classList.add('hidden');
+  function pick(f) {
+    if (!f) return; if (!/^image\/(jpeg|png|webp)$/.test(f.type)) return ($('#wm-err').textContent = 'Format accepté : JPG, PNG ou WEBP.');
+    if (f.size > 15 * 1024 * 1024) return ($('#wm-err').textContent = 'Image trop lourde (15 Mo maximum).');
+    pickedFile = f; $('#wm-err').textContent = ''; const d = $('#wm-drop'); d.textContent = ''; d.style.backgroundImage = `url('${URL.createObjectURL(f)}')`;
+    if (!$('#wm-name').value) $('#wm-name').value = f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').toUpperCase().slice(0, 40);
+  }
+  $('#wm-drop').addEventListener('click', () => $('#wm-file').click());
+  $('#wm-file').addEventListener('change', e => pick(e.target.files[0]));
+  ['dragover', 'dragenter'].forEach(t => $('#wm-drop').addEventListener(t, e => { e.preventDefault(); e.currentTarget.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => $('#wm-drop').addEventListener(t, e => { e.preventDefault(); e.currentTarget.classList.remove('over'); if (t === 'drop') pick(e.dataTransfer.files[0]); }));
+  $('#add-wall').addEventListener('click', () => openWall(null));
+  $('#wm-cancel').addEventListener('click', closeWall);
+  $('#wall-modal').addEventListener('click', e => { if (e.target.id === 'wall-modal') closeWall(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeWall(); });
+  $('#wall-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const w = editIdx == null ? null : walls[editIdx], title = $('#wm-name').value.trim().toUpperCase();
+    if (!title) return ($('#wm-err').textContent = 'Donne un nom au wallpaper.');
+    if (!w && !pickedFile) return ($('#wm-err').textContent = 'Choisis une image.');
+    const ok = $('#wm-ok'); ok.disabled = true; ok.textContent = 'Envoi…';
+    try {
+      const patch = { title, updated_at: new Date().toISOString() };
+      if (pickedFile) {
+        const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[pickedFile.type];
+        const path = `${Date.now()}-${slug(title)}.${ext}`;
+        const up = await sb.storage.from(BUCKET).upload(path, pickedFile, { contentType: pickedFile.type, cacheControl: '31536000', upsert: false });
+        if (up.error) throw up.error;
+        Object.assign(patch, { image_url: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl, storage_path: path, file_name: `nsf-${slug(title)}.${ext}` });
+      }
+      if (w) {
+        const { data, error } = await sb.from('site_wallpapers').update(patch).eq('id', w.id).select().single(); if (error) throw error;
+        if (pickedFile && w.storage_path) sb.storage.from(BUCKET).remove([w.storage_path]);
+        walls[editIdx] = data;
+      } else {
+        const { data, error } = await sb.from('site_wallpapers').insert({ ...patch, position: walls.length + 1 }).select().single(); if (error) throw error;
+        walls.push(data);
+      }
+      renderWalls(); closeWall(); toast(w ? 'Image remplacée' : 'Wallpaper ajouté');
+    } catch (err) { $('#wm-err').textContent = 'Erreur : ' + (err.message || err); }
+    ok.disabled = false; ok.textContent = 'Enregistrer';
+  });
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 'use strict';
 const SB_URL = 'https://wjuqigklzbulqyewkdwe.supabase.co';
 const SB_KEY = 'sb_publishable_YBogVNeEglj0LY0B4QxrnQ_E6VT9GNW';   // clé publique (lecture protégée par les règles de la base)
-const EDITOR_URL = 'https://cameleon-ds.github.io/nitro-surge-fighters/editeur-poses.html';
+const EDITOR_URL = 'https://nitrosurgefighters.com/editeur-poses.html';
 const ONLINE = location.protocol !== 'file:';
 
 const ICON = {
