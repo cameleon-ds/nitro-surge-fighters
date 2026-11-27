@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c0c0f">
@@ -147,7 +148,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="home.css?v=138">
 <link rel="stylesheet" href="home-motion.css?v=71">
-<script src="site-content.js?v=47" defer></script>
+<script src="site-content.js?v=48" defer></script>
 </head>
 <body>
 <header class="site-header" id="site-header">
@@ -394,7 +395,7 @@
 <footer class="site-footer">
   <section class="footer-contact" id="footer-contact">
     <p class="eyebrow">GET IN TOUCH</p><h2>Contact the team</h2><p class="footer-contact-intro">Questions, feedback, or collaboration ideas? Send the NSF team a message.</p>
-    <form class="footer-contact-form" id="contact-form" action="contact.php" method="post" novalidate><label>Name<input name="name" type="text" autocomplete="name" required maxlength="100"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="160"></label><label>Message<textarea name="message" rows="4" required maxlength="3000"></textarea></label><label class="contact-trap" aria-hidden="true">Website<input name="website" type="text" tabindex="-1" autocomplete="off"></label><input type="hidden" name="started" value=""><input type="hidden" name="combo" value=""><input type="hidden" name="token" value="">
+    <form class="footer-contact-form" id="contact-form" action="https://wjuqigklzbulqyewkdwe.supabase.co/functions/v1/nsf-contact" method="post" novalidate><label>Name<input name="name" type="text" autocomplete="name" required maxlength="100"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="160"></label><label>Message<textarea name="message" rows="4" required maxlength="3000"></textarea></label><label class="contact-trap" aria-hidden="true">Website<input name="website" type="text" tabindex="-1" autocomplete="off"></label><input type="hidden" name="started" value=""><input type="hidden" name="combo" value=""><input type="hidden" name="token" value="">
 <div class="contact-actions">
   <button class="button button-secondary robot-btn" id="robot-btn" type="button"><svg class="robot-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span class="robot-label">I'M NOT A ROBOT</span></button>
   <button class="button button-primary send-btn" id="send-btn" type="submit" disabled>SEND MESSAGE <span aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span></button>

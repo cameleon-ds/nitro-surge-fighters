@@ -231,7 +231,8 @@
   wallpaperModalClose.addEventListener('click',closeWallpaper);wallpaperModal.addEventListener('click',event=>{if(event.target.matches('[data-close-wallpaper]'))closeWallpaper();});document.addEventListener('keydown',event=>{if(event.key==='Escape')closeWallpaper();});
 
   const contactForm=document.getElementById('contact-form');
-  // Contact form: sent from the site through contact.php (OVH, PHP mail()); falls back to the mail app where PHP is not available (GitHub Pages / local file).
+  // Contact form: sent through the Supabase function nsf-contact (email via Resend), works on any static hosting; falls back to the mail app if the function does not answer.
+  const CONTACT_URL='https://wjuqigklzbulqyewkdwe.supabase.co/functions/v1/nsf-contact';
   const contactStatus=document.getElementById('contact-status');
   const startedField=contactForm?.querySelector('input[name="started"]');if(startedField)startedField.value=String(Date.now());
   const setContactStatus=(text,state)=>{if(!contactStatus)return;contactStatus.textContent=text;contactStatus.dataset.state=state||'';};
@@ -242,8 +243,8 @@
   const comboField=contactForm?.querySelector('input[name="combo"]'),tokenField=contactForm?.querySelector('input[name="token"]');
   let charge=0,holding=false,chargeRaf=0,lastT=0,comboStep=0,gapT=0,comboOk=false;
   const setMsg=(t,state)=>{if(comboMsg){comboMsg.innerHTML=t;comboMsg.dataset.state=state||'';}};
-  // the server gives a signed, time-limited token (bots posting straight to contact.php don't have it)
-  const loadToken=()=>{if(!tokenField||location.protocol==='file:')return;fetch('contact.php?token=1',{headers:{'Accept':'application/json'}}).then(r=>r.json()).then(j=>{if(j&&j.token)tokenField.value=j.token;}).catch(()=>{});};
+  // the server gives a signed, time-limited token (bots posting straight to the function don't have it)
+  const loadToken=()=>{if(!tokenField||location.protocol==='file:')return;fetch(CONTACT_URL+'?token=1',{headers:{'Accept':'application/json'}}).then(r=>r.json()).then(j=>{if(j&&j.token)tokenField.value=j.token;}).catch(()=>{});};
   loadToken();
   let nitroShown=false;
   function paintCharge(){if(!chargeBtn)return;chargeBtn.style.setProperty('--charge',charge.toFixed(3));chargeBtn.classList.toggle('is-surge',charge>=.5);
@@ -302,9 +303,9 @@
     if(location.protocol==='file:'){mailtoFallback(name,email,message);return;}
     button.disabled=true;contactForm.classList.add('is-sending');setContactStatus('SENDING…','sending');
     try{
-      const res=await fetch('contact.php',{method:'POST',body:data,headers:{'Accept':'application/json'}});
+      const res=await fetch(CONTACT_URL,{method:'POST',body:data,headers:{'Accept':'application/json'}});
       const json=await res.json().catch(()=>null);
-      if(!json){mailtoFallback(name,email,message);setContactStatus('','');return;}   // no PHP here (e.g. GitHub Pages)
+      if(!json){mailtoFallback(name,email,message);setContactStatus('','');return;}   // function not reachable: use the mail app
       if(json.ok){contactForm.reset();if(startedField)startedField.value=String(Date.now());setContactStatus('MESSAGE SENT — THANK YOU! WE WILL REPLY SOON.','ok');}
       else if(json.error==='combo'){setContactStatus('SECURITY CHECK EXPIRED. PLEASE TRY AGAIN.','error');}
       else if(json.error==='wait'){setContactStatus('PLEASE WAIT A FEW SECONDS BEFORE SENDING ANOTHER MESSAGE.','error');}

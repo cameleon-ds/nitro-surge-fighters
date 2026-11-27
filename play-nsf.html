@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,22 +19,22 @@
 <meta property="og:site_name" content="Nitro Surge Fighters">
 <meta property="og:title" content="Nitro Surge Fighters">
 <meta property="og:description" content="Pixel-art fighting game in your browser. Play on mobile in landscape.">
-<meta property="og:url" content="https://cameleon-ds.github.io/nitro-surge-fighters/">
-<meta property="og:image" content="https://cameleon-ds.github.io/nitro-surge-fighters/og.jpg?v=4">
-<meta property="og:image:secure_url" content="https://cameleon-ds.github.io/nitro-surge-fighters/og.jpg?v=4">
+<meta property="og:url" content="https://nitrosurgefighters.com/">
+<meta property="og:image" content="https://nitrosurgefighters.com/og.jpg?v=4">
+<meta property="og:image:secure_url" content="https://nitrosurgefighters.com/og.jpg?v=4">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Nitro Surge Fighters logo">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://cameleon-ds.github.io/nitro-surge-fighters/og.jpg?v=4">
-<link rel="manifest" href="manifest.json?v=8">
+<meta name="twitter:image" content="https://nitrosurgefighters.com/og.jpg?v=4">
+<link rel="manifest" href="manifest.json?v=9">
 <meta name="apple-mobile-web-app-title" content="Nitro Surge Fighters">
 <meta name="application-name" content="Nitro Surge Fighters">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=412">
+<link rel="stylesheet" href="style.css?v=416">
 </head>
 <body>
 <div id="app">
@@ -62,14 +63,16 @@
     <path d="M3 13a9 9 0 0 0 7 8"/>
     <path d="M10 21l-2-0.5M10 21l-0.5-2"/>
   </svg>
-  <p>Rotate your phone<br>to landscape</p>
-  <button id="rotateOk" type="button">CONTINUE</button>
+  <p id="rotateHint" aria-live="polite">ALLOW SCREEN ROTATION</p>
+  <button id="rotateOk" type="button" hidden>CONTINUE</button>
 </div>
 
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="poses-custom.js?v=383"></script>
 <script src="interface.js?v=512"></script>
-<script src="main.js?v=601"></script>
+<script src="nsf-sync.js?v=2"></script>
+<script src="main.js?v=613"></script>
+<script src="orientation-gate.js?v=8"></script>
 </body>
 </html>
