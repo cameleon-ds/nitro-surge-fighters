@@ -24,15 +24,16 @@
       if (b.cab_owned && LS.getItem('nsfMode_cab') !== '1') { set('nsfMode_cab', '1'); set('nsfCabOwned', '1'); changed = true; }
       if (b.punch_owned && LS.getItem('nsfMode_punch') !== '1') { set('nsfMode_punch', '1'); changed = true; }
       if (b.bta_owned && LS.getItem('nsfMode_bta') !== '1') { set('nsfMode_bta', '1'); changed = true; }
+      if (b.basket_owned && LS.getItem('nsfMode_basket') !== '1') { set('nsfMode_basket', '1'); changed = true; }
       if (b.modes_reset) {   // account corrected on the server: drop local modes it does not own (once)
-        [['cab', b.cab_owned], ['punch', b.punch_owned], ['bta', b.bta_owned]].forEach(function (m) {
+        [['cab', b.cab_owned], ['punch', b.punch_owned], ['bta', b.bta_owned], ['basket', b.basket_owned]].forEach(function (m) {
           if (!m[1] && LS.getItem('nsfMode_' + m[0]) === '1') { LS.removeItem('nsfMode_' + m[0]); if (m[0] === 'cab') LS.removeItem('nsfCabOwned'); changed = true; }
         });
         rpc('nsf_sync_modes', { p_id: p.id, p_secret: p.secret, p_reset_done: true });
       }
       // push: purchases made in this browser but not yet on the account
-      var cab = LS.getItem('nsfMode_cab') === '1' || LS.getItem('nsfCabOwned') === '1', punch = LS.getItem('nsfMode_punch') === '1', bta = LS.getItem('nsfMode_bta') === '1', sp = LS.getItem('nsfSpecial') === '1';
-      if ((cab && !b.cab_owned) || (punch && !b.punch_owned) || (bta && !b.bta_owned) || (sp && !b.unlocked)) rpc('nsf_sync_modes', { p_id: p.id, p_secret: p.secret, p_cab: cab, p_punch: punch, p_bta: bta, p_unlocked: sp });
+      var cab = LS.getItem('nsfMode_cab') === '1' || LS.getItem('nsfCabOwned') === '1', punch = LS.getItem('nsfMode_punch') === '1', bta = LS.getItem('nsfMode_bta') === '1', basket = LS.getItem('nsfMode_basket') === '1', sp = LS.getItem('nsfSpecial') === '1';
+      if ((cab && !b.cab_owned) || (punch && !b.punch_owned) || (bta && !b.bta_owned) || (basket && !b.basket_owned) || (sp && !b.unlocked)) rpc('nsf_sync_modes', { p_id: p.id, p_secret: p.secret, p_cab: cab, p_punch: punch, p_bta: bta, p_basket: basket, p_unlocked: sp });
       if (changed && reloadIfChanged) {
         try { if (sessionStorage.getItem('nsfSyncReload')) return; sessionStorage.setItem('nsfSyncReload', '1'); } catch (e) { return; }
         location.reload();   // the game reads coins at start: reload once so it shows the restored total
@@ -45,8 +46,8 @@
     setItem.call(this, k, v);
     if (this !== LS) return;
     if (k === 'nsfPlayer') { setTimeout(function () { restore(true); }, 1500); return; }   // just logged in on this browser
-    if ((k === 'nsfMode_cab' || k === 'nsfMode_punch' || k === 'nsfMode_bta' || k === 'nsfCabOwned' || k === 'nsfSpecial') && v === '1') {
-      var p = player(); if (p) rpc('nsf_sync_modes', { p_id: p.id, p_secret: p.secret, p_cab: k === 'nsfMode_cab' || k === 'nsfCabOwned', p_punch: k === 'nsfMode_punch', p_bta: k === 'nsfMode_bta', p_unlocked: k === 'nsfSpecial' });
+    if ((k === 'nsfMode_cab' || k === 'nsfMode_punch' || k === 'nsfMode_bta' || k === 'nsfMode_basket' || k === 'nsfCabOwned' || k === 'nsfSpecial') && v === '1') {
+      var p = player(); if (p) rpc('nsf_sync_modes', { p_id: p.id, p_secret: p.secret, p_cab: k === 'nsfMode_cab' || k === 'nsfCabOwned', p_punch: k === 'nsfMode_punch', p_bta: k === 'nsfMode_bta', p_basket: k === 'nsfMode_basket', p_unlocked: k === 'nsfSpecial' });
     }
   };
   restore(true);
