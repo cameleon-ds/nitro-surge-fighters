@@ -130,7 +130,7 @@ html,body{min-height:100dvh}
 #app{height:100dvh}
 
 
-/* v637 : écran « rotate your phone » quand on repasse en portrait pendant le jeu : fond noir à 60 % (v638), le jeu reste visible derrière */
-body.gate-again #rotate{background:rgba(0,0,0,.6)!important}
+/* v637 : écran « rotate your phone » quand on repasse en portrait pendant le jeu : fond noir à 80 % (v639), le jeu reste visible derrière */
+body.gate-again #rotate{background:rgba(0,0,0,.8)!important}
 body.gate-again.orientation-gated #app{visibility:visible}
 body.gate-again #rotate p,body.gate-again #rotate svg{opacity:1}
