@@ -1,4 +1,5 @@
 html,body{
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;   /* v628 : le navigateur mobile ne grossit plus le texte des fenêtres tout seul */
   margin:0;height:100%;background:#000;overflow:hidden;
   touch-action:none;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
