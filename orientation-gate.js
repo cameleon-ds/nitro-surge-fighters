@@ -1,5 +1,10 @@
 (() => {
   'use strict';
+  // v630 : écran « ALLOW SCREEN ROTATION » fiable, quelle que soit la façon de tenir le téléphone au lancement.
+  // - l'orientation vient d'abord du capteur (screen.orientation / window.orientation) : au lancement en paysage, certains
+  //   téléphones (appli installée sur l'écran d'accueil) donnent encore une taille d'écran « portrait » pendant un moment ;
+  // - l'écran se vérifie tout seul toutes les 250 ms (pas seulement sur les événements, qui ne viennent pas toujours) ;
+  // - quand le bouton CONTINUE est affiché, il marche toujours.
   const touchDevice = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window) || /[?&]touch/.test(location.search);
   if (!touchDevice) return;
 
@@ -9,77 +14,54 @@
   if (!button || !hint) return;
 
   const PHASE = { GATE: 'gate', PLAYING: 'playing' };
-  let phase = PHASE.GATE;
-  let viewportStable = false;
-  let settleTimer = 0;
+  let phase = PHASE.GATE, okCount = 0, pollT = 0;
+
   const isLandscape = () => {
-    const visual = window.visualViewport;
-    return matchMedia('(orientation: landscape)').matches ||
-      window.innerWidth > window.innerHeight ||
-      !!visual && visual.width > visual.height;
+    if (typeof window.nsfLandscape === 'function') return window.nsfLandscape();
+    const so = screen.orientation && screen.orientation.type;
+    if (so) return so.indexOf('landscape') === 0;
+    if (typeof window.orientation === 'number') return Math.abs(window.orientation) === 90;
+    return matchMedia('(orientation: landscape)').matches || window.innerWidth > window.innerHeight;
   };
+  const ready = () => okCount >= 2;   // paysage confirmé 2 fois de suite (~0,5 s) : l'écran a fini de tourner
 
   function render() {
-    const ready = isLandscape() && viewportStable;
-    button.hidden = !ready;
+    button.hidden = !ready();
     button.textContent = 'CONTINUE';
-    if (!isLandscape()) {
-      hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Turn your phone sideways';
-    } else if (!viewportStable) {
-      hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Preparing landscape screen';
-    } else {
-      hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Press CONTINUE to play';
-    }
+    hint.innerHTML = !isLandscape() ? 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'
+      : !ready() ? 'ALLOW SCREEN ROTATION<br>Preparing landscape screen'
+      : 'ALLOW SCREEN ROTATION<br>Press CONTINUE to play';
   }
-
+  function poll() {
+    if (phase !== PHASE.GATE) return;
+    okCount = isLandscape() ? okCount + 1 : 0;
+    render();
+  }
   function enterGate() {
-    if (phase !== PHASE.PLAYING) return;
-    phase = PHASE.GATE;
-    viewportStable = false;
+    if (phase !== PHASE.GATE) { phase = PHASE.GATE; okCount = 0; }
     body.classList.add('orientation-gated');
     body.classList.remove('rotok');
     render();
+    clearInterval(pollT); pollT = setInterval(poll, 250);
     window.dispatchEvent(new Event('resize'));
-    settleViewport();
   }
-
-  function settleViewport() {
-    window.clearTimeout(settleTimer);
-    viewportStable = false;
-    render();
-    settleTimer = window.setTimeout(() => {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        viewportStable = isLandscape();
-        render();
-      }));
-    }, 300);
-  }
-
   function onOrientationChange() {
-    if (phase === PHASE.PLAYING && !isLandscape()) {
-      enterGate();
-      return;
-    }
-    if (phase === PHASE.GATE) settleViewport();
+    if (phase === PHASE.PLAYING) { if (!isLandscape()) enterGate(); return; }
+    okCount = 0; render();   // l'écran bouge encore : on reconfirme
   }
 
-  body.classList.add('orientation-gated');
-  body.classList.remove('rotok');
-  render();
-  settleViewport();
+  enterGate(); poll();
   window.addEventListener('orientationchange', onOrientationChange, { passive: true });
   window.addEventListener('resize', onOrientationChange, { passive: true });
-  window.visualViewport?.addEventListener('resize', onOrientationChange, { passive: true });
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', onOrientationChange);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', onOrientationChange, { passive: true });
+  window.addEventListener('pageshow', () => { if (phase === PHASE.GATE) { okCount = 0; render(); } });
 
-  button.addEventListener('click', event => {
+  button.addEventListener('click', () => {
     if (phase !== PHASE.GATE) return;
-    if (!isLandscape() || !viewportStable) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
-    phase = PHASE.PLAYING;
+    phase = PHASE.PLAYING; clearInterval(pollT);
     body.classList.remove('orientation-gated');
-    // Let the original game handler confirm the landscape layout and start the game.
+    // le jeu (main.js) ajoute « rotok » et recalcule l'écran ; on le recalcule encore un peu après, le temps que la taille réelle arrive
+    [60, 300, 800, 1600].forEach(ms => setTimeout(() => window.dispatchEvent(new Event('resize')), ms));
   }, true);
 })();
