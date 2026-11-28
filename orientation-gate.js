@@ -37,6 +37,7 @@
   const ready = () => okCount >= 2 && !gapWait();   // paysage confirmé 2 fois de suite (~0,5 s) : l'écran a fini de tourner
 
   function render() {
+    if (body.classList.contains('gate-again')) { button.hidden = true; hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'; return; }   // jeu déjà lancé : jamais de CONTINUE
     button.hidden = !ready();
     button.textContent = 'CONTINUE';
     hint.innerHTML = !isLandscape() ? 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'
@@ -44,8 +45,14 @@
       : !ready() ? 'ALLOW SCREEN ROTATION<br>Preparing landscape screen'
       : 'ALLOW SCREEN ROTATION<br>Tap CONTINUE to play';
   }
+  function resumeGame() {   // v638 : jeu déjà lancé, remis en paysage : on reprend tout seul, sans animation ni CONTINUE
+    phase = PHASE.PLAYING; clearInterval(pollT);
+    body.classList.remove('orientation-gated', 'gate-again'); body.classList.add('rotok');
+    [0, 60, 300, 800, 1600].forEach(ms => setTimeout(() => window.dispatchEvent(new Event('resize')), ms));
+  }
   function poll() {
     if (phase !== PHASE.GATE) return;
+    if (body.classList.contains('gate-again')) { okCount = isLandscape() ? okCount + 1 : 0; button.hidden = true; hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'; if (okCount >= 2) resumeGame(); return; }
     if (splashOn) { okCount = 0; button.hidden = true; return; }   // écran d'accueil portrait encore affiché
     okCount = isLandscape() ? okCount + 1 : 0;
     render();
