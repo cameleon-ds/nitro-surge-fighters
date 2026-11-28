@@ -4,7 +4,7 @@
 (() => {
   'use strict';
   const SB_URL = 'https://wjuqigklzbulqyewkdwe.supabase.co', SB_KEY = 'sb_publishable_YBogVNeEglj0LY0B4QxrnQ_E6VT9GNW';
-  const SCRIPTS = ['home.js?v=74', 'home-motion.js?v=58'];
+  const SCRIPTS = ['home.js?v=75', 'home-motion.js?v=58'];
   const get = path => fetch(`${SB_URL}/rest/v1/${path}`, { headers: { apikey: SB_KEY } }).then(r => r.ok ? r.json() : Promise.reject(r.status));
   const timeout = new Promise(res => setTimeout(() => res(null), 1500));
   const load = Promise.all([
