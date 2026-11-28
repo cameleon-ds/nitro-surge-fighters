@@ -50,8 +50,13 @@
     okCount = isLandscape() ? okCount + 1 : 0;
     render();
   }
+  let launched = false;
   function enterGate() {
-    if (phase !== PHASE.GATE) { phase = PHASE.GATE; okCount = 0; }
+    if (phase !== PHASE.GATE) {   // v637 : retour en portrait une fois le jeu lancé : fond noir à 30 % (le jeu reste visible derrière), combat mis en pause
+      phase = PHASE.GATE; okCount = 0;
+      body.classList.add('gate-again');
+      try { if (typeof window.nsfAutoPause === 'function') window.nsfAutoPause(); } catch (e) {}
+    }
     body.classList.add('orientation-gated');
     body.classList.remove('rotok');
     render();
@@ -131,8 +136,8 @@
   ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup'].forEach(t => window.addEventListener(t, swallow, { capture: true, passive: false }));
   button.addEventListener('click', () => {
     if (phase !== PHASE.GATE) return;
-    phase = PHASE.PLAYING; clearInterval(pollT);
-    body.classList.remove('orientation-gated');
+    phase = PHASE.PLAYING; clearInterval(pollT); launched = true;
+    body.classList.remove('orientation-gated', 'gate-again');
     // le jeu (main.js) ajoute « rotok » et recalcule l'écran ; on le recalcule encore un peu après, le temps que la taille réelle arrive
     [60, 300, 800, 1600].forEach(ms => setTimeout(() => window.dispatchEvent(new Event('resize')), ms));
   }, true);

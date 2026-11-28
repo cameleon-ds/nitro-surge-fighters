@@ -129,3 +129,8 @@ body.orientation-gated #app{visibility:hidden}
 html,body{min-height:100dvh}
 #app{height:100dvh}
 
+
+/* v637 : écran « rotate your phone » quand on repasse en portrait pendant le jeu : fond noir à 30 %, le jeu reste visible derrière */
+body.gate-again #rotate{background:rgba(0,0,0,.3)!important}
+body.gate-again.orientation-gated #app{visibility:visible}
+body.gate-again #rotate p,body.gate-again #rotate svg{opacity:1}
