@@ -383,11 +383,11 @@
     hiro:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 59.5, fb: ['#ffffff','#a8f4ff','#2fb4ff','#1458c4'], tips: { punch_1:[83,48], kick_1:[87,50], fpunch_1:[84,46], special_1:[80,50] } },
     axel:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1','crouch','fjump','walk_0','walk_1','walk_2','walk_3','walk_4','walk_5','walk_6','walk_7'], cx: 62.5, special: 'fireleap', fb: ['#ffffff','#fff2a0','#ff9c2c','#c64812'], tips: { punch_1:[83,48], kick_1:[88,49], fpunch_1:[84,46], special_1:[80,50], fjump:[84,46] } },
     zephyr: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_1','upper_0','special_0','special_1','punch_0__gust','punch_1__gust'], cx: 67.5, special: 'galeblade', fb: ['#ffffff','#d8fbff','#7ae8f0','#2a9aaa'], tips: { punch_1:[101,44], kick_1:[88,50], fpunch_1:[84,46], special_1:[98,48] } },
-    nyx:    { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 61.5, fb: ['#ffffff','#ffb0e0','#c83aff','#6a0a8a'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
-    kael:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 62,   fb: ['#ffffff','#c8f8ff','#5af0ff','#1a78d0'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
-    vesper: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 60.5, fb: ['#ffffff','#c8f8ff','#3af0ff','#c83aff'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
-    grog:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 62.5, fb: ['#ffffff','#a8f4ff','#2fb4ff','#1458c4'], tips: { punch_1:[85,44], kick_1:[89,46], fpunch_1:[87,44], special_1:[82,48] } },
-    vane:   { f: ['idle_0','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 61,   fb: ['#ffffff','#e0b0ff','#8a2ad0','#2a0a4a'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } }
+    nyx:    { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 61.5, special: 'flask', fb: ['#ffffff','#ffb0e0','#c83aff','#6a0a8a'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
+    kael:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 62,   special: 'sonic', fb: ['#ffffff','#c8f8ff','#5af0ff','#1a78d0'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
+    vesper: { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 60.5, special: 'holo', fb: ['#ffffff','#c8f8ff','#3af0ff','#c83aff'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } },
+    grog:   { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1','gq0','gq1'], cx: 62.5, special: 'quake', fb: ['#ffffff','#a8f4ff','#2fb4ff','#1458c4'], tips: { punch_1:[85,44], kick_1:[89,46], fpunch_1:[87,44], special_1:[82,48] } },
+    vane:   { f: ['idle_0','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','upper_0','special_0','special_1'], cx: 61,   special: 'void', fb: ['#ffffff','#e0b0ff','#8a2ad0','#2a0a4a'], tips: { punch_1:[83,48], kick_1:[88,50], fpunch_1:[84,46], special_1:[80,50] } }
   };
   const VIEW_TOP = 18, VIEW_H = 76 - VIEW_TOP + 5;            // feet are on row 75 of each frame           // sprite rows shown (head room → feet + floor)
   const SEQ = {
@@ -429,7 +429,7 @@
     const key = (slide.querySelector('.fighter-art')?.getAttribute('src') || '').match(/sel_([a-z]+)\./)?.[1];
     const data = MOVES[key]; const versions = slide.querySelector('.fighter-versions');
     if (!data || !versions) return;
-    const sheet = new Image(); sheet.src = `fighter-moves/${key}.png?v=4`;
+    const sheet = new Image(); sheet.src = `fighter-moves/${key}.png?v=5`;
     const pxCard = versions.querySelectorAll('.version-card')[1];
     const makeCard = (mode, label, card) => {
       // Axel's special is his FIRE LEAP (game state 'fjump'): a small hop on the spot, fist forward in flames
@@ -437,6 +437,16 @@
         // 4th value = horizontal offset (number) or [from, to] travel: he leaps forward in flames, then walks backwards to his spot
         ? { w: 124, off: .26, steps: [['idle_0', 520, 0, 0], ['crouch', 170, 0, 0], ['fjump', 640, 0, [0, 34]], ['crouch', 170, 0, 34], ['idle_0', 380, 0, 34],
                                       ['walkback', 820, 0, [34, 0]], ['idle_0', 420, 0, 0]] }
+        : mode === 'special' && data.special === 'void'   // Lord Vane's VOID FLARE: he charges a big purple-and-black sphere in his hand, then releases it slowly
+        ? { w: 124, off: .16, steps: [['idle_0', 560], ['fpunch_0', 120], ['fpunch_1', 1500], ['fpunch_1', 250], ['fpunch_0', 150], ['idle_0', 3300]] }
+        : mode === 'special' && data.special === 'quake'   // Grog's SEISMIC IMPACT: he slams the ground, a blue electric wave slides along the floor
+        ? { w: 124, off: .2, steps: [['idle_0', 560], ['gq0', 200], ['gq1', 370], ['idle_0', 1300]] }
+        : mode === 'special' && data.special === 'holo'   // Vesper's HOLO FLASH: she sends a translucent energy clone of herself across the card
+        ? { w: 124, off: .2, steps: [['idle_0', 560], ['special_0', 120], ['special_1', 420], ['idle_0', 1500]] }
+        : mode === 'special' && data.special === 'sonic'   // Kael's SONIC WAVE: a straight right that fires a long electric wave
+        ? { w: 124, off: .2, steps: [['idle_0', 560], ['fpunch_0', 90], ['fpunch_1', 300], ['fpunch_0', 170], ['idle_0', 1300]] }
+        : mode === 'special' && data.special === 'flask'   // Nyx's MAGMA FLASK: she throws her pink flask in an arc, it bursts into a fire puddle
+        ? { w: 124, off: .2, steps: [['idle_0', 560], ['special_0', 220], ['punch_1', 380], ['idle_0', 1700]] }
         : mode === 'special' && data.special === 'galeblade'
         ? { w: 124, off: .3, steps: [['idle_0', 620], ['special_0', 170], ['punch_1__gust', 300], ['punch_0__gust', 280], ['idle_0', 1250]] }
         : SEQ[mode];
@@ -553,6 +563,148 @@
         g.fillStyle = gr; g.fillRect(x - 12, y - 12, 24, 24); g.restore();
         p.trail.length = 0;
       } else p.trail.length = 0;
+    } else if (p.mode === 'special' && !reduce && data.special === 'void') {
+      // port of the game's Void Flare (G.voids): black crackling core, purple glow, pink glow growing with the charge, pink/black echoes once released
+      const k = .7, tick = now / 16.67, c0 = steps[0][1] + steps[1][1], rel = c0 + steps[2][1], CMAX = .8;
+      const zig = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([a1, b1], n) => { const jx = (Math.random() - .5) * 3 * k, jy = (Math.random() - .5) * 3 * k; n ? g.lineTo(a1 + jx, b1 + jy) : g.moveTo(a1, b1); }); g.stroke(); };
+      if (tLoop >= c0) {
+        const charging = tLoop < rel, pc = charging ? Math.min(CMAX, (tLoop - c0) / 1500) : CMAX, rw = 10 + pc * 28, R = rw * .45;   // sphère réduite pour tenir dans la case
+        const hx = ox + data.cx + 20 + R * .9, y = 76 - VIEW_TOP - 54 * k + 2;
+        const VX = .03,   // avance lentement
+          x = charging ? hx : hx + (tLoop - rel) * VX;
+        if (x - R < cv.width + 20) {
+          if (!charging) for (let i = 7; i >= 1; i--) {   // échos rose et noir derrière la sphère
+            const a = (8 - i) / 8, tx = x - VX * 33.3 * i, Rr = R * (.55 + .45 * a);
+            g.save();
+            if (i % 2) { g.globalAlpha = .4 * a; g.fillStyle = '#0a0014'; g.beginPath(); g.arc(tx, y, Rr * .8, 0, Math.PI * 2); g.fill(); }
+            else { g.globalCompositeOperation = 'lighter'; const eg = g.createRadialGradient(tx, y, 1, tx, y, Rr * 1.5); eg.addColorStop(0, `rgba(255,90,220,${.55 * a})`); eg.addColorStop(1, 'rgba(120,0,120,0)'); g.fillStyle = eg; g.beginPath(); g.arc(tx, y, Rr * 1.5, 0, Math.PI * 2); g.fill(); }
+            g.restore();
+          }
+          g.save(); g.globalCompositeOperation = 'lighter';
+          const gp = g.createRadialGradient(x, y, R * .4, x, y, R * (2.6 + pc)); gp.addColorStop(0, `rgba(255,80,220,${.25 + .25 * pc})`); gp.addColorStop(.5, `rgba(220,40,200,${.12 + .15 * pc})`); gp.addColorStop(1, 'rgba(60,0,60,0)');
+          g.fillStyle = gp; g.beginPath(); g.arc(x, y, R * (2.6 + pc), 0, Math.PI * 2); g.fill();
+          const vg = g.createRadialGradient(x, y, 1, x, y, R * 2.4); vg.addColorStop(0, 'rgba(200,120,255,.7)'); vg.addColorStop(.4, 'rgba(138,42,208,.5)'); vg.addColorStop(1, 'rgba(40,10,74,0)');
+          g.fillStyle = vg; g.beginPath(); g.arc(x, y, R * 2.4, 0, Math.PI * 2); g.fill();
+          for (let b2 = 0; b2 < 7; b2++) { const a = Math.random() * 6.28, L = [[x, y]]; for (let s2 = 1; s2 <= 3; s2++) L.push([x + Math.cos(a + (Math.random() - .5) * .6) * R * (.7 + s2 * .45), y + Math.sin(a + (Math.random() - .5) * .6) * R * (.7 + s2 * .45)]); zig(L, 'rgba(220,160,255,.9)', 1); }
+          for (let r = 0; r < 3; r++) { g.strokeStyle = `rgba(200,140,255,${.8 - r * .2})`; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, R * (.5 + r * .25), tick * .3 + r * 2, tick * .3 + r * 2 + 3.6); g.stroke(); }
+          if (charging) for (let n = 0; n < 10; n++) {   // poussière rose et noire aspirée par la sphère
+            const ph = ((tick + n * 4.3) % 11) / 11, an = n * 2.39 + Math.floor((tick + n * 4.3) / 11) * 1.3, d = R * 2.4 * (1 - ph);
+            px(g, x + Math.cos(an) * d, y + Math.sin(an) * d, 2, 2, n % 3 ? '#ff5adc' : '#c88aff');
+          }
+          g.restore();
+          g.fillStyle = '#0a0412'; g.beginPath(); g.arc(x, y, R * .62, 0, Math.PI * 2); g.fill();   // cœur noir
+          g.strokeStyle = '#6a2ab0'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, R * .62, 0, Math.PI * 2); g.stroke();
+          for (let b2 = 0; b2 < 4; b2++) { const a = Math.random() * 6.28, L = [[x, y]]; for (let s2 = 1; s2 <= 4; s2++) L.push([x + Math.cos(a + (Math.random() - .5) * .8) * R * (.5 + s2 * .4), y + Math.sin(a + (Math.random() - .5) * .8) * R * (.5 + s2 * .4)]); zig(L, '#06020c', 1.8); zig(L, 'rgba(160,80,240,.8)', .7); }
+          g.strokeStyle = 'rgba(220,170,255,.9)'; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, R * (.85 + Math.sin(tick * .3) * .05), 0, Math.PI * 2); g.stroke();
+        }
+      }
+    } else if (p.mode === 'special' && !reduce && data.special === 'quake') {
+      // port of the game's Seismic Impact wave (G.waves): an electric half-dome running along the floor, sparks and a glowing furrow behind
+      const launch = steps[0][1] + steps[1][1], k = .7, SPEED = .18, y = 76 - VIEW_TOP, wt = (tLoop - launch) / 16.67, LIFE = 75;
+      const zig = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([a1, b1], n) => { const jx = (Math.random() - .5) * 3 * k, jy = (Math.random() - .5) * 3 * k; n ? g.lineTo(a1 + jx, b1 + jy) : g.moveTo(a1, b1); }); g.stroke(); };
+      if (wt >= 0 && wt < LIFE) {
+        if (wt < 8) {   // impact on the ground where the fist lands
+          const ix = ox + data.cx + 22 * k, ia = 1 - wt / 8;
+          g.save(); g.globalCompositeOperation = 'lighter'; const ig = g.createRadialGradient(ix, y, 1, ix, y, 22); ig.addColorStop(0, `rgba(220,250,255,${.8 * ia})`); ig.addColorStop(1, 'rgba(20,88,196,0)');
+          g.fillStyle = ig; g.beginPath(); g.ellipse(ix, y, 22, 7, 0, 0, Math.PI * 2); g.fill(); g.restore();
+        }
+        const x = ox + data.cx + 22 * k + (tLoop - launch) * SPEED;
+        if (x < cv.width + 24) {
+          const a = Math.min(1, (LIFE - wt) / 8, wt / 3 + .3), H = 32 * k, R = 13 * k;
+          g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
+          const wg = g.createRadialGradient(x, y - H * .45, 2, x, y - H * .4, H * 1.1);
+          wg.addColorStop(0, `rgba(255,255,255,${.55 * a})`); wg.addColorStop(.35, `rgba(120,220,255,${.45 * a})`); wg.addColorStop(1, 'rgba(20,88,196,0)');
+          g.fillStyle = wg; g.beginPath(); g.ellipse(x, y, R * 1.9, H * 1.15, 0, Math.PI, 0); g.fill();
+          g.globalAlpha = a;
+          for (const [rr, hh, col, lw] of [[R * 1.25, H, 'rgba(20,88,196,.9)', 5], [R, H * .9, 'rgba(47,180,255,1)', 3], [R * .75, H * .75, '#a8f4ff', 2], [R * .5, H * .55, '#ffffff', 1.2]]) {
+            const pts = []; for (let n = 0; n <= 14; n++) { const tt = Math.PI + n / 14 * Math.PI; pts.push([x + Math.cos(tt) * rr + Math.sin(n / 14 * Math.PI) * 3 * k, y + Math.sin(tt) * hh]); }
+            zig(pts, col, lw * k);
+          }
+          for (let n = 0; n < 3; n++) px(g, x - (8 + Math.random() * 22) * k, y - Math.random() * H * .6, 2, 2, Math.random() < .5 ? '#a8f4ff' : '#2fb4ff');   // sparks behind
+          g.fillStyle = `rgba(47,180,255,${.35 * a})`; g.fillRect(Math.round(x - 30 * k), y - 1, Math.round(30 * k), 2);   // glowing furrow
+          g.restore();
+        }
+      }
+    } else if (p.mode === 'special' && !reduce && data.special === 'holo') {
+      // port of the game's holo clone (G.holos): a translucent copy of Vesper in punch pose, additive, flickering, cyan streaks behind
+      const launch = steps[0][1] + steps[1][1], k = .7, SPEED = .23, tick = now / 16.67, ci = data.f.indexOf('fpunch_1');
+      if (tLoop >= launch && ci >= 0) {
+        const cx0 = ox + 16 * k + (tLoop - launch) * SPEED;   // clone sprite x (canvas)
+        if (cx0 < cv.width + 10) {
+          if (!p.tint) {   // clone tinted electric blue (like the game's blue/charged clone), built once
+            p.tint = document.createElement('canvas'); p.tint.width = 120; p.tint.height = VIEW_H; const tg = p.tint.getContext('2d');
+            tg.drawImage(sheet, ci * 120, VIEW_TOP, 120, VIEW_H, 0, 0, 120, VIEW_H); tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = 'rgba(70,190,255,.9)'; tg.fillRect(0, 0, 120, VIEW_H);
+          }
+          const mid = cx0 + data.cx, al = .55 + .15 * Math.sin(tick * .9), X = Math.round(cx0);
+          g.save(); g.globalCompositeOperation = 'lighter';
+          const hg = g.createRadialGradient(mid, 50 - VIEW_TOP, 1, mid, 50 - VIEW_TOP, 26); hg.addColorStop(0, 'rgba(58,200,255,.35)'); hg.addColorStop(1, 'rgba(58,200,255,0)');
+          g.fillStyle = hg; g.fillRect(mid - 26, 0, 52, VIEW_H);   // halo d'énergie
+          for (let e = 3; e >= 1; e--) { g.globalAlpha = al * .4 * (1 - e / 4); g.drawImage(p.tint, X - e * 5, 0); }   // échos bleus
+          g.globalAlpha = al; g.drawImage(p.tint, X, 0);
+          g.globalAlpha = .35; g.drawImage(sheet, ci * 120, VIEW_TOP, 120, VIEW_H, X, 0, 120, VIEW_H);
+          g.globalAlpha = .9; g.strokeStyle = 'rgba(200,250,255,.9)'; g.lineWidth = .8;
+          for (let z = 0; z < 2; z++) { g.beginPath(); let zx = mid + (Math.random() - .5) * 14, zy = 76 - VIEW_TOP - 2; g.moveTo(zx, zy); for (let n = 0; n < 4; n++) { zx += (Math.random() - .5) * 7; zy -= 6 + Math.random() * 3; g.lineTo(zx, zy); } g.stroke(); }   // petits éclairs
+          g.restore();
+          for (let n = 0; n < 4; n++) px(g, mid - (8 + n * 7) * k, 76 - VIEW_TOP - 70 * k + ((tick * 3 + n * 17) % 60) * k, 4, 1, '#3af0ff');
+        }
+      }
+    } else if (p.mode === 'special' && !reduce && data.special === 'sonic') {
+      // port of the game's SONIC WAVE (G.sonics): bright head + long electric beam with zigzag bolts, from the fist straight across the card
+      const launch = steps[0][1] + steps[1][1], k = .7, SPEED = .3;
+      const [hx, hy] = data.tips.fpunch_1, x0 = ox + hx + 2, y = hy - VIEW_TOP;
+      const zig = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([a1, b1], n) => { const jx = (Math.random() - .5) * 3 * k, jy = (Math.random() - .5) * 3 * k; n ? g.lineTo(a1 + jx, b1 + jy) : g.moveTo(a1, b1); }); g.stroke(); };
+      if (tLoop >= launch) {
+        const x = x0 + (tLoop - launch) * SPEED, hw = 9 * k, tail = Math.max(x0, x - 190 * k);
+        if (x < cv.width + 16) {
+          g.save();
+          const bg = g.createLinearGradient(0, y - hw * 2, 0, y + hw * 2);
+          bg.addColorStop(0, 'rgba(26,120,208,0)'); bg.addColorStop(.35, 'rgba(60,170,255,.45)'); bg.addColorStop(.5, 'rgba(230,250,255,.9)'); bg.addColorStop(.65, 'rgba(60,170,255,.45)'); bg.addColorStop(1, 'rgba(26,120,208,0)');
+          g.fillStyle = bg; g.globalAlpha = .9; g.fillRect(tail, y - hw * 2, x - tail, hw * 4); g.globalAlpha = 1;
+          for (let b2 = 0; b2 < 4; b2++) { const L = []; for (let s2 = 0; s2 <= 18; s2++) L.push([tail + (x - tail) * s2 / 18, y + (Math.random() - .5) * hw * 1.6 * (b2 < 2 ? 1 : 1.8)]); zig(L, b2 < 2 ? '#ffffff' : 'rgba(120,220,255,.85)', b2 < 2 ? 1.2 : .8); }
+          const hg = g.createRadialGradient(x, y, 1, x, y, 22 * k); hg.addColorStop(0, 'rgba(255,255,255,.95)'); hg.addColorStop(.4, 'rgba(120,220,255,.6)'); hg.addColorStop(1, 'rgba(26,120,208,0)');
+          g.fillStyle = hg; g.beginPath(); g.arc(x, y, 22 * k, 0, Math.PI * 2); g.fill();
+          for (let r = 0; r < 3; r++) { g.strokeStyle = `rgba(200,250,255,${.8 - r * .25})`; g.lineWidth = (2 - r * .5) * k; g.beginPath(); g.ellipse(x - r * 8 * k, y, (5 + r * 2) * .5 * k, (12 + r * 3) * k, 0, 0, Math.PI * 2); g.stroke(); }
+          g.restore();
+        }
+      } else if (frame === 'fpunch_0') {   // spark of electricity in the fist just before the punch
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const gr = g.createRadialGradient(x0 - 8, y, 0, x0 - 8, y, 10); gr.addColorStop(0, 'rgba(200,250,255,.9)'); gr.addColorStop(1, 'rgba(26,120,208,0)');
+        g.fillStyle = gr; g.fillRect(x0 - 20, y - 12, 24, 24); g.restore();
+      }
+    } else if (p.mode === 'special' && !reduce && data.special === 'flask') {
+      // port of the game's flask (state 'flask'): thrown from the hand in an arc, spins, pink drops behind, then a pink fire puddle
+      const launch = steps[0][1] + steps[1][1], fr = (tLoop - launch) / 16.67, gy = 76 - VIEW_TOP, tick = now / 16.67;
+      const x0 = ox + 80, y0 = 44 - VIEW_TOP, VX = 1.6, VY = -2.2, GR = .16;
+      const land = (-VY + Math.sqrt(VY * VY + 2 * GR * (gy - 3 - y0))) / GR;   // frames until it hits the floor
+      if (fr >= 0 && fr < land) {
+        const x = x0 + VX * fr, y = y0 + VY * fr + GR * fr * fr / 2, vy = VY + GR * fr, ang = fr * .32;
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const hg = g.createRadialGradient(x, y, 1, x, y, 16); hg.addColorStop(0, 'rgba(255,90,180,.45)'); hg.addColorStop(1, 'rgba(160,20,140,0)'); g.fillStyle = hg; g.fillRect(x - 16, y - 16, 32, 32);
+        g.restore();
+        for (let n = 1; n <= 3; n++) { g.save(); g.globalAlpha = .45 - n * .12; px(g, x - VX * n * 2.2 - 1, y - vy * n * 2.2 - 1, 3, 3, n % 2 ? '#ff4aa8' : '#c83aff'); g.restore(); }
+        g.save(); g.translate(x, y); g.rotate(ang);
+        g.fillStyle = '#10141a'; g.beginPath(); g.arc(0, 2, 7, 0, Math.PI * 2); g.fill(); g.fillRect(-3, -9, 6, 7);
+        g.fillStyle = '#ff3a9a'; g.beginPath(); g.arc(0, 2, 5.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#ff9ad0'; g.beginPath(); g.arc(0, 2, 5.5, Math.PI * 1.05, Math.PI * 1.95); g.fill();
+        g.fillStyle = '#c0d8e0'; g.fillRect(-2, -8, 4, 6);
+        g.fillStyle = '#8a5a2a'; g.fillRect(-2.5, -11, 5, 3);
+        g.fillStyle = '#ffffff'; g.fillRect(-3.5, -1, 2, 2); g.fillRect(-1.5, -6, 1, 3);
+        g.fillStyle = '#ffe0f0'; g.fillRect(2 + Math.sin(fr * .5) * 1.2, 3, 1.5, 1.5);
+        g.restore();
+      } else if (fr >= land) {   // burst + pink fire puddle (port of the game's puddle), fades out
+        const pt = fr - land, a = Math.max(0, Math.min(1, (60 - pt) / 20)), x = Math.min(cv.width - 20, x0 + VX * land);
+        if (a > 0) {
+          if (pt < 9) drawSpark(g, x, gy - 4, Math.floor(pt));
+          g.save(); g.globalAlpha = a; g.globalCompositeOperation = 'lighter';
+          const pg = g.createRadialGradient(x, gy, 2, x, gy, 20); pg.addColorStop(0, 'rgba(255,90,160,.5)'); pg.addColorStop(1, 'rgba(110,10,140,0)');
+          g.fillStyle = pg; g.beginPath(); g.ellipse(x, gy, 20, 5, 0, 0, Math.PI * 2); g.fill();
+          for (let n = 0; n < 8; n++) {
+            const life = ((tick * 1.8 + n * 11) % 30) / 30, fx = x - 14 + n * 4 + Math.sin(tick * .3 + n) * 1.5, fy = gy - 1 - life * 14, rr = Math.max(1, Math.round(3 * (1 - life)));
+            g.fillStyle = life < .3 ? '#ffe0f0' : life < .6 ? '#ff4a9a' : '#9a2ad0'; g.fillRect(Math.round(fx) - rr, Math.round(fy) - rr, rr * 2, rr * 2);
+          }
+          g.restore();
+        }
+      }
     } else if (p.mode === 'special' && !reduce) {
       const launch = steps[0][1] + steps[1][1];
       const [hx, hy] = data.tips.special_1 || [80, 50];
@@ -1358,11 +1510,204 @@
     document.addEventListener('keydown', e => { if (bypass || e.key !== 'Escape' || vm.hidden) return; e.stopImmediatePropagation(); animateClose(() => closeBtn.click()); }, true);
   })();
 
+  /* ---------- Special modes: BASKET BRAWL mini-simulation (v1.0.670) ----------
+     Same art as in the game (backboard, oval rim, net, robot launcher, ball). The canvas keeps square pixels (its
+     logical size follows the image's aspect ratio, nothing is stretched). The board is drawn 1:1 in its own small
+     canvas with the game's code, then shown smaller (BS) at the right; Hiro is drawn 1:1, close to the camera.
+     The launcher fires a ball at Hiro. Tap while the ball is close: Hiro punches it straight into the hoop.
+     No tap: the ball hits Hiro, drops to the floor, bounces a little, blinks and disappears. Then the throw replays.
+     While the scene is locked (mouse not over it), Hiro sometimes shoots on his own so the demo shows both outcomes. */
+  (() => {
+    const bgImg = document.querySelector('.special-basket-shot img.basket-bg');
+    if (!bgImg || reduce) return;
+    const shot = bgImg.closest('.special-shot');
+    shot.classList.add('basket-scene');
+    const HIRO = { f: ['idle_0','idle_1','punch_0','punch_1','kick_0','kick_1','fpunch_0','fpunch_1','special_0','special_1','block','win','walk_0','walk_1','walk_2','walk_3','hit'], cx: 59.5, sheet: new Image() };
+    HIRO.sheet.src = 'fighter-moves/bta-hiro.png?v=2';
+    const cv = document.createElement('canvas'); cv.className = 'bta-fx'; cv.setAttribute('aria-hidden', 'true');
+    const banner = document.createElement('div'); banner.className = 'bta-banner'; banner.setAttribute('aria-hidden', 'true');
+    const score = document.createElement('div'); score.className = 'basket-score'; score.setAttribute('aria-hidden', 'true'); score.textContent = 'BASKETS 0';
+    const label = document.createElement('span'); label.className = 'punch-label basket-label'; label.textContent = 'TAP THE BALL !'; label.setAttribute('aria-hidden', 'true');   // même petit message que les autres modes : suit la souris
+    shot.append(cv, banner, score, label);
+    shot.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; shot.classList.add('is-hover'); const r = shot.getBoundingClientRect(); label.style.left = `${e.clientX - r.left}px`; label.style.top = `${e.clientY - r.top}px`; });
+    shot.addEventListener('pointerleave', () => shot.classList.remove('is-hover'));
+    const main = cv.getContext('2d');
+    let g = main;
+    // panneau dessiné 1:1 (coordonnées du jeu, sol à 190) dans une petite toile, puis réduit
+    const BS = .62, BW = 132, BH = 192, GB = { bx: 92, lx: 32, rimBack: 68, rimFront: 14, rimY: 70, rimC: 41 }, GPIV = { x: 50, y: 12 };
+    const off = document.createElement('canvas'); off.width = BW; off.height = BH; const oc = off.getContext('2d');
+    let W = 240, LH = 240, GROUND = 211, ox = 0, oy = 0;
+    const BR = Math.round(15 * BS);   // ballon à l'échelle du panneau (passe dans l'arceau)
+    function resize() {
+      const r = shot.getBoundingClientRect(); if (!r.width || !r.height) return;
+      LH = Math.max(200, Math.round(190 * r.height / r.width)); W = Math.round(LH * r.width / r.height);   // pixels carrés : pas d'étirement
+      GROUND = Math.round(LH * .88); cv.width = W; cv.height = LH;
+      ox = W - 6 - (GB.bx + 36) * BS; oy = GROUND - 190 * BS;
+    }
+    resize(); addEventListener('resize', resize);
+    const toW = (x, y) => ({ x: ox + x * BS, y: oy + y * BS });
+    const FEET = 76, HS = 1.5, hiroX = () => Math.round(W * .3);   // Hiro agrandi (×1,5)
+    const rimW = () => { const c = toW(GB.rimC, GB.rimY); return { x: c.x, y: c.y }; };
+    const pivotW = () => toW(GPIV.x, GPIV.y), muzzleW = a => toW(GPIV.x + Math.cos(a) * 31, GPIV.y + Math.sin(a) * 31);
+    let baskets = 0, clock = 0, aim = Math.PI * .8, fire = 0, nx = 0, nv = 0, ns = 0, shake = 0, plan = null;
+    let ball = null, wait = 50, H = { act: null, t: 0, hitT: 0 }, autoShot = false;
+    const locked = () => shot.classList.contains('is-locked');
+    function showBanner(text, cls) { banner.textContent = text; banner.className = `bta-banner ${cls || 'is-fight'}`; void banner.offsetWidth; banner.classList.add('is-on'); }
+    function planThrow() { const mz = muzzleW(aim), tx = hiroX() + 14 * HS, ty = GROUND - 46 * HS, T = 64, gr = .07; return { vx: (tx - mz.x) / T, vy: (ty - mz.y - .5 * gr * T * T) / T, gr }; }
+    function launch() {
+      const v = plan || planThrow(), mz = muzzleW(aim); plan = null;
+      ball = { x: mz.x, y: mz.y, vx: v.vx, vy: v.vy, gr: v.gr, st: 'in', rot: 0, a: 1 };
+      fire = 14; autoShot = locked() && Math.random() < .55;
+    }
+    function shoot() {   // Hiro frappe : le ballon part directement dans le panier
+      const rc = rimW(), T = 46, gr = .1, tx = rc.x, ty = rc.y - BR - 2;
+      ball.vx = (tx - ball.x) / T; ball.vy = (ty - ball.y - .5 * gr * T * T) / T; ball.gr = gr; ball.st = 'shot'; ball.T = T; ball.t = 0;
+      shake = 4; showBanner('POW!', 'is-fight');
+    }
+    function punch() { if (H.act || H.hitT > 0) return; H.act = 'fpunch'; H.t = 0; }
+    shot.addEventListener('pointerdown', () => { if (!locked()) punch(); });
+    function step() {
+      clock++;
+      const piv = pivotW(), rc = rimW();
+      // tourelle : suit Hiro ; juste avant le tir, se tourne dans la direction du tir
+      let want = Math.atan2(GROUND - 45 * HS - piv.y, hiroX() - piv.x), fast = false;
+      if (!ball && wait <= 18) { if (!plan) plan = planThrow(); want = Math.atan2(plan.vy, plan.vx); fast = true; }
+      if (want < 0) want += Math.PI * 2; want = Math.max(Math.PI * .5, Math.min(Math.PI * 1.5, want));
+      aim += (want - aim) * (fast ? .22 : .08);
+      if (fire > 0) fire--;
+      nv += -nx * .09; nv *= .93; nx += nv; ns *= .93;
+      if (shake > 0) shake *= .85;
+      if (H.hitT > 0) H.hitT--;
+      if (H.act) { H.t++; if (H.t > 14) H.act = null; }
+      if (!ball) { if (--wait <= 0) launch(); return; }
+      ball.rot += ball.vx / BR;
+      if (ball.st === 'in') {
+        ball.vy += ball.gr; ball.x += ball.vx; ball.y += ball.vy;
+        const near = ball.x - (hiroX() + 14 * HS);
+        if (autoShot && near < 22 && !H.act) punch();
+        if (H.act && H.t >= 3 && H.t <= 11 && Math.abs(near) < 30 && ball.y > GROUND - 80 * HS) { shoot(); return; }
+        if (near <= 0) {   // pas d'appui : le ballon frappe Hiro, tombe devant lui, rebondit un peu, puis disparaît
+          ball.st = 'bounce'; ball.vx = .5; ball.vy = -1.6; ball.gr = .2; ball.bn = 0; H.hitT = 20; shake = 3; showBanner('OUCH!', 'is-destroyed');
+        }
+      } else if (ball.st === 'shot') {
+        ball.t++; ball.vy += ball.gr; ball.x += ball.vx; ball.y += ball.vy;
+        if (ball.t >= ball.T) { ball.st = 'net'; ball.x = rc.x; ball.vx = 0; ball.vy = 1.2; nv += (Math.random() < .5 ? -2.4 : 2.4); ns = 8; baskets++; score.textContent = `BASKETS ${baskets}`; showBanner(['SWISH!', 'NICE!', 'YEAH!'][baskets % 3], 'is-survival'); }
+      } else if (ball.st === 'net') {
+        ball.y += ball.vy; ball.vy = Math.min(2.4, ball.vy * 1.02 + .03); if (ball.y > rc.y + 30 * BS) ball.a -= .07;
+        if (ball.a <= 0) { ball = null; wait = 60; }
+      } else if (ball.st === 'bounce') {
+        ball.vy += ball.gr; ball.x += ball.vx; ball.y += ball.vy;
+        if (ball.y > GROUND - BR) { ball.y = GROUND - BR; ball.vy = -Math.abs(ball.vy) * .5; ball.vx *= .7; ball.bn++; }
+        if (ball.bn >= 3 || (ball.bn >= 1 && Math.abs(ball.vy) < .6)) { ball.fade = (ball.fade || 0) + 1; ball.a = ball.fade > 24 ? 0 : ((ball.fade >> 2) % 2 ? .15 : 1); if (ball.fade > 24) { ball = null; wait = 60; } }   // clignote puis disparaît
+      }
+    }
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x | 0, y | 0, w | 0, h | 0); };
+    function rimHalf(front) {   // arceau ovale (copie du jeu)
+      const gg = GB, cx = gg.rimC, rx = (gg.rimBack - gg.rimFront) / 2 + 2, ry = 4;
+      for (let i = 0; i <= 64; i++) {
+        const t = i / 64 * Math.PI * 2, x = Math.round(cx + Math.cos(t) * rx), y = Math.round(gg.rimY + Math.sin(t) * ry), isFront = Math.sin(t) >= 0;
+        if (isFront !== front) continue;
+        const hl = front && Math.abs(Math.cos(t)) < .12;
+        R(x - 1, y - 1, 3, 3, front ? (hl ? '#ffffff' : Math.abs(Math.cos(t)) < .3 ? '#e8686a' : '#b8262a') : '#5e2a2a');
+      }
+    }
+    function drawBack() {   // poteau, panneau, carré rouge, support, arceau arrière, robot lanceur (copie du jeu)
+      const gg = GB, GR = 190, PF = '#bcc6d2', PS = '#57698a', PL = '#d4dce6', RED = '#a8292a', RIM = '#b8262a', NETSH = '#8c9ab0';
+      const boardTop = 20, boardBot = 84, boardW = 5, pTop = boardTop - 6, pBot = boardBot + 2, pL = gg.bx - 64, pR = gg.bx, pc = Math.round((pL + pR) / 2);
+      const poX = gg.bx + 9, armY = boardTop + 30;
+      R(poX, armY + 2, 6, GR - armY - 2, PS); R(poX, armY + 2, 1, GR - armY - 2, PL);
+      for (let i = 0; i < 8; i++) R(gg.bx + boardW + i, armY + Math.round(i * .35), 1, 5, PS);
+      R(gg.bx + boardW, armY - 1, 9, 1, PL);
+      R(poX - 20, GR - 5, 46, 5, PS); R(poX - 20, GR - 5, 46, 1, PL); R(poX - 20, GR - 1, 46, 1, '#3e4c66');
+      R(pL - 1, pTop - 1, pR - pL + 1, pBot - pTop + 2, '#4a5a74'); R(pL, pTop, pR - pL, pBot - pTop, PF); R(pL, pTop, pR - pL, 1, PL);
+      const sqW = 32, sqH = 28, sqL = pc - sqW / 2, sqT = Math.round((pTop + pBot) / 2 - sqH / 2);
+      R(sqL, sqT, sqW, 4, RED); R(sqL, sqT + sqH - 4, sqW, 4, RED); R(sqL, sqT, 4, sqH, RED); R(sqL + sqW - 4, sqT, 4, sqH, RED);
+      R(gg.bx, pTop, boardW, pBot - pTop, PS); R(gg.bx, pTop, 1, pBot - pTop, '#6e80a2');
+      g.save(); g.fillStyle = NETSH; g.beginPath(); g.moveTo(gg.rimBack - 34, gg.rimY + 3); g.lineTo(gg.rimBack + 6, gg.rimY + 3); g.lineTo(gg.rimBack - 4, pBot); g.lineTo(gg.rimBack - 34, pBot); g.closePath(); g.fill(); g.restore();
+      R(pc - 8, sqT + sqH, 16, gg.rimY - (sqT + sqH) + 1, '#8a1c1e'); R(pc - 8, sqT + sqH, 16, 1, RIM); R(gg.rimBack - 1, gg.rimY - 2, gg.bx - gg.rimBack + 1, 3, '#8a1c1e');
+      rimHalf(false);
+      // robot lanceur
+      const lx = gg.lx, ly = boardTop - 18, piv = GPIV, ang = aim, kick = fire > 0 ? fire * .45 : 0, wOn = (clock >> 2) % 2, warn = !ball && wait <= 30;
+      const OUT = '#14161c', D = '#2c2f3a', M = '#4a4f5c', L = '#7a8090', HI = '#b8c0cc';
+      g.save(); g.beginPath(); g.rect(pL, pTop, gg.bx - pL, pBot - pTop); g.clip(); g.fillStyle = '#8c9ab0';   // ombre portée du robot
+      g.fillRect(lx + 28, ly + 6, 21, 20); g.beginPath(); g.arc(piv.x + 4, piv.y + 7, 8.5, 0, 6.29); g.fill();
+      g.save(); g.translate(piv.x + 4, piv.y + 7); g.rotate(ang); g.fillRect(3 - kick, -8, 25, 16); g.restore(); g.restore();
+      R(lx + 6, boardTop - 7, 42, 3, OUT); R(lx + 7, boardTop - 7, 40, 1, L);
+      const hx = lx + 24, hy = ly - 1, hw = 21, hh = 20;
+      R(hx, hy, hw, hh, OUT); R(hx + 1, hy + 1, hw - 2, hh - 2, D); R(hx + 1, hy + 1, hw - 2, 2, M); R(hx + 1, hy + 1, 1, hh - 2, M);
+      R(hx + 3, hy + 5, hw - 6, 6, '#1a1c24'); for (const rx of [hx + 2, hx + hw - 3]) { R(rx, hy + 3, 1, 1, HI); R(rx, hy + hh - 6, 1, 1, HI); }
+      for (let i = 0; i < 4; i++) R(hx + 2 + i * 4, hy + hh - 4, 2, 2, i % 2 ? '#1a1c24' : '#ffd23a');
+      for (let i = 0; i < 3; i++) { const on = warn ? wOn : (clock >> 4) % 3 === i, col = warn ? (on ? '#ff3a2a' : '#5a0a0a') : (on ? '#5aff8a' : '#1e4a2a'); R(hx + 4 + i * 5, hy + 7, 3, 3, col); if (on) R(hx + 4 + i * 5, hy + 7, 1, 1, '#ffffff'); }
+      R(hx + hw - 5, hy - 5, 1, 5, L); R(hx + hw - 6, hy - 7, 3, 2, warn && wOn ? '#ff3a2a' : '#5aff8a');
+      const cs = Math.cos(ang), sn = Math.sin(ang), BL = 28, BWd = 16;
+      for (let t = 3 - kick; t < BL - kick; t += .5) for (let w = -BWd / 2; w < BWd / 2; w += .5) {
+        const edge = w < -BWd / 2 + 1 || w >= BWd / 2 - 1, mz = t >= BL - kick - 4, rib = Math.round(t + kick) % 6 === 0;
+        const col = edge ? OUT : mz ? (w < -3 ? '#ffb070' : w < 3 ? '#ff8a3a' : '#c8501a') : rib ? D : w < -4 ? HI : w < -1 ? L : w < 4 ? M : D;
+        R(Math.round(piv.x + cs * t - sn * w), Math.round(piv.y + sn * t + cs * w), 1, 1, col);
+      }
+      for (let dy = -8; dy <= 8; dy++) for (let dx = -8; dx <= 8; dx++) { const d = Math.hypot(dx, dy); if (d > 8.4) continue; R(piv.x + dx, piv.y + dy, 1, 1, d > 7.5 ? OUT : d > 6.4 ? HI : d > 5 ? L : d > 3.4 ? M : d > 1.8 ? D : '#1a1c24'); }
+      const ex = Math.round(piv.x + cs * 4), ey = Math.round(piv.y + sn * 4), eye = warn ? (wOn ? '#ff3a2a' : '#7a0a0a') : '#ff5a3a';
+      R(ex - 2, ey - 2, 4, 4, OUT); R(ex - 1, ey - 1, 2, 2, eye); R(ex - 1, ey - 1, 1, 1, '#ffffff');
+      if (fire > 8) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,200,90,.8)'; g.beginPath(); g.arc(piv.x + cs * (BL + 3), piv.y + sn * (BL + 3), 9 * (fire - 8) / 6 + 3, 0, 6.29); g.fill(); g.restore(); }
+    }
+    function drawNet() {   // filet du jeu (40 px, balancement fluide, se gonfle autour du ballon)
+      const gg = GB, n = 6, rows = 5, top = gg.rimY + 1, len = 40 + ns, sway = nx;
+      const by = ball ? (ball.y - oy) / BS : 0, inNet = ball && ball.st === 'net' && by > top - 8 && by < top + len + 8;
+      const NP = (i, j) => { const k = j / rows, y = top + len * k, taper = 11 * k, x0 = gg.rimFront + taper, x1 = gg.rimBack - taper; let x = x0 + (x1 - x0) * i / n + sway * Math.pow(k, 1.4); if (inNet) { const d = Math.abs(y - by); if (d < 18) x += (1 - d / 18) * 6 * (i / n - .5) * 2; } return [x, y]; };
+      g.save(); g.strokeStyle = '#d8d8d8'; g.lineWidth = 2; g.lineCap = 'round'; g.lineJoin = 'round';
+      for (let i = 0; i <= n; i++) { g.beginPath(); for (let j = 0; j <= rows; j++) { const [x, y] = NP(i, j); if (j) g.lineTo(x, y); else g.moveTo(x, y); } const [xe, ye] = NP(i, rows); g.lineTo(xe + sway * .15, ye + 4); g.stroke(); }
+      for (let j = 1; j <= rows; j++) { g.beginPath(); for (let i = 0; i <= n; i++) { const [x, y] = NP(i, j); if (i) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
+      g.restore();
+    }
+    function layer(paint) {   // dessine en 1:1 dans la petite toile, puis la pose réduite sur la scène
+      oc.setTransform(1, 0, 0, 1, 0, 0); oc.clearRect(0, 0, BW, BH); g = oc; paint(); g = main;
+      main.imageSmoothingEnabled = true; main.imageSmoothingQuality = 'high';
+      main.drawImage(off, Math.round(ox), Math.round(oy), BW * BS, BH * BS);
+      main.imageSmoothingEnabled = false;
+    }
+    function drawBall() {   // ballon du jeu (dégradé, coutures, ombre au sol)
+      if (!ball) return; const b = ball;
+      main.save(); main.globalAlpha = Math.max(0, b.a); main.translate(b.x, b.y);
+      main.fillStyle = 'rgba(0,0,0,.28)'; main.beginPath(); main.ellipse(0, GROUND - b.y + 1, BR * Math.max(.4, 1 - (GROUND - b.y) / 160), 1.6, 0, 0, 6.29); main.fill();
+      main.rotate(b.rot);
+      const gr = main.createRadialGradient(-2, -2, 1, 0, 0, BR); gr.addColorStop(0, '#ffb060'); gr.addColorStop(.7, '#e8701a'); gr.addColorStop(1, '#9a3a08');
+      main.fillStyle = gr; main.beginPath(); main.arc(0, 0, BR, 0, 6.29); main.fill();
+      main.strokeStyle = '#2a1004'; main.lineWidth = .8; main.beginPath(); main.arc(0, 0, BR, 0, 6.29); main.stroke();
+      main.beginPath(); main.moveTo(-BR, 0); main.lineTo(BR, 0); main.moveTo(0, -BR); main.lineTo(0, BR); main.stroke();
+      main.beginPath(); main.arc(-BR * 1.15, 0, BR * .75, -1, 1); main.stroke(); main.beginPath(); main.arc(BR * 1.15, 0, BR * .75, 2.14, 4.14); main.stroke();
+      main.restore();
+    }
+    function drawHiro() {
+      if (!HIRO.sheet.complete || !HIRO.sheet.naturalWidth) return;
+      const name = H.hitT > 0 ? 'hit' : H.act ? (H.t < 5 ? 'fpunch_0' : 'fpunch_1') : ((clock / 18 | 0) % 2 ? 'idle_1' : 'idle_0');
+      const fi = Math.max(0, HIRO.f.indexOf(name)), x = hiroX() - (H.hitT > 0 ? Math.min(4, H.hitT * .4) : 0);
+      main.fillStyle = '#00000066'; main.beginPath(); main.ellipse(x, GROUND - 1, 13 * HS, 2.6, 0, 0, Math.PI * 2); main.fill();
+      main.drawImage(HIRO.sheet, fi * 120, 0, 120, 86, Math.round(x - HIRO.cx * HS), Math.round(GROUND - FEET * HS), 120 * HS, 86 * HS);
+    }
+    function render() {
+      main.setTransform(1, 0, 0, 1, 0, 0); main.clearRect(0, 0, W, LH); main.imageSmoothingEnabled = false;
+      if (shake > .3) main.translate(Math.round((Math.random() - .5) * shake), Math.round((Math.random() - .5) * shake));
+      layer(drawBack); drawHiro();
+      const below = ball && ball.st === 'net' && ball.y > rimW().y;
+      if (!below) drawBall();
+      layer(drawNet);
+      if (below) drawBall();   // le ballon passe derrière les mailles avant du filet
+      layer(() => rimHalf(true));
+    }
+    let on = false, running = false, last = 0;
+    new IntersectionObserver(es => es.forEach(e => { on = e.isIntersecting; if (on && !running) { running = true; requestAnimationFrame(loop); } }), { threshold: .1 }).observe(shot);
+    function loop(now) {
+      if (!on) { running = false; return; }
+      if (now - last > 15) { last = now; step(); render(); }
+      requestAnimationFrame(loop);
+    }
+  })();
+
   /* ---------- Special modes: play gate ----------
      Each playable image starts "locked" with a centred TAP TO … button. When the mouse enters, the same green/purple diagonal
      slash as the fighter slider sweeps across and the image becomes playable; leaving the image locks it again.
      On touch, the first tap unlocks (and is not counted as a hit). */
-  [['.cab-scene', 'TAP TO DESTROY'], ['.special-punch-shot', 'TAP TO PUNCH'], ['.bta-scene', 'TAP TO FIGHT']].forEach(([sel, text]) => {
+  [['.cab-scene', 'TAP TO DESTROY'], ['.special-punch-shot', 'TAP TO PUNCH'], ['.bta-scene', 'TAP TO FIGHT'], ['.basket-scene', 'TAP TO SHOOT']].forEach(([sel, text]) => {
     const scene = document.querySelector(sel); if (!scene) return;
     scene.classList.add('is-locked', 'play-scene');
     const gateEl = document.createElement('div'); gateEl.className = 'play-gate'; gateEl.setAttribute('aria-hidden', 'true');

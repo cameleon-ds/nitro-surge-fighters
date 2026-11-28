@@ -796,3 +796,9 @@ button.text-link.record-all .ico{transition:transform .2s}
 .motion-dots a:before{background:transparent;border:2px solid var(--nitro);box-shadow:none}
 .motion-dots a.is-active:before{background:#a817ef;border-color:#a817ef;box-shadow:0 0 10px #a817ef99}
 
+
+/* v1.0.670 : BASKET BRAWL (special modes) */
+.basket-scene .basket-bg{transform:scale(1.04);filter:brightness(.72) saturate(1.1)}
+.basket-score{position:absolute;z-index:4;left:14px;top:12px;font:700 12px/1 'Press Start 2P',monospace;color:#ffd23a;text-shadow:2px 2px 0 #000;pointer-events:none;letter-spacing:.04em}
+.basket-scene.is-hover .basket-label{opacity:1;transform:translate(16px,-150%) skewX(-8deg) scale(1)}
+@media(hover:none){.basket-scene .basket-label{opacity:1;left:50%!important;top:84%!important;transform:translate(-50%,-50%) skewX(-8deg);animation:label-blink 1.4s steps(2) infinite}}
