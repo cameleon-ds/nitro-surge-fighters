@@ -11,7 +11,9 @@ body.rot #app{transform-origin:0 0;transform:rotate(90deg)}
 }
 
 /* ---------- Contrôles tactiles ---------- */
-#touch{position:absolute;inset:0;display:none;pointer-events:none;z-index:5}
+#touch{position:absolute;inset:0;display:none;pointer-events:none;z-index:10000}   /* toujours devant les fenêtres (v627) */
+body.popup #stickZone,body.popup #btnZone{pointer-events:none}   /* fenêtre ouverte : on peut toucher la fenêtre autour du joystick et des boutons */
+body.popup #stick,body.popup #btns .b,body.popup #startBtn{pointer-events:auto}
 body.touch #touch{display:block}
 #stickZone{position:absolute;left:0;top:18%;bottom:0;width:45%;pointer-events:auto}
 #btnZone{position:absolute;right:0;top:18%;bottom:0;width:45%;pointer-events:auto}
