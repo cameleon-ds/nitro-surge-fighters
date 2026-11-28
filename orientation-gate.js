@@ -42,7 +42,7 @@
     hint.innerHTML = !isLandscape() ? 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'
       : okCount >= 2 && topGap() && gapWait() ? 'ALMOST READY<br>Turn your phone to portrait,<br>then back to landscape'
       : !ready() ? 'ALLOW SCREEN ROTATION<br>Preparing landscape screen'
-      : 'ALLOW SCREEN ROTATION<br>Press CONTINUE to play';
+      : 'ALLOW SCREEN ROTATION<br>Tap CONTINUE to play';
   }
   function poll() {
     if (phase !== PHASE.GATE) return;
@@ -73,8 +73,13 @@
   };
   const splash = document.createElement('div');
   splash.id = 'nsfSplash';
-  splash.innerHTML = '<img src="icon-512.png?v=6" alt="" width="128" height="128" style="width:128px;height:128px;border-radius:28px;box-shadow:0 0 40px #ff8a3a55">' +
-    '<p style="margin:26px 18px 0;font:9px/1.9 \'Press Start 2P\',monospace;color:#ffd23a;text-align:center;opacity:0;transition:opacity .4s">HOLD YOUR PHONE UPRIGHT</p>';
+  const sSt = document.createElement('style');   // v633 : icône plus grande qui monte en place en apparaissant, texte plus grand qui « respire »
+  sSt.textContent = '@keyframes nsfIconIn{0%{opacity:0;transform:translateY(60px) scale(.82)}70%{opacity:1;transform:translateY(-6px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}' +
+    '@keyframes nsfPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}' +
+    '#nsfSplash img{width:min(200px,38vmin);height:min(200px,38vmin);border-radius:22%;box-shadow:0 0 50px #ff8a3a66;opacity:0;animation:nsfIconIn .9s cubic-bezier(.2,.8,.25,1) .15s forwards}' +
+    '#nsfSplash p{margin:30px 18px 0;font:13px/1.9 \'Press Start 2P\',monospace;color:#ffd23a;text-align:center;text-shadow:0 0 14px #ff8a3a88;opacity:0;transition:opacity .5s;animation:nsfPulse 1.6s ease-in-out infinite}';
+  document.head.appendChild(sSt);
+  splash.innerHTML = '<img src="icon-512.png?v=6" alt=""><p>HOLD YOUR PHONE UPRIGHT</p>';
   splash.style.cssText = 'position:fixed;left:50%;top:50%;z-index:20;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .45s';
   body.appendChild(splash);
   const sTxt = splash.querySelector('p');
@@ -108,6 +113,14 @@
   if (window.visualViewport) window.visualViewport.addEventListener('resize', onOrientationChange, { passive: true });
   window.addEventListener('pageshow', () => { if (phase === PHASE.GATE) { okCount = 0; render(); } });
 
+  // v633 : après la rotation, iOS décale parfois la zone de toucher du bouton (le bouton est visible mais ne réagit pas).
+  // Dès que CONTINUE est prêt, un appui N'IMPORTE OÙ sur l'écran de rotation lance le jeu.
+  const tapAnywhere = e => {
+    if (phase !== PHASE.GATE || splashOn || !ready() || button.hidden) return;
+    if (e.target === button) return;   // appui direct sur le bouton : son propre clic s'en charge
+    e.preventDefault(); button.click();
+  };
+  ['pointerup', 'touchend'].forEach(t => document.addEventListener(t, tapAnywhere, { capture: true, passive: false }));
   button.addEventListener('click', () => {
     if (phase !== PHASE.GATE) return;
     phase = PHASE.PLAYING; clearInterval(pollT);
