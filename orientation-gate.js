@@ -76,7 +76,7 @@
   const sSt = document.createElement('style');   // v633 : icône plus grande qui monte en place en apparaissant, texte plus grand qui « respire »
   sSt.textContent = '@keyframes nsfIconIn{0%{opacity:0;transform:translateY(60px) scale(.82)}70%{opacity:1;transform:translateY(-6px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}' +
     '@keyframes nsfPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}' +
-    '#nsfSplash img{width:min(250px,46vmin);height:min(250px,46vmin);border-radius:22%;object-fit:cover;display:block;box-shadow:0 0 50px #ff8a3a66;opacity:0;animation:nsfIconIn .9s cubic-bezier(.2,.8,.25,1) .15s forwards}' +
+    '#nsfSplash img{width:min(250px,46vmin);height:min(250px,46vmin);flex:none;aspect-ratio:1/1;border-radius:22%;object-fit:cover;display:block;box-sizing:border-box;border:3px solid #000;box-shadow:0 0 0 1px #000,0 0 34px 8px rgba(168,58,232,.7);opacity:0;animation:nsfIconIn .9s cubic-bezier(.2,.8,.25,1) .15s forwards}' +
     '#nsfSplash p{margin:30px 18px 0;font:13px/1.9 \'Press Start 2P\',monospace;color:#ffd23a;text-align:center;text-shadow:0 0 14px #ff8a3a88;opacity:0;transition:opacity .5s;animation:nsfPulse 1.6s ease-in-out infinite}';
   document.head.appendChild(sSt);
   splash.innerHTML = '<img src="icon-maskable-512.png?v=6" alt=""><p>HOLD YOUR PHONE UPRIGHT</p>';
