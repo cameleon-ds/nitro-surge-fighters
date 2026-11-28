@@ -17,7 +17,7 @@
   function makeFighter(f, i) {
     const slide = document.createElement('article'); slide.className = 'fighter-slide'; slide.dataset.reveal = ''; slide.dataset.index = pad(i); slide.setAttribute('aria-label', `${f.name}, fighter ${i + 1} of 8`);
     const artPanel = document.createElement('div'); artPanel.className = 'fighter-art-panel';
-    const art = document.createElement('img'); art.className = 'fighter-art'; art.dataset.parallax = '0.085'; art.src = `sel_${f.file}.webp?v=2`; art.alt = `${f.name} character artwork`; art.loading = i < 2 ? 'eager' : 'lazy';
+    const art = document.createElement('img'); art.className = 'fighter-art'; art.dataset.parallax = '0.085'; art.src = `sel_${f.file}.webp?v=3`; art.alt = `${f.name} character artwork`; art.loading = i < 2 ? 'eager' : 'lazy';
     artPanel.appendChild(art);
     const copy = document.createElement('div'); copy.className = 'fighter-copy';
     const number = document.createElement('span'); number.className = 'fighter-number'; number.textContent = `FIGHTER ${pad(i)} / 08`;
