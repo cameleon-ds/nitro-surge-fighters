@@ -36,8 +36,25 @@
   const gapWait = () => { if (!topGap()) { gapT0 = 0; return false; } if (!gapT0) gapT0 = Date.now(); return Date.now() - gapT0 < 8000; };
   const ready = () => okCount >= 2 && !gapWait();   // paysage confirmé 2 fois de suite (~0,5 s) : l'écran a fini de tourner
 
+  // v1.0.642 : quand CONTINUE apparaît, l'animation de rotation et « ALLOW SCREEN ROTATION » laissent la place à l'icône du jeu + version
+  const rotEl = document.getElementById('rotate');
+  const readyBox = document.createElement('div'); readyBox.className = 'nsfReady';
+  readyBox.innerHTML = '<img src="icon-maskable-512.png?v=6" alt=""><span></span>';
+  readyBox.querySelector('span').textContent = String(window.NSF_VERSION || '').toUpperCase();
+  if (rotEl) rotEl.insertBefore(readyBox, button);
+  const rSt = document.createElement('style');
+  rSt.textContent = '#rotate .nsfReady{display:none;flex-direction:column;align-items:center}' +
+    '#rotate.is-ready .nsfReady{display:flex;animation:nsfReadyIn .5s ease-out}' +
+    '#rotate.is-ready svg,#rotate.is-ready #rotateHint{display:none}' +
+    '#rotate .nsfReady img{width:min(150px,34vmin);height:min(150px,34vmin);flex:none;aspect-ratio:1/1;border-radius:22%;object-fit:cover;box-sizing:border-box;border:3px solid #000;box-shadow:0 0 0 1px #000,0 0 64px 2px rgba(168,58,232,.38)}' +
+    '#rotate .nsfReady span{margin-top:14px;font:12px \'Press Start 2P\',monospace;color:rgba(255,255,255,.6);letter-spacing:1px}' +
+    '#rotate.is-ready button{margin-top:22px}' +
+    '@keyframes nsfReadyIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}';
+  document.head.appendChild(rSt);
   function render() {
-    if (body.classList.contains('gate-again')) { button.hidden = true; hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'; return; }   // jeu déjà lancé : jamais de CONTINUE
+    const again = body.classList.contains('gate-again');
+    if (rotEl) rotEl.classList.toggle('is-ready', !again && isLandscape() && ready());
+    if (again) { button.hidden = true; hint.innerHTML = 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'; return; }   // jeu déjà lancé : jamais de CONTINUE
     button.hidden = !ready();
     button.textContent = 'CONTINUE';
     hint.innerHTML = !isLandscape() ? 'ALLOW SCREEN ROTATION<br>Turn your phone sideways'
@@ -87,7 +104,7 @@
   splash.id = 'nsfSplash';
   const sSt = document.createElement('style');   // v633 : icône plus grande qui monte en place en apparaissant, texte plus grand qui « respire »
   sSt.textContent = '@keyframes nsfIconIn{0%{opacity:0;transform:translateY(60px) scale(.82)}70%{opacity:1;transform:translateY(-6px) scale(1.03)}100%{opacity:1;transform:translateY(0) scale(1)}}' +
-    '#nsfSplash .nsfVer{margin-top:16px;font:8px \'Press Start 2P\',monospace;color:rgba(255,255,255,.45);letter-spacing:1px;opacity:0;animation:nsfVerIn .6s ease-out .9s forwards}@keyframes nsfVerIn{to{opacity:1}}' +
+    '#nsfSplash .nsfVer{margin-top:18px;font:12px \'Press Start 2P\',monospace;color:rgba(255,255,255,.6);letter-spacing:1px;opacity:0;animation:nsfVerIn .6s ease-out .9s forwards}@keyframes nsfVerIn{to{opacity:1}}' +
     '@keyframes nsfPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}' +
     '#nsfSplash img{width:min(250px,46vmin);height:min(250px,46vmin);flex:none;aspect-ratio:1/1;border-radius:22%;object-fit:cover;display:block;box-sizing:border-box;border:3px solid #000;box-shadow:0 0 0 1px #000,0 0 64px 2px rgba(168,58,232,.38);opacity:0;animation:nsfIconIn .9s cubic-bezier(.2,.8,.25,1) .15s forwards}' +
     '#nsfSplash p{margin:30px 18px 0;font:13px/1.9 \'Press Start 2P\',monospace;color:#ffd23a;text-align:center;text-shadow:0 0 14px #ff8a3a88;opacity:0;transition:opacity .5s;animation:nsfPulse 1.6s ease-in-out infinite}';
